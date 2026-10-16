@@ -1,140 +1,172 @@
-# Cloudback: the story
+# Cloudback: the story in five chapters
 
-*A cozy sky adventure on the back of a growing whale.*
+*A cozy sky adventure aboard a growing whale. Bao is your ship, and you are its captain.*
 
-This is the third and final draft. `docs/REVIEW-LOG.md` records how the story changed in each draft and every logic problem the three checks found. `docs/DESIGN.md` turns the story into rules and numbers.
+This is the owner's chapter plan, reviewed three times; `docs/REVIEW-LOG.md` ("Story v2") lists each review and what it changed. `docs/DESIGN.md` turns the story into rules and numbers.
 
-## 1. The world in three rules
-
-The Cloud Sea is an endless sky of clouds with floating islands (isles) drifting in it. Nana Sumi teaches the player three rules, and everything in the story follows from them.
-
-1. **Whales carry gardens, and gardens feed whales.** Sky whales have soft moss on their backs where fruit trees grow. People called *backfolk* live on the whales and tend the trees, and the whales eat the fruit. A whale with no gardener goes hungry, and a gardener with no whale has no home.
-2. **What stays still, the Gloom crusts.** The Gloom is a grey-violet crystal that grows over anything that stops moving: fields and houses, animals that froze in fright, and people who hid and kept very still.
-3. **Song breaks crystal.** A ringing sound cracks the Gloom. That is why the Keeper's tool is a bell mallet, and why the Gloom has always hated whale song.
-
-## 2. What happened before the game
-
-For as long as anyone remembers, a pod of sky whales sang across the Cloud Sea at night. Their song kept the sky bright.
-
-One night the **Grey Star** fell. It was a stone of pure Gloom. Its dust spread over the isles and crusted them grey, and it stole the pod's song: the song broke into **Notes**, and each Note was swallowed by a **Hive**, a crystal tower the Gloom grew on an isle to anchor itself. Without their song the whales grew weak. The Grey Star sank into the **Deep Mist** below the clouds and pulled the pod down with it, where the crust closed over them as they slept.
-
-Grand Hana, the eldest whale, had one calf. As the crust closed, she pushed the calf up through the clouds. Two backfolk clung to its back: old **Nana Sumi**, who had kept the gardens on Hana's back for forty years, and her grandchild, **the Keeper** (the player).
-
-## 3. Characters
-
-| Who | What they are | What they do in play |
-|---|---|---|
-| **Bao** | The sky whale calf (Vietnamese *Bảo*, "treasure", "to protect"). Curious and playful. Bao hums when happy and sulks when hungry, and its eyes show its mood. | Bao is the home and the ship. It grows in four stages, and each stage makes its back bigger. |
-| **The Keeper** | You. Young, brave, a little clumsy. Carries Nana's old bell mallet. | Walks, plants, fishes, fights and rescues. |
-| **Nana Sumi** | Grandmother and mentor. Warm, funny, and stubborn about seeds. | Teaches you, runs the Workbench, brushes Bao while you are away, and never lets you run out of seeds for good. |
-| **Pip** | A young gardener from Clover Rise. Talks very fast. | Joins the crew as **Gardener**: trees grow faster, and Pip harvests ripe fruit into the pantry. |
-| **Mayor Olla** | The elder of Clover Rise. Formal, kind, loves fish. | Stays on her isle and opens the **Clover Market**. |
-| **Old Kai** | A fisher from Lantern Reef. Talks slowly and knows every fish. | Stays on his isle and opens the **Reef Market**. |
-| **Ria** | The lighthouse lookout of Lantern Reef. Sharp eyes, loud voice. | Joins the crew as **Lookout**: warns you before raids and spots treasure clouds. |
-| **Mina** | A cook from Lantern Reef. Proud of her honey buns. | Joins the crew as **Cook** and opens the **Kitchen** (meals). |
-| **Granny Coal** | A retired blacksmith on Ember Peaks. Gruff, generous. | Stays and opens the **Ember Market**. |
-| **Tam** | A young smith from Ember Peaks. Shy and serious. | Joins the crew as **Smith**, sets up an anvil by the Workbench: the best upgrades, and stronger chime posts. |
-| **The Gloom** | Not a person. It is a hush that wants everything to be still forever. It speaks only in grey whispers ("…stay still…", "…hush, little whale…"). | Gloomlings, Spires, Hives, Gloom specks on Bao, and raids. |
-| **Grand Hana** | Bao's mother, asleep under the Grey Star. The Keeper's parents, her gardeners, sleep in the crust on her back. | Appears in the prologue and the finale. |
-
-## 4. The Gloom and its creatures
-
-The Gloom has no body of its own. It grows **crystal shells** around the native animals of each isle and moves them like puppets. When the Keeper's mallet rings a shell enough times, it shatters, the Gloom inside fades into **glimmer** (clean crystal that islanders use for lanterns and as money), and the animal hops out, blinking and free. **Fighting means freeing.** Nobody is ever killed.
-
-| Gloom form | Inside the shell | How it fights | First seen |
+| Chapter | What you do | Where | Time |
 |---|---|---|---|
-| **Gloomling** | A puffbun (a round bunny) | Hops close and bumps you | Clover Rise |
-| **Spitter** | A hopfrog | Stops, glows, and spits a crystal shard | Clover Rise |
-| **Rammer** | A rockgoat | Lowers its head, glows a line on the ground, and charges along it | Lantern Reef |
-| **Flyer** | A skylark | Circles, marks a spot on the ground, and dives onto it | Ember Peaks |
-| **Spire** | Nothing; a crystal pillar | Does not attack. It wakes napping Gloomlings near it and powers the Hive's shield | Clover, Reef, Ember |
-| **Hive** | Holds one stolen Note, and drinks every song sung near it while it stands | The isle's boss | Clover, Reef, Ember |
-| **Grey Heart** | The heart of the Grey Star, holding the sleeping pod | The final boss | The Grey Star |
+| Prologue | The night the star fell | The pod's night sky | 1 min |
+| 1. Wake up, Captain | You wake up aboard your ship and meet Bao | The cottage below deck, then the deck | 3 min |
+| 2. The ship's economy | Garden on top, home below, skills, fishing from the skiff, cooking, the rope | Bao (deck, cottage, skiff) | 10 min |
+| 3. Landing and rescue | Four lands, four bosses, friends freed from crystal cages | Clover Rise, Lantern Reef, Ember Peaks, Frostfall | 40 min |
+| 4. Friends at work | Each freed friend takes a job aboard (this runs alongside Chapter 3) | Bao | — |
+| 5. Taking the fight to the Gloom | You board the Gloom's own ships, beat their captains and free the pod | The Gloom fleet, then the Grey Star | 15 min |
 
-**Gloom specks** are small crystal flecks that land on Bao when it hovers near a crusted isle. They itch, and Bao's mood drops. The Keeper brushes them off.
+## The world in three rules
 
-**Raids.** When Bao sings, the whole sky hears it, and so does the Gloom. After Bao frees an isle, the Gloom sends its **ships** on the next voyage. Crusted grey sky-boats with a glowing eye on the bow come alongside Bao from different sides and lay planks to the deck. Bao's crew call **battle stations**: the garden and every fitting sink below the deck, and two big gongs rise. The raiders want the hatch, because the garden is stored below. The Keeper's best move is to knock them **overboard**: they fall, their crystal bursts in the air, and the animal inside drifts safely down into the clouds. Small raids can also come while any isle is still grey. The crew climb down the hatch, banging pots and ringing bells, because hiding is fine but keeping still is not.
+The Cloud Sea is an endless sky of clouds with floating lands drifting in it.
 
-## 4b. Bao's back: a little sky ship
+1. **Whales carry gardens, and gardens feed whales.** Sky whales carry homes and gardens on their backs. The *backfolk* who live there grow fruit, and the whales eat it. A whale is a home and a ship at once, and its keeper is its **captain**.
+2. **What stays still, the Gloom crusts.** The Gloom is a grey-violet crystal hush that grows over anything that stops moving: fields, animals that froze in fright, and people who hid and kept very still.
+3. **Song breaks crystal.** Ringing sound cracks the Gloom. That is why the captain fights with a bell mallet, and why the Gloom hates whale song.
 
-The backfolk do not live on bare moss. Long ago they built a **wooden ship deck** on the backs of their whales, like the basket of a hot-air balloon or the deck of a little submarine: honey-coloured planks, a rounded gunwale, and green weed and moss growing over the edges where Bao's skin shows. The garden grows in **wooden planter boxes** full of Bao's moss.
+## Before the story
 
-Nana's home is below deck. A small round **hatch with a wooden gate** leads down a ladder into her **cottage**, which hangs under the deck like the gondola of an airship. It has six rooms: a living room with a fireplace and a trophy shelf where the Notes glow, a kitchen, a craft room, a bedroom, a bathroom and a study with a globe. All around it is open blue sky and drifting clouds, so even at home you never forget you are flying. The crew spend time here too. Rest in the bed to get your strength back (the game saves while you nap).
+A pod of sky whales sang across the Cloud Sea every night, and their song kept the sky bright. Then the **Grey Star** fell: a shard of pure Gloom. It crusted the lands grey and broke the whales' song into four **Notes**, and each Note was swallowed by a **Hive**, a crystal anchor the Gloom grew on a land. The Grey Star sank into the **Deep Mist**, pulling the sleeping pod down beneath it. Then it began to build a fleet of crusted ships.
 
-## 5. Prologue: "The night the star fell"
+As the crust closed over the pod, the eldest whale, **Grand Hana**, pushed her only calf, **Bao**, up through the clouds. Two backfolk clung to Bao's back: old **Nana Sumi** and her grandchild. That's you.
 
-About 60 seconds long; it can be skipped and replayed from Settings.
+## The cast
 
-1. The pod sings at night under a very dark blue sky, with whale lights and stars.
-2. A grey streak falls from the sky. Crystals spread and the song breaks into glowing Notes that fly away.
-3. Grand Hana sinks into the mist and pushes a small whale upward. *"Fly, little one."*
-4. Dawn. A tiny whale above the clouds. Nana sits up and rubs her back: *"Well. We're alive. And this one is hungry."*
-5. Bao opens one eye and hums. The game begins on Bao's back.
+| Who | Who they are | What they do aboard |
+|---|---|---|
+| **You, the Captain** | Nana's grandchild. Bao bonded to you, so the ship is yours. Brave, a little clumsy, with Nana's old bell mallet. | Everything: garden, fish, cook, craft, sail, land, fight, rescue. |
+| **Bao** | The sky-whale calf, your ship. Curious, playful; hums when happy and sulks when hungry. | Grows in four stages (Calf, Young, Adult, Great). Each stage widens the deck and reaches farther lands. |
+| **Nana Sumi** | Your grandmother, now your first mate. Warm, funny, stubborn about seeds. | Teaches you, minds the workbench, brushes Bao while you are away, and never lets you run out of seeds. |
+| **Pip** | A gardener from Clover Rise. Talks very fast. | **Gardener**: trees grow faster, and Pip picks ripe fruit. Joins you on boarding raids. |
+| **Mayor Olla** | The elder of Clover Rise. Loves fish. | Stays and runs the **Clover Market**. |
+| **Old Kai** | A fisher on Lantern Reef. Talks slowly and knows every fish. | Stays and runs the **Reef Market**, which sells skiff upgrades. |
+| **Ria** | The lookout of the reef's lighthouse. Loud and sharp-eyed. | **Lookout**: warns of raids, spots treasure clouds and Gloom ships. |
+| **Mina** | A cook from Lantern Reef, proud of her honey buns. | **Cook**: new recipes, and a meal in your bag every morning. |
+| **Granny Coal** | A retired blacksmith on Ember Peaks. Gruff and generous. | Stays and runs the **Ember Market** (ore, starfigs). |
+| **Tam** | A young smith. Shy, serious. | **Smith**: the best mallet and coat, and stronger chime posts. |
+| **Bram** | An old innkeeper on Frostfall, with a big white beard. | Stays and runs the **Frost Market** (warm cocoa, snowberry seeds). |
+| **Juno** | An engineer from Frostfall. Never without goggles. | **Engineer**: speeds up the lift, builds the boarding plank and the chime cannon. Without Juno, Bao cannot board an enemy ship. |
+| **The Gloom** | A hush that wants everything still forever. It only whispers: "…stay still…". | Its creatures, the Hives on the lands, raids on Bao, and its fleet. |
+| **Grand Hana** | Bao's mother, asleep beneath the Grey Star. Your parents sleep in the crust on her back. | The prologue and the ending. |
 
-## 6. Chapter 0: "Morning on a small whale" (tutorial, about 5 minutes)
+---
 
-Every step teaches one verb. The goal card at the top of the screen always shows the next step.
+## Prologue: "The night the star fell"
 
-1. **Plant.** Nana gives two Puffberry seeds and two Ropevine seeds (one for each of the four planter boxes), and a packed lunch of three Cloudpears for later. *"Whales carry gardens, child. Gardens feed whales. Plant them in the moss."* (You plant in the wooden planter boxes full of moss.)
-2. **Wait and look around.** While the trees sprout, Nana points to the tail: *"Your grandpa caught sky fish there."* (Fishing is optional, and fish are treats for Bao.)
-3. **Harvest and feed.** Puffberries ripen. You pick them and walk to Bao's head to feed it. Bao hums and its growth bar fills a little. *"See? A happy whale grows."*
-4. **Brush.** A Gloom speck lands on Bao. *"The Gloom followed us up. Brush it off before it itches."*
-5. **Craft.** Ropevines give fibre. At the Workbench you twist a **Climbing Rope**. *"You can't help anyone from up here. You'll need to go down."*
-6. **Sail.** At the map table on Bao's head, you pick **Clover Rise**, the nearest isle. *"Clover folk always kept a lantern lit for us. I don't see it lit."*
+The pod sings under a very dark blue sky. A grey streak falls. Crystal spreads, and the song shatters into four glowing Notes that fly away. Grand Hana sinks into the mist and pushes a small whale upward: *"Fly, little one."* Darkness falls, then a soft hum in the dark.
 
-## 7. Chapter 1: "Clover Rise" (meadow isle, green and gold)
+---
 
-- **Arrival.** The meadow is grey, the windmills have stopped, and violet eyes blink in the grass. Bao hovers above, its huge shadow moving over the fields.
-- **Going down.** You slide down the rope to the landing meadow.
-- **First cage.** Near the landing, **Mayor Olla** is crusted in a crystal cage. Three rings of the mallet free her. *"Keeper! Bless your bell. I'll set up shop right here. Everyone needs a market, even when the whole world's gone grey."* (The Clover Market opens at the landing.)
-- **The Spires.** Two crystal Spires hum on the hills, and a dome of grey light covers the Hive. *"Break the Spires and the dome will fall,"* Olla says.
-- **Pip.** Pip is caged by the first Spire. Once free, Pip runs back to the rope alone and climbs up to Bao. *"A WHALE? A real one? With MOSS? I'm coming. I'm a gardener. I'm a very good gardener."* Pip becomes the crew's **Gardener**.
-- **The Hive: Thornhive.** A crystal tower with thorns. It grows thorn rings, fires spike lines, and wakes Gloomlings. When it cracks, the **Note of Dawn** flies up to Bao.
-- **The song.** Bao sings for the first time: rings of gold light fall over the isle. The song shatters every shell still standing and opens every cage, and colour pours back into the grass, the windmills and the flowers. The freed animals run around. (The first raid will come on the next voyage.)
-- **Growth.** The Note of Dawn hums inside Bao. When Bao has eaten enough, it can grow to **Young**: its back stretches and new planter boxes fit on the deck.
-- **Nana:** *"One Note. Your mother is somewhere under all that grey, little one. We'll find the rest."*
+## Chapter 1: "Wake up, Captain"
 
-## 8. Chapter 2: "Lantern Reef" (coral isle, teal and coral pink)
+1. **You wake up in a patchwork bed** in a small round cottage. Clouds drift past the window and there's a smell of tea. You are below deck on a ship.
+2. **Nana** is at the cold stove. *"Morning, Captain."* "…Captain?" *"Bao chose you, child. A whale calf bonds with one keeper, and its keeper is its captain. This ship is yours now. I'm too old to steer. I'll be your first mate."*
+3. **The cottage** is dusty. The kitchen stove is cold, the craft room and the study are boarded up, and dust covers the bathroom. *"We'll fix her up, room by room."*
+4. **The ladder** goes up through a round hatch with a wooden gate. You climb out onto the **deck**: honey-coloured planks on Bao's back, green weed spilling over the edges, empty planter boxes, a map table at the bow, a workbench, a shipping crate, the rope post and the fishing lift.
+5. **Meet Bao.** Walk to the bow and give Bao a pat. Bao opens one huge eye and hums. *"There. Now you've met your ship properly."*
+6. **End of the chapter.** *"A ship needs a garden, a kitchen and a full whale before it sails. Let's get to work, Captain."*
 
-- **The road there.** A **Wind Wall** of roaring cloud surrounds the reef. A calf is too small to cross it, but a Young whale can.
-- **The first raid.** On the way, two Gloom ships come alongside and raiders cross their planks. Battle stations: the garden sinks below, the gongs rise, and you knock the raiders overboard. *"Crew, down the hatch, and keep those pots ringing! Hide, but never keep still!"* Afterwards Nana says: *"It heard the song. It will hear every song. Good. Let it hear us. Maybe it's lonely."*
-- **The reef.** Coral arches, unlit paper lanterns, and tide pools. **Rammers** charge along glowing lines; **Spitters** hide behind coral. Nana explains why Bao has not sung here: *"While a Hive stands, it drinks every song sung near it. Break it, and then Bao can sing."*
-- **Old Kai** is caged on the shore where you land. Once free: *"…Thank you… I'll stay with my boats. Bring me fish stories."* He opens the **Reef Market** (Glowplum and Honeybun seeds; he pays well for people food, because the reef folk are hungry).
-- **Ria** is caged on the lighthouse rocks. *"I saw your whale from up here for an hour before you came down. You need a lookout. I am a lookout."* Ria becomes the crew's **Lookout**.
-- **Mina** is caged near the second Spire. *"You have a whale and no kitchen? Unacceptable."* She becomes the crew's **Cook**, and the Kitchen opens on Bao's back.
-- **The Hive: Clamhive.** A giant crusted clam. Blows barely scratch it while it is closed. It spits pearl volleys and sends out tide rings, and right after each attack it gapes open: hit it then. When it cracks, the **Note of Tide** comes free.
-- **The song.** Lanterns light one by one, and the coral turns pink.
-- **Growth.** With the Note of Tide, Bao can grow to **Adult**, strong enough to fly through the **Storm Belt**.
+## Chapter 2: "The ship's economy"
 
-## 9. Chapter 3: "Ember Peaks" (volcano isle, red and orange)
+You learn every way the ship makes its living. The goal card leads you through it, one step at a time.
 
-- **The road there.** The **Storm Belt** is a ring of thunderclouds that only an Adult whale can push through.
-- **The peaks.** Warm red rock, lava streams (the lava glows but does not hurt; it is decoration), forges gone cold. **Flyers** dive from above, and Rammers guard the paths. There are ore rocks to mine with the mallet.
-- **Granny Coal** is caged at the landing. *"Took you long enough. I'll sell you ore and starfigs, and I won't overcharge. Much."* (The Ember Market opens.)
-- **Tam** is caged by a cold forge. *"A forge on a whale… I could make chime posts that sing."* Tam becomes the crew's **Smith** and sets up an anvil by the Workbench.
-- **The Hive: Forgehive.** A crusted golem. It slams the ground where you stand, splits the rock with violet crystal cracks (Gloom, not lava), and calls Flyers. When it cracks, the **Note of Ember** comes free.
-- **Growth and the Deep Song.** With the Note of Ember, Bao can grow to **Great**. With all three Notes, Bao remembers the **Deep Song**, the song that lets a whale dive below the clouds.
-- **Nana:** *"Dawn, Tide, Ember. That's the song Hana sang every night. She's calling back now. Can you hear her?"*
+1. **The garden on top.** Plant the seeds Nana gives you (two Puffberry, two Ropevine) in the planter boxes. Harvest, then feed Bao at the bow. Bao grows and hums.
+2. **The shipping crate.** Put spare fruit and fish in the crate on deck. Little **sky-post finches** carry it away and bring glimmer back. It pays the basic price; markets on the lands pay more for what they like. *"Every ship needs coin."*
+3. **Below deck: fixing up home.** Rooms are repaired with materials and glimmer. Each one opens a job and makes the cottage cozier.
+   - **Kitchen:** cook meals.
+   - **Craft room:** better workbench recipes, at a lower cost.
+   - **Study:** a globe for the sky map and a desk for the journal. Voyages cost less fullness.
+   - **Bathroom:** a bath after a nap makes you *Fresh* (extra damage for a while).
+4. **Skills.** Everything you do trains a skill, and every skill level brings a small reward:
+   - **Gardening** (from harvesting): growth speed, and a chance of extra fruit.
+   - **Fishing** (from catches): a longer bite window and rarer fish.
+   - **Cooking** (from meals): bigger heals, and a chance of a second portion.
+   - **Crafting** (from making things): glimmer costs go down.
 
-## 10. Chapter 4: "The Grey Star" (finale, below the clouds, at night)
+   Fighting raises your Captain level as before.
+5. **Fishing from the skiff.** The sky fish swim deep in the cloud layer, too far below the deck for a line. Step onto the **lift** at Bao's side, and it lowers you into a little **skiff** floating on the cloud sea, with Bao's belly overhead. Cast, wait for the bite, and reel. When you are done, **pull the rope** and the lift hauls you back up. Every place has its own school of fish, which slowly refills.
+6. **Cooking at home.** In the repaired kitchen you cook a **Pear Tart** from two Cloudpears. Mina will teach you more later.
+7. **The rope.** Twist three Fibre into a **Climbing Rope** at the workbench. Nana: *"Clover Rise is near. Its folk always kept a lantern lit for us. I don't see it lit."* Sail from the map table.
 
-- **The dive.** Bao, now Great, sings the Deep Song and dives through the **Deep Mist**. Below it the sky is very dark blue, the clouds are black-blue, and grey crystal mountains glow violet. The vivid colour is all in the lights: whale lanterns, the Keeper's chime and the Notes.
-- **The pod.** Huge crusted shapes lie in the crystal: the sleeping whales. Grand Hana is in the middle.
-- **The boss: the Grey Heart.** The centre of the Grey Star. It uses every Hive's moves (thorn rings, pearl volleys, slams) and is wrapped in a shield. With the whole song, Bao is too loud for the Heart to drink, but a whale needs a breath between songs. So every 20 seconds Bao sings from above: the shield cracks for 5 seconds, which is when your blows hurt most, and the song heals the Keeper.
-- **The ending.** The Heart shatters into a fountain of glimmer. The crust over the pod cracks. One by one the whales wake and rise. Grand Hana rises last, enormous, and hums to Bao. Bao hums back. On Hana's back, two small figures wake in the moss and wave: the Keeper's mum and dad.
-- **Nana:** *"Whales carry gardens. Gardens feed whales. And, it turns out, whales carry each other."*
-- **Credits** roll over the pod flying into the dawn.
+## Chapter 3: "Landing and rescue"
 
-## 11. After the ending
+Four lands, each crusted grey. Each land is a wide wild place to explore, with paths, scenery, wild fruit, ore and a camp. To get down, slide down the rope. To get back, follow the rope up or blow **Nana's conch**: Bao lowers the rope wherever you stand and pulls you up. The conch does not work inside a boss arena, because the Hive's hush swallows the sound.
 
-- The pod drifts across the sky as ambient life, and Bao follows its mother now and then.
-- A **Golden Seed** drifts down from the moss on Hana's back. It grows into a golden tree that only decorates.
-- Markets, fishing, the garden and the Workbench all stay open, so you keep playing as long as you like.
-- The Gloom's dust still lies in quiet corners: small leftover groups return to freed isles now and then (optional fights for glimmer), so the bell mallet still has work. Keepsakes at the Workbench (lanterns, a flower crown, a golden bell) give glimmer something lovely to buy.
+On every land you will:
+- free the caged people (ring a cage three times);
+- break the **Spires** that shield the land's boss;
+- beat the boss, which frees a **Note**.
 
-## 12. Tone rules
+Then Bao sings, colour pours back over the land, and Bao can grow.
 
-- Cute, warm and brave. No blood. No one dies; defeated Keepers are pulled back up by Bao.
-- The Gloom is sad and quiet, not evil-cackling. Its whispers are short and grey, and "…hush, little whale…" is saved for the finale.
-- Every chapter ends with colour returning, so the player sees what they did.
-- Each isle has one dominant hue (green and gold, teal and pink, red and orange, then night blue), and Gloom violet stands out against all of them.
+| Land | Bao needs to be | Look | Friends | Boss and its trick | Note |
+|---|---|---|---|---|---|
+| **Clover Rise** | Calf | Meadow, windmills, green and gold | Olla (market), Pip | **Thornhive**, a crystal tower. Thorn rings: stand close to the Hive or far away. | Dawn |
+| **Lantern Reef** | Young (crosses the Wind Wall) | Coral, paper lanterns, teal and pink | Kai (market), Ria, Mina | **Clamhive**, a giant clam. Barely scratched while shut; hit it when it gapes after each attack. | Tide |
+| **Ember Peaks** | Adult (crosses the Storm Belt) | Red rock, glowing (harmless) lava, cold forges | Coal (market), Tam | **Forgehive**, a crusted golem. It slams the ground where you stand, splits the rock with violet cracks and calls Flyers. | Ember |
+| **Frostfall** | Great (crosses the Frost Veil) | Snowy pines, ice, warm lanterns, white and pale blue | Bram (market), Juno | **The Hush Bell**, a giant frozen bell. It spreads **silence domes**, and inside one your mallet makes no sound and does no damage. Ring the three **echo bells** around the arena to crack the silence, then strike. | Frost |
+
+**The Gloom's creatures**:
+- **Gloomlings** hop and bump.
+- **Spitters** spit shards.
+- **Rammers** charge along a glowing line.
+- **Flyers** dive onto a marked circle.
+- **Shellbacks** (Ember and Frostfall) carry a crystal shield on the front, so hit them from behind or with a Chime Spin.
+- **Puffcaps** (Frostfall) swell up and burst into a knock-back ring. It can throw you around, and on Bao's deck it can throw raiders overboard if you lure it close.
+
+Every creature you beat is freed: its crystal bursts and the animal inside hops away.
+
+Each land also has its own twist on the rescue:
+- On **Clover Rise**, the caged people are out in the open.
+- On the **Reef**, Ria's cage is on the lighthouse rocks.
+- On **Ember**, Tam's cage stands beside the cold forge.
+- On **Frostfall**, Juno is trapped inside her workshop and you must break the Spire guarding it first.
+
+## Chapter 4: "Friends at work"
+
+This chapter runs alongside Chapter 3. Every freed friend makes the ship's economy grow:
+
+- **Pip:** trees grow 20% faster, Pip picks ripe fruit into the pantry, and the planter boxes get a little sign with your Gardening level.
+- **Mina:** teaches Fish Bun and Sky Stew and leaves a meal in your bag every morning (once per day of play).
+- **Ria:** gives warnings 10 seconds before raids, spots treasure clouds on voyages, and finds the Gloom fleet on the sky map.
+- **Tam:** sets up an anvil by the workbench for Mallet III and Coat III, and makes Chime Posts ring harder.
+- **Juno:** makes the lift twice as fast, builds Bao's **boarding plank** and the **chime cannon**, which fires ringing bells at Gloom ships during raids and boardings.
+- **The camp friends** (Olla, Kai, Coal, Bram) run their markets. Kai's market sells skiff upgrades, and Bram's sells snowberry seeds and cocoa, a warm drink that heals well.
+- **In raids** the crew climb down the hatch and bang pots; hiding is fine, keeping still is not.
+- **In Chapter 5** two crew mates of your choice join you when you board an enemy ship.
+
+## Chapter 5: "Taking the fight to the Gloom"
+
+With all four Notes, Bao remembers the **Deep Song**. The Gloom hears it, and its fleet rises from the Deep Mist. Ria spots it from the lookout: *"Three sails, Captain! And the last one… that's no ship. That's the Grey Star."*
+
+Each ship is a mission on the sky map:
+
+1. **Sail at the ship.** Bao chases it down, and the chime cannon softens its crust.
+2. **Board.** Juno lays the boarding plank. You and two crew mates cross onto the enemy deck.
+3. **Fight across the deck.** Its raiders guard it. Knock them overboard through the gaps in the rails, as at home.
+4. **Free the captives** in the hold: backfolk families the Gloom took. Each freed family gives a thank-you gift.
+5. **Beat the captain.**
+
+| Ship | Captain | How the fight works |
+|---|---|---|
+| **The Scout Sloop** | **Captain Barnacle**, a crusted crab with a crystal tricorn | It **sweeps the deck with its anchor chain**: hop over it. It **throws the anchor** at a shadow on the deck: step aside. When the anchor sticks in the rail, the captain is stuck too. Hit it then. |
+| **The Warship** | **The Mastwyrm**, a crystal serpent coiled round the mainmast | Its head strikes down at a shadow, and it spits shards. Ring the three glowing **knots** on its coil (Hop up onto the hold hatch to reach the high one) until it falls to the deck, dizzy. Then strike its head. |
+| **The Grey Star** | **The Grey Heart**, the core of the fleet's flagship | It uses every move you have learned. The deck **lists** (tilts), so you slide toward one rail. Every 20 seconds Bao sings from above, cracking the shield for 5 seconds and healing you. Strike then. |
+
+**The ending.**
+- The Heart shatters into a fountain of glimmer and the crust over the pod cracks open.
+- One by one, the whales wake and rise. Grand Hana rises last and hums to Bao, and Bao hums back. On Hana's back, two figures wake in the moss and wave: your mum and dad.
+- Nana: *"Whales carry gardens. Gardens feed whales. And, it turns out, whales carry each other."*
+- A Golden Seed drifts down from Hana's moss.
+- Credits roll over the pod flying into the dawn.
+
+**After the ending:**
+- The pod drifts across the sky around Bao.
+- Leftover Gloom sometimes returns to quiet corners of the lands.
+- Your skills, home, garden and markets are all still yours.
+
+---
+
+## Tone rules
+
+- Cute, warm and brave. No blood, and nobody is ever killed. Beaten creatures are freed, and a captain who faints is pulled back up by Bao.
+- The Gloom is sad and quiet, not a cackling villain. Its whispers are short and grey. "…hush, little whale…" is saved for the finale.
+- Every chapter ends with something you can see change: colour returning to a land, a room repaired, a friend at work, a ship's crystal shattering.
+- Each land has one main colour (green and gold, teal and pink, red and orange, white and pale blue). The Gloom's violet stands out against all of them.

@@ -182,3 +182,47 @@ Two independent reviews read the whole game: one for code defects, one for logic
 | R19 | A save from a newer build was overwritten. | It is backed up first under `cloudback:save:main:backup-<time>`. |
 | R20 | Smaller fixes. | Hop invulnerability now uses its own 0.3 s timer. Auto-ring fires only in reach. Cages are found by their index. The faint pose is cleared. Followers are copied before boarding. The Rammer's line matches its charge. Pearl volleys fly where they were aimed. Chime Post slows also slow charges and dives. Woken Gloomlings fade with their Spire. There is one fish school per place. Lanterns need the rope first. The heart_song line plays. Rescue lines play for people freed by the song. Coats heal their own extra health (crafting no longer heals 40). The sky dome is in the screen's colour space. `repair()` clamps damaged numbers. Tap targets are at least 44 px. The raid banner wraps, and "Shielded" and "Overboard!" are translated. |
 | R21 | Not fixed, kept as known limits. | Small material and geometry leaks remain when isles are re-entered (actor and form material clones). They are bounded by the number of descents and are harmless at this size. |
+
+## Story v2: the owner's five chapters (2026-10-16)
+
+The owner's plan:
+1. Wake up in a ship as its owner.
+2. Build the ship's economy: a garden on top, a hole down to rooms with furniture, skills to earn, fishing from a boat reached by an elevator (pull the rope to come back), and cooking in the room.
+3. Land on four areas to rescue friends, going down a rope and calling the ship back; new enemy types.
+4. Saved friends help.
+5. Attack the enemy's own ships.
+
+Every land and every ship has a boss, designed differently from Zoo Garden's. The plan was evaluated, improved and reviewed three times before it was written into `STORY.md`.
+
+### Review 1: does every part have a reason?
+
+| # | Gap | Change |
+|---|---|---|
+| 1 | Why would a child own a ship? | A whale calf bonds with one keeper, and its keeper is its captain. Bao chose you, and Nana becomes your first mate. |
+| 2 | There was no way to earn before the first market. | The **shipping crate**: sky-post finches buy at the basic price. Markets pay more for what they like. |
+| 3 | "Rooms and furniture" had no part in play. | **Home repairs**: the kitchen, craft room, study and bathroom start boarded up or dusty. Repairing one costs materials and glimmer and opens a job, so it is the economy's first sink. |
+| 4 | "Skills to earn" was vague. | Four **life skills** (Gardening, Fishing, Cooking, Crafting) level up from doing, and each level gives a perk that earns more. |
+| 5 | Why fish from a boat? | The sky fish swim deep in the cloud layer, out of reach of a line from the deck. The **lift** lowers you to a **skiff**; pulling the rope hauls you back. |
+| 6 | Why cook in the room? | The stove is in the cottage kitchen, below deck and out of the wind. Mina later teaches more recipes. |
+| 7 | Could the captain call the ship back from anywhere? | **Nana's conch** brings the rope down where you stand, but not inside a boss arena, where the Hive's hush swallows the sound. |
+| 8 | Why attack Gloom ships? | Once Bao knows all four Notes, the Gloom's fleet rises. Its holds carry captured backfolk, and its flagship is the Grey Star itself. Going on the attack ends the story. |
+
+### Review 2: logic and pacing
+
+| # | Problem | Change |
+|---|---|---|
+| 9 | Four lands, but Bao has four stages and the story had three Notes. | Four Notes: Dawn, Tide, Ember and **Frost**. Calf reaches Clover, Young the Reef (Wind Wall), Adult Ember (Storm Belt), Great Frostfall (Frost Veil). The fleet appears with all four Notes. |
+| 10 | Cooking needed Mina before; now it is in Chapter 2. | The repaired kitchen cooks the Pear Tart from the start. Mina adds Fish Bun and Sky Stew and a daily meal. |
+| 11 | The first repairs must be affordable. | The kitchen costs 3 Fibre and 15 glimmer. The other rooms cost more, and the shipping crate gives early glimmer. |
+| 12 | Friends helping in fights would make civilians soldiers. | On the lands they stay safe. On boarding missions two crew mates join on purpose, because the fleet's holds hold their families. Raids still send them down the hatch. |
+| 13 | Boarding needs equipment. | Juno (Frostfall, the fourth land) builds the boarding plank, so the fleet can only be attacked after the last land, in story order. |
+| 14 | Skill perks must not break the economy. | The perks are small (about 2–4% per level, 10 levels). Fishing still has its school per place, and meals still need ingredients. |
+
+### Review 3: variety, fun and tone
+
+| # | Problem | Change |
+|---|---|---|
+| 15 | The bosses felt like "big monster with an HP bar" (Zoo Garden's style). | Every boss has a trick tied to bells, song or ships. Thorn rings ask where you stand; the Clamhive has an open window; the Forgehive slams where you stand; the **Hush Bell**'s silence domes stop your mallet until you ring the echo bells. **Captain Barnacle**'s anchor gets stuck in the rail. The **Mastwyrm** must be knocked off its mast by ringing its knots. The **Grey Heart**'s ship tilts. |
+| 16 | New enemies should do new things, not have more HP. | The **Shellback** (shielded at the front: get behind it or spin) and the **Puffcap** (its burst knocks things back, so on Bao it can throw raiders overboard). |
+| 17 | Each land played the same way. | Each land's rescue has its own twist (Ria's lighthouse rocks, Tam's forge, Juno locked in her workshop behind a Spire). |
+| 18 | Each chapter needs a visible payoff. | Chapter 1: Bao opens its eye. Chapter 2: the kitchen fire lights. Chapter 3: each land's colour returns. Chapter 4: friends at their posts. Chapter 5: each ship's crystal shatters, then the pod rises. |
