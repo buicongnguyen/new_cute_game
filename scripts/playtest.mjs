@@ -93,7 +93,8 @@ ok(s.glimmer >= 15 && s.goal === 'Repair the kitchen below deck', 'shipped beans
 
 // 2c. Below deck: repair the kitchen, then cook the first Pear Tart.
 const hatch = await spot('hatch');
-await goto(hatch[0] - 1.0, hatch[1]); await press('KeyF');
+await goto(hatch[0] + 1.0, hatch[1]);
+await ev(([x, z]) => window.__game.keeper.actor.lookAt(x, z), hatch); await press('KeyF');
 await page.waitForTimeout(700); await quiet();
 const door = await spot('repair-kitchen');
 ok(!!door, 'the boarded kitchen door has a Repair spot');
@@ -256,7 +257,8 @@ await shot('over-reef');
 // 11. Down the hatch into Nana's cottage (the owner's Zoo Garden house), nap in the bed, climb back up.
 const ht = await ev(() => { const p = window.__game.bao.props.hatch.position; return [p.x, p.z]; });
 await quiet();
-await goto(ht[0] - 1.0, ht[1]); await press('KeyF');
+await goto(ht[0] + 1.0, ht[1]);
+await ev(([x, z]) => window.__game.keeper.actor.lookAt(x, z), ht); await press('KeyF');
 await page.waitForTimeout(700); await quiet();
 s = await st();
 ok(s.mode === 'house', 'went down the hatch into the cottage', `nearby ${s.nearby}, mode ${s.mode}`);

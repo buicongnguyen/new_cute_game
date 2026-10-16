@@ -1,3 +1,4 @@
+import { pickInteractable } from '../rules/interact-pick.ts';
 import * as T from 'three';
 import {
   DECK,
@@ -88,11 +89,8 @@ export class InteractSystem extends GameSystem {
       }
     }
     this.game.interactables = list;
-    // The context button shows the nearest thing in reach.
-    let best: Interactable | null = null, bd = Infinity;
-    // Talking to the crew loses ties to objects (people wander next to the hatch and the plots).
-    for (const it of list) { if (!it.radius) continue; const d = flat(this.game.keeper.pos, it.pos), score = d + (it.id.startsWith('crew-') ? .7 : 0); if (d < it.radius && score < bd) { bd = score; best = it; } }
-    this.game.nearby = best;
+    const keeper = this.game.keeper;
+    this.game.nearby = pickInteractable(list, keeper.pos.x, keeper.pos.z, keeper.actor.facing);
   }
 
   /** True while play is running (no panel, no speech, no scene change): HUD buttons act only then (code review 10). */

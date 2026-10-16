@@ -477,3 +477,5 @@ Far below the clouds lies a green forest (Clover, Ember), the sea (Reef, Frostfa
 - T01: each game owns a typed synchronous event bus outside serialized state. Successful rules publish outcomes once; story chapter/goal notifications are deduplicated. The opening simulation now performs the same ladder and Bao-pat sequence as chapter 1. Future islet/pet systems use the reserved typed events.
 
 - T02: `src/systems/` owns deck, land, ship, skiff, drone, raid, scene transition, cottage, camera, story and interaction behavior. Game retains shared state, mode switching and the original frame order; mode systems receive enter/exit callbacks. Existing browser hooks forward to the extracted implementations.
+
+- T03: the context action scores all reachable targets by distance and facing. Facing a hatch or ladder gives it a small preference over an adjacent plot; wandering crew retain a small penalty. Explicit pointer picks still select the object tapped.
