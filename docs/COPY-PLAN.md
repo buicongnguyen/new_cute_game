@@ -1,170 +1,252 @@
-# Cloudback: what to copy from Zoo Garden, and in what order
+# Cloudback: what to copy from Zoo Garden, and in what order (v2, reviewed)
 
-Written 2026-10-16 at the owner's request: "the game is too simple; copy the well-developed parts of cute_game, in the menus, the mini map and the rest". Zoo Garden (`cute_game`) is the owner's own game and code, so its modules may be ported. Each port keeps a one-line note naming the file it came from, as `house-plan.ts` already does.
+Version 1 (2026-10-16, commit 8d4dc90) listed about 70 Zoo Garden modules to copy in seven phases. This version is the same plan after a review against a AAA bar. The review covered three things: the ideas (does each one make Cloudback better, or only bigger?), the logic (does it fit the story and the rules?) and the code (do the files exist, and what does a port really cost?). Section 1 gives the findings. Sections 2–8 are the refined plan, and nothing in it is built yet.
 
-This is a plan only: nothing in it is built yet.
+Zoo Garden (`cute_game`) is the owner's own game and code, so its modules may be ported. Each port names the Zoo Garden file it came from in a header note, as `house-plan.ts` already does. Zoo Pet's own content is never copied.
 
-## 1. The two stories compared
+## 1. Review findings
 
-| | Cloudback (now) | Zoo Garden |
+### 1a. The ideas: "more" is not "AAA"
+
+Version 1 copied nearly every Zoo Garden system. AAA games in this genre (Animal Crossing, Stardew Valley, A Short Hike, Ni no Kuni, Mario Kart 8 for polish) do **fewer systems, each finished to a high bar**, all serving one fantasy. Copying everything would turn Cloudback into a re-skinned Zoo Garden and spread the work thin.
+
+**The fix:** every item must pass the **pillar test**. Cloudback's three pillars are:
+
+1. **Bao is home, and home grows.** The whale, the deck, the garden, the crew and the cottage get bigger and livelier because of you.
+2. **The sky is wide and alive.** Flying, islets, weather, what lies below, and things to find.
+3. **Song beats the Gloom.** Fights are bell and rhythm combat, freeing and never killing; freed creatures go home or join you.
+
+An item that serves none of the pillars is cut, however good it is in Zoo Garden.
+
+**Cut or deferred from version 1:**
+
+| Item | Verdict | Why |
 |---|---|---|
-| **Kind of story** | A told story: five chapters with a cast of 12, a villain (the Gloom), places with their own mood, and an ending (the pod wakes). | A goal ladder: about 30 story steps in four chapters ("Harvest three crops", "Defeat a boss", "Discover five planets"…), each with a gift at the end of a chapter. Around it sit the cottage family, friends to rescue, planets and bosses. |
-| **What it does well** | Reasons for everything. Bao chose you; the Gloom crusts what keeps still; song breaks crystal. Every land has a friend, a twist and a boss trick. | **Always something to do next.** Steps cover every system (fishing, cooking, crafting, decorating, bosses), so the story teaches the whole game. Daily and weekly tasks, achievements and collections keep it going for weeks. |
-| **Weak points** | **Linear and short.** One goal at a time, about 50–90 minutes, then only free play. Few systems, so little to do between story beats. No reasons to come back tomorrow. | The story itself is thin: steps are chores, and the characters say little. |
-| **Length** | 50–90 min | Many hours: level 18+ steps, nine planets, ten bosses |
+| Three save profiles | Cut | A one-captain story; export codes cover sharing a device. |
+| Leaderboard / records board | Deferred | No server, no rivals; the Logbook covers personal bests. |
+| Flag Rush, Titans | Cut | Off-pillar (competitive modes). |
+| Dyes and the mirror look builder | Deferred | A captain's coats come later, as story rewards, not a shop. |
+| Forging +1…+10 | Reduced to 3 tiers | Ten tiers is grind; three tiers, each with a visible change, read better. |
+| Daily check-in rewards, login streaks | Replaced | Mobile retention tricks feel cheap at this bar. Use a **day cycle** instead (below). |
+| News inbox | Merged | Folded into the Logbook and Bao's letters from friends. |
+| Swimming | Cut | Cloudback has no water you can walk into; the skiff covers the sea. |
+| Fish harpoon hunting | Deferred | The reel game was just ported; deepen it before adding a second fishing mode. |
 
-**The verdict:** keep Cloudback's story as the spine, and copy Zoo Garden's **goal ladder, side goals and long-term loops** around it. Every chapter beat then sits inside a web of smaller goals, and the game gains Zoo Garden's depth without losing its heart.
+### 1b. The logic: places where version 1 contradicts the game
 
-## 2. Side by side, by area
-
-✓ = Cloudback has it, ½ = a smaller version, ✗ = missing.
-
-| Area | Cloudback | Zoo Garden (files) | Copy? |
-|---|---|---|---|
-| **Menus** | 4 emoji buttons (map, bag, journal, settings) and bottom-sheet panels ½ | A **dock** (a column of menu buttons on the right edge) with a hand-drawn SVG icon set (`hud-icons.ts`, `hud-layout.ts`); panels docked to the side on desktop (`dialog-dock.ts`); grouped item lists (`item-groups.ts`); scroll cues for tabs (`tab-cues.ts`); a compact phone HUD (`hud-compact.css`) | **Yes, first** |
-| **Mini map** | ✗ (only the sky-map panel) | Always-on round minimap (`minimap.ts`): the land drawn once, with live markers for bosses, nearby creatures, ready beds and other players, plus a facing arrow and a place caption; arrival flags (`place-flags.ts`) | **Yes, first** |
-| **Journal** | 1 page: chapters, crew, records ½ | Tabbed journal: **Explore** (story, bounties, challenges), **Grow** (daily, weekly, pass), **Collect** (achievements, collection), with red "to claim" badges (`journal-badges.ts`) | **Yes** |
-| **Goals** | One goal card ½ | Goal card **plus** a goals chip (worlds x/9, collection %, next unlock) (`goals.ts`, `goals-ui.ts`); a guided walk when you tap a quest (`quest-walk.ts`); first-30-minutes guidance with a pointer (`guide.ts`, `guide-ui.ts`) | **Yes** |
-| **Daily reasons to return** | ✗ | Welcome-back card with check-in rewards (`welcome-back.ts`); news inbox (`news-inbox.ts`); daily world boss | Yes |
-| **Fighting** | Ring, Spin, Hop; auto-ring ½ | Five-button fight (`five-rules.ts`: Attack, Jump, three specials Lob/Rush/Quake in `moves.ts`); power strike (`power-rules.ts`); skill upgrades (`skill-upgrades.ts`, `upgrade-bench.ts`); combo counter; target marker; hit reactions and creature weight; boss stagger and boss wear (`boss-stagger.ts`, `boss-wear.ts`); elite roles (`elite-roles.ts`) | Yes |
-| **Gear** | Mallet I–III, Coat I–III ½ | Many weapons with a second slot (`weapon-pair.ts`); forging +1…+10 (`weapon-forge.ts`); weapons that grow with use (`weapon-growth.ts`); trails; gear ceilings | Yes |
-| **Pets** | ✗ | Two pet slots, pet guard moves, Bond Surge (`pet-slots.ts`, `pet-guard.ts`, `pet-surge.ts`, `pet-card.ts`) | **Yes** |
-| **Friends** | Static jobs and chatter ½ | Friends who follow you, idle, rest, talk in bubbles (`friend-crew.ts`, `friend-idle.ts`, `friend-chat.ts`), grow up (`growth.ts`) and can be dressed (`friend-looks.ts`) | Yes |
-| **Helpers** | Pip picks fruit ½ | Bolt the garden robot: auto-plant, harvest, delivery (`helper.ts`, `auto-plant.ts`, `delivery.ts`) | Yes |
-| **Farm animals** | ✗ | Animal pen, produce, roaming animals, restock robot (`farm.ts`, `farm-roam.ts`, `farm-restock.ts`, `farm-view.ts`) | **Yes** (animals on Bao's back) |
-| **Home** | Fixed rooms and repairs ½ | Decorations you place, move and turn, with a see-through preview (`placement-ghost.ts`, `decor-move.ts`, `decorations-art.ts`); house activities in every room (`house-activities.ts`); mirror character builder and dyes (`look-shop.ts`, `dye-*.ts`); bag and chest slots with expansions (`storage-slots.ts`) | **Yes** |
-| **Crops** | 9 trees ½ | Many crops plus 8 slow fruit trees (8 h+) (`tree-crops.ts`); crop cards; garden-bed kits | Yes |
-| **Fishing** | Reel game ✓ (ported) | Plus harpoon fish hunting (`fish-hunting.ts`), a rare **Lake Guardian** (`lake-guardian.ts`), and mystery shadows | Partly |
-| **Travel** | Automatic voyages on a list map ½ | **Piloted flight** over a star map with launch and landing scenes (`space.ts`, `ship-sequence.ts`) | **Yes** (steer Bao) |
-| **Worlds** | 4 lands + 3 ships ½ | Nine worlds with biomes and dense instanced scenery (`biomes.ts`, `scatter.ts`, `cover-cards.ts`); breakable scenery (`breakables.ts`); swimming and jumping (`swim-rules.ts`, `jump-rules.ts`) | Partly |
-| **Modes** | Raids and boardings ½ | **Rescue Call**: tower-defence-style "hold the line" missions (`rescue-*.ts`); **Delvers' Vault**: a five-room daily dungeon (`dungeon-*.ts`); **Colossus**: a giant sleeping boss (`colossus-*.ts`); Titans; Flag Rush | Yes, adapted |
-| **Long-term** | ✗ | Achievements and collections, the **Village Almanac** with scores and charts (`insight-*.ts`), a leaderboard (`ranking.ts`), difficulty settings (`difficulty.ts`), three save profiles (`profiles.ts`), a save guard (`save-guard.ts`) | Yes |
-| **Feel and tech** | ½ | Camera rig (`camera-rig.ts`), fading tall scenery between camera and hero (`occluders.ts`), ink outlines (`outline.ts`), hit flash without material copies (`flash-materials.ts`), background shader warm-up (`safe-compile.ts`), the Interact-key pick rule (`interact-pick.ts`) | Yes, as needed |
-
-## 3. How each port is adapted to Cloudback
-
-Each item is copied in idea and code, then re-themed. It never copies Zoo Pet's content.
-
-| Zoo Garden | In Cloudback becomes |
+| Problem in version 1 | Fix |
 |---|---|
-| Starship flight | **Steering Bao** across the sky map: fly freely between lands; Gloom weather fronts and sky islets on the way. |
-| Planets x/9 goal | **Places x/8** (4 lands, 3 ships, the start) and sky islets found. |
-| Pets | **Sky pets**: a cloud puppy, a baby glowfish, a puffbun freed from the Gloom. They follow you on the deck and the lands, guard you and Bond-Surge on the third ring. |
-| Farm animals | Animals living on Bao's deck: sky hens (eggs), puffsheep (wool to Fibre), a honey-bee hive (honey). |
-| Decorations | Place lanterns, benches, flower pots, a swing and statues anywhere on the deck (and the extensions). The fixed keepsakes become placeable decorations. |
-| Bolt the robot | **Juno's little helper bot** (after Frostfall): plants and harvests while you are away on a land. |
-| Five-button fight | **Ring, Hop, plus three bell moves:** a thrown chime (Lob), a dash ring (Rush) and a ground gong (Quake). The power strike becomes the **Great Bell** (a full charge, then hold Ring). |
-| Weapons and forge | A family of **bell weapons** (mallet, chime staff, gong hammer, wind-bell bow), forged +1…+10 at Tam's anvil, growing brighter with use. |
-| Elite roles | Elite Gloom forms: a shielded **Warden**, a **Mender** that heals others, a **Caller** that summons Gloomlings. |
-| Rescue Call | **Deck Defence**: scheduled Gloom attacks on Bao in lanes, with crew posted at guard spots and gongs and posts as towers. |
-| Delvers' Vault | **The Deep Mist Vault**: five crystal rooms under the Grey Star, once per day after the ending. |
-| Colossus | **The Storm Leviathan**: a giant Gloom sky-beast that sleeps in the Storm Belt, a daily world boss. |
-| Lake Guardian | **The Cloud Koi Queen**: a rare glowing koi under the skiff's sea. |
-| Village Almanac | **Bao's Logbook**: how your ship and garden have grown, with scores and a product map. |
-| Leaderboard | A local best-records board (fastest Hive, biggest catch), with no server. |
+| **Pets from freed Gloom forms** contradicts the story: freed creatures return home (STORY.md, ch. 1–5). | Pets are **hatched or befriended**: a cloud-puppy egg from Nana's chest, a glowfish from the skiff, a puffbun that **asks** to stay after a land is freed. The freeing rule stays intact. |
+| **The always-on mini map on Bao's deck**: the deck is about 36 × 32 m even at the Grand Deck, all visible on screen. A mini map there is noise. | The mini map shows **only on lands and Gloom ships** (where you lose your way). On Bao, the same corner shows **Bao's heading and what lies below** (compass and next-place arrow). |
+| **The helper bot plants and harvests while you are away**: it removes the core garden verb. | Juno's bot **waters and gathers fallen fruit** (half yield, never planting), and only during voyages. Planting and the full harvest stay the player's. |
+| **Free steering of Bao** breaks the gated story order (Frostfall needs the Storm Coat, etc.). | Steer freely **inside the opened sky**; a gate is a weather wall with a shown reason ("Too cold: the Storm Coat"), never an invisible stop. Story voyages stay one tap away for players who don't want to steer. |
+| **A five-button fight on phones**, beside the stick, the Reel and the Pull buttons, breaks the 44 px / thumb-arc rule. | **Three buttons on phones** (Ring, Hop, Bell move: the third button changes with the equipped bell). On desktop, keys 1–3 swap moves. The charged Great Bell is "hold Ring", so it needs no button. |
+| **Bow combat from the scooter** on a phone means aiming while flying. | **Lock-on aim**: the nearest bug in front is targeted automatically; tap to shoot, drag to switch targets. |
+| **Daily tasks** make a story game feel like a chore list. | A **day cycle on Bao** (about 20 real minutes): dawn, day, dusk, night. Each day brings 3 small "sky requests" from the crew, and fresh islets drift by. Nothing is lost by skipping a day, so there are no streaks. |
+| **The goal ladder under each chapter** could block the story. | Ladder steps are **optional**, except the ones the story already needs. A chapter gift goes to completing 5 of 8 steps, not all 8. |
 
-## 4. The new story structure (the spine stays, the web grows)
+### 1c. The code: what a port really costs
 
-1. **Story chapters** (as now): the five chapters and their scenes.
-2. **Goal ladder per chapter** (from Zoo Garden's `STORY_STEPS`): 6–9 small steps under each chapter, with a gift at the end. For example, chapter 2:
-   1. Harvest 3 crops.
-   2. Ship 20 glimmer in the crate.
-   3. Build the side decks.
-   4. Cook 2 meals.
-   5. Catch 3 fish.
-   6. Reach Gardening level 3.
-   7. Place a decoration.
-   8. Adopt a sky pet.
+- **All 70 referenced Zoo Garden files exist** (checked 2026-10-16), from 9 lines (`tree-crops.ts`) to 603 (`farm-view.ts`).
+- **They depend on Zoo Garden's state shape.** A "port" means rewriting each one against Cloudback's `GameState`. The pure rules (`five-rules`, `power-rules`, `pet-surge`, `weapon-forge`, `goals`, `journal-badges`) port cleanly, with their tests. The views (`minimap`, `farm-view`, `friend-crew`) are about 50% rewrite. Version 1's estimates assumed copy-and-rename; real costs are about **1.5–2×**.
+- **`src/game.ts` is 1852 lines with 152 methods**, the only orchestrator. Adding six phases of systems to it would make it unmaintainable and slow to test. **A new Phase 0 splits it first.**
+- **Saves are at version 2** (`SAVE_VERSION`). Each phase adds fields; a chained migration per phase is needed, with a test that loads every earlier version.
+- **Budgets** (DESIGN §16): Bao ≤ 140 draw calls, ≤ 120k triangles, ≤ 3 MB before play. Pets, animals and decorations all add to Bao's deck. The budget must be measured before and after each phase (`smooth-dense-scenes/scripts/render-probe.mjs`), with instancing planned from the start.
+- **The story sim** (`tests/sim.ts`) only knows the main path. New loops change pacing, so the sim must learn each loop in the phase that adds it.
+- Audio exists (`src/core/audio.ts`, `src/sfx.ts`); every new verb needs its sound in the same phase, not later.
 
-   **Gift:** seeds, Sky Sparks and a decoration.
-3. **Bounties and challenges:** "Free 10 Gloomlings on Clover", "Land a Star Ray without the line straining".
-4. **Daily and weekly tasks:** three small tasks a day and a weekly chain, with a check-in card and rewards.
-5. **Collections:** a fish log, a Gloom-creature log (freed animals), seeds, decorations, and sky islets found.
-6. **Achievements:** milestones across every system.
-7. **After the ending:** the daily Deep Mist Vault, the Storm Leviathan, Deck Defence nights, and new sky islets.
+## 2. The AAA bar: what "done" means for every item
 
-Story text gets more side stories too. Each rescued friend gets a three-step personal quest:
-- Pip's lost seed pouch;
-- Mina's family recipe;
-- Ria's lighthouse lamp;
-- Tam's first anvil;
-- Juno's runaway bot.
+An item ships only when all of these hold. They come from the owner's art direction ("AAA" = the Mario Kart 8 bar: vivid warm colour, depth of story and logic) and the web-game-craft numbers.
 
-## 5. The plan, phase by phase
+| Area | Done means |
+|---|---|
+| **Feel** | Input answered on the same frame; a contact flash and a sound on the contact frame; hit-stop 40–120 ms; camera damped by rates; filmstrip proof. |
+| **Look** | Vivid warm palette; reads as silhouettes in the squint test; one landmark per area; no placeholder art. |
+| **Sound** | 3–5 variants per action, ±5% pitch, on the right bus. |
+| **UI** | Opens and closes with motion (150–250 ms); text ≥ 11 px; taps ≥ 44 px (action buttons ≥ 64); safe areas; keyboard and gamepad paths; English and Vietnamese. |
+| **Story** | At least one character line ties the system into the world. Nothing appears without a reason. |
+| **Teaching** | Introduced by doing, at the moment it's needed; there are no rule pages. |
+| **Speed** | Inside DESIGN §16 budgets, measured; no new shader compiles during play (warm-up). |
+| **Tests** | Rules unit tests; the story sim still finishes with no stuck runs; both browser suites pass on dev, the build and live. |
+| **Saves** | The migration is tested from every earlier version. |
 
-Each phase ships on its own: tests, both browser suites, the phone check (11 px text, 44 px taps), the speed budget and the deploy.
+## 3. The refined story structure
 
-### Phase 1: the menu shell, minimap and journal (biggest win for "too simple")
-- **Dock:** the right-edge menu column with Zoo Garden's SVG icon set (`hud-icons.ts`, `hud-layout.ts`). Buttons: Bag, Journal, Map, Crew, Logbook, News, Settings, Help. It folds on small phones.
-- **Panels:** docked to the side on desktop (`dialog-dock.ts`), grouped lists (`item-groups.ts`) and tab scroll cues (`tab-cues.ts`).
-- **Minimap:** round, always on (`minimap.ts`).
-  - On Bao: the deck oval with planters, fittings, crew and specks.
-  - On lands: the land drawn once, with Gloom groups, Spires, cages, the boss crown, the rope, the market and ore.
-  - On ships: the oval deck with its rail gaps and the captain.
+The five chapters stay the spine. Around them:
 
-  A caption shows the place name; tapping the minimap opens the sky map.
-- **Journal tabs:** Explore (story, bounties), Grow (daily, weekly), Collect (achievements, collections), with "to claim" badges (`journal-badges.ts`).
-- **Goals chip and guided walk:** places x/8, collection %, next unlock (`goals.ts`). Tapping the goal card walks you to it (`quest-walk.ts`).
-- **First-run guidance:** a pulsing pointer to the next thing (`guide.ts`, `guide-ui.ts`).
-- **Effort:** about 2–3 days.
+1. **Chapter ladders:** 8 optional steps under each chapter. The gift goes to 5 of 8, and every step teaches a system (seeded from Zoo Garden's `STORY_STEPS` and `story-gifts.ts`).
+2. **Friend quests:** three steps per rescued friend, each ending in a **scene** (camera, lines, a gift that changes the deck):
+   - **Pip:** the lost seed pouch, which unlocks the Blossom Tree.
+   - **Mina:** the family recipe, a new dish that heals and boosts.
+   - **Ria:** the lighthouse lamp, which lights the deck at night.
+   - **Tam:** the first anvil, which unlocks bell tier 2.
+   - **Juno:** the runaway bot, which unlocks the helper bot.
+3. **The day cycle:** 3 sky requests a day, fresh islets, and night events (Deck Defence nights after chapter 3).
+4. **Collections** (the Collect tab): fish, freed creatures (where they went home), seeds, decorations, islets and keepsakes. Each completed page gives a decoration.
+5. **After the ending:** the Deep Mist Vault, the Storm Leviathan, Deck Defence nights and the last islets. Plus a **postgame letter chain** from Bao's pod, so the world keeps talking.
 
-### Phase 2: long-term loops
-- The goal ladder under each chapter, with chapter gifts (`STORY_STEPS` pattern, `story-gifts.ts`, `story-catchup.ts`).
-- Daily and weekly tasks, and the welcome-back check-in card (`welcome-back.ts`); the news inbox (`news-inbox.ts`).
-- Achievements and collections: the fish log, the freed-creature log, seeds and decorations.
-- The difficulty setting and three save profiles (`difficulty.ts`, `profiles.ts`); the save guard.
-- **Effort:** about 2 days.
+## 4. The plan, phase by phase
 
-### Phase 3: life on Bao (pets, animals, decorations)
-- Two sky-pet slots with guard moves and Bond Surge (`pet-slots.ts`, `pet-guard.ts`, `pet-surge.ts`). Pets come from freed Gloom forms and markets.
-- A deck animal pen: sky hens, puffsheep and a bee hive, roaming the deck (`farm.ts`, `farm-roam.ts`).
-- Decorations: place, move and turn them on the deck, with a preview ghost (`placement-ghost.ts`, `decor-move.ts`). The keepsakes become decorations; there is a decoration shop.
-- Bigger bag and chest with slot expansions (`storage-slots.ts`).
-- Juno's helper bot: auto-plant and harvest while you are away (`helper.ts`, `auto-plant.ts`, `delivery.ts`).
-- **Effort:** about 3 days, with art (pets, animals, decorations) from the Blender kit.
+Each phase ships on its own and must meet section 2. Effort is in focused days, including art, sound, tests and the deploy.
 
-### Phase 4: a richer fight
-- Five-button fight: Ring, Hop and three bell moves, plus the Great Bell power strike (`five-rules.ts`, `moves.ts`, `power-rules.ts`).
-- Skill upgrades at Tam's bench (`skill-upgrades.ts`, `upgrade-bench.ts`).
-- Bell weapons with forging, growth and trails (`weapon-forge.ts`, `weapon-growth.ts`, `weapon-trail.ts`).
-- Elite Gloom roles (`elite-roles.ts`); boss stagger and wear (`boss-stagger.ts`, `boss-wear.ts`); a combo counter, a target ring, hit reactions and drops.
-- **Effort:** about 3–4 days. The story simulation is re-balanced afterwards.
+### Phase 0: foundations (new; 2–3 days)
+- **Split `game.ts`** into systems (`deck`, `isle`, `ship`, `skiff`, `drone`, `raid`, `camera`, `story`), each with `enter`, `update` and `exit`, sharing one event bus (`harvested`, `freed`, `caught`, `built`…). Ladders, collections and achievements listen to the bus instead of being called from everywhere.
+- **Save migration chain:** v2 → v3 → …, with a fixture save per version in `tests/saves/`.
+- **A budget probe** in the browser suite: draw calls and triangles on Bao, a land and a ship, failing above DESIGN §16.
+- **UI shell:** one panel component (open and close motion, focus trap, gamepad and keyboard navigation, back button). This is a port of the ideas in `dialog-dock.ts`, `tab-cues.ts` and `item-groups.ts`.
+- **The Interact pick rule** (`interact-pick.ts`): the nearest thing in front of the player wins, which fixes the planter box that steals the hatch.
+- **Acceptance:** everything plays the same as today (the suites pass unchanged); `game.ts` is under 600 lines.
 
-### Phase 5: the open sky
-- **Steering Bao on the sky map** (`space.ts`, `ship-sequence.ts`): Bao flies where you steer, with gates as walls of weather. Departure and arrival scenes.
-- **Sky islets** reached by the Sky Scooter (the owner's idea):
-  - small green floating islands with Zoo Garden's trees (`tree_round`, `tree_blossom`, `cloudtree`);
-  - bees and sky bugs to shoot with a wind-bell bow from the scooter;
-  - rewards: new seeds, Sky Sparks and decorations.
-- Dense scenery from Zoo Garden's biome kits on the lands (`biomes.ts`, `scatter.ts`, `cover-cards.ts`), and breakable scenery on Frostfall (`breakables.ts`).
-- Harpoon fish hunting from the skiff and the Cloud Koi Queen (`fish-hunting.ts`, `lake-guardian.ts`).
-- **Effort:** about 4 days.
+### Phase 1: the menus, map and journal (4–5 days)
+- **Dock:** a right-edge menu column with SVG icons (`hud-icons.ts`, `hud-layout.ts`): Bag, Journal, Sky Map, Crew, Logbook, Settings. On phones it folds into one button. Red badges come from `journal-badges.ts`.
+- **Map, by place:**
+  - **On lands and ships:** a round mini map (`minimap.ts` method: terrain drawn once, markers redrawn every 0.2 s). It shows Gloom groups, Spires, cages, the boss crown, the rope home, the market and ore, plus the facing arrow. A caption and an arrival flag show when you land (`place-flags.ts`).
+  - **On Bao:** a compass ribbon with Bao's heading, the next-goal arrow and "Below: forest / sea / clouds".
+  - **Full map:** tapping either opens the Sky Map.
+- **Journal:** three tabs.
+  - **Story:** chapters, the ladder and friend quests.
+  - **Sky:** today's requests and bounties.
+  - **Collect:** collections and achievements.
+- **Goal card and guided walk:** tapping the goal shows a trail of dust motes to it (`quest-walk.ts`, `guide.ts`). Pointers show only in the first 30 minutes, or after 60 s with no progress.
+- **Acceptance:**
+  - a new player finds every next goal without help: the playtest bot uses only the trail;
+  - panels pass the 11/44 audit on a 360 × 740 phone;
+  - the journal has full Vietnamese.
 
-### Phase 6: modes for after the story
-- **Deck Defence** (Rescue Call: `rescue-*.ts`): lanes, guard posts and waves on Bao at night.
-- **The Deep Mist Vault** (Delvers' Vault: `dungeon-*.ts`): five rooms, once a day.
-- **The Storm Leviathan** (Colossus: `colossus-*.ts`): a daily giant boss.
-- **Bao's Logbook** (Almanac: `insight-*.ts`) and a local records board (`ranking-logic.ts`).
-- **Effort:** about 4–5 days.
+### Phase 2: ladders, friend quests, collections and the day cycle (4–5 days)
+- **Chapter ladders and gifts** (`story-gifts.ts`, `story-catchup.ts`, so old saves get the gifts they have earned).
+- **The five friend quests**, with their scenes.
+- **The day cycle:** the lighting changes over the day; there are 3 sky requests a day; nothing is lost by skipping.
+- **Collections and achievements** (`goals.ts`, `goals-ui.ts`), driven by the event bus.
+- **Difficulty:** Gentle, Normal and Brave (`difficulty.ts`). Brave raises Gloom health and raid pressure; Gentle widens the reel's safe zone.
+- **Sim acceptance:**
+  - the attentive path still finishes in 45–60 minutes;
+  - a player doing ladders and quests reaches 2–3 hours of story;
+  - no run gets stuck.
 
-### Phase 7: feel and speed (alongside every phase)
-- Camera rig, fading tall scenery between camera and hero, ink outlines, flash materials and background shader warm-up (`camera-rig.ts`, `occluders.ts`, `outline.ts`, `flash-materials.ts`, `safe-compile.ts`).
-- The Interact pick rule, which also fixes the "planter box steals the hatch" case (`interact-pick.ts`).
+### Phase 3: life on Bao (5–6 days, with art)
+- **Sky pets:**
+  - two slots (`pet-slots.ts`) and guard moves (`pet-guard.ts`);
+  - **Bond Surge** on the third ring (`pet-surge.ts`);
+  - three pets to start: the cloud pup, the glowfish and the puffbun;
+  - each pet has idle play on the deck: it sleeps in the sun, chases specks and greets you after a voyage.
+- **Deck animals:**
+  - sky hens give eggs and puffsheep give wool (Fibre); a bee box gives honey and keeps the trees' Sky Spark rate up;
+  - they roam the deck with `farm-roam.ts` rules and are instanced (`farm-view.ts` method).
+- **Decorations:**
+  - place, move and turn them with a ghost preview (`placement-ghost.ts`, `decor-move.ts`), snapped to the planks;
+  - 20 to start, half of them earned through collections and quests;
+  - **decorations have uses:** lanterns light the night, benches seat the crew, and a wind chime slows Gloom on the deck during raids.
+- **Juno's helper bot** (reduced scope; see 1b).
+- **Bigger bag and chest** (`storage-slots.ts`).
+- **Budget acceptance:** Bao with 2 pets, 6 animals and 20 decorations stays ≤ 140 draw calls.
+
+### Phase 4: song combat (5–7 days)
+- **Three phone buttons and five moves.**
+  - **Ring:** a chain of 3 hits. **Hold Ring** charges the **Great Bell** (the power-strike rules in `power-rules.ts`).
+  - **Hop:** a jump and dodge with 0.1 s of coyote time.
+  - **The bell button** depends on the equipped bell (`moves.ts` patterns):
+    - the chime staff throws a chime (Lob);
+    - the gong hammer strikes a ground gong (Quake);
+    - the wind-bell bow shoots (Rush becomes a dash shot).
+- **Rhythm layer, unique to Cloudback:** hits **on the music's beat** (a ±90 ms window) ring brighter and free Gloom faster. This is shown by a soft pulse on the Ring button. It is never required, but it is the mastery path.
+- **Gear:**
+  - three bells, each with three tiers at Tam's anvil (`weapon-forge.ts`, reduced);
+  - each tier changes the look: the brass brightens, then gets a ribbon, then a glow;
+  - a ring trail that is visible when you ring (`weapon-trail.ts`).
+- **Gloom variety:**
+  - elite forms: Warden (shield), Mender (heals others) and Caller (summons) (`elite-roles.ts`);
+  - bosses stagger and visibly crack (`boss-stagger.ts`, `boss-wear.ts`).
+- **Feedback:** hit-stop, flash (`flash-materials.ts`), a directional kick, a combo count and a target ring.
+- **Acceptance:** filmstrip proof for response under 100 ms; telegraphs of at least 0.25 s; the sim re-balanced; boss fights 60–120 s.
+
+### Phase 5: the open sky (6–8 days)
+- **Steer Bao** on the Sky Map inside the opened sky (`space.ts` and `ship-sequence.ts` methods):
+  - weather walls give their reasons;
+  - departure and arrival scenes;
+  - one-tap story voyages remain.
+- **Sky islets** (the owner's idea):
+  - 8 hand-made islets plus drifting daily ones, reached by the scooter's tether;
+  - Zoo Garden's tree kits (`tree_round`, `tree_blossom`, `cloudtree`), re-tinted to Cloudback's palette;
+  - bugs and bees to free with the wind-bell bow, using lock-on aim;
+  - rewards: **new seeds** (each islet's own tree), sparks and decorations;
+  - one landmark per islet.
+- **Denser lands:** biome scatter, instanced (`biomes.ts`, `scatter.ts`, `cover-cards.ts`); breakable ice on Frostfall (`breakables.ts`).
+- **The Cloud Koi Queen:** a rare reel fight under the skiff (`lake-guardian.ts`).
+- **Acceptance:** an islet is in view at least every 60 s of free flight; lands stay ≤ 200 draw calls.
+
+### Phase 6: after the story (5–6 days)
+- **Deck Defence nights** (from Rescue Call, `rescue-*.ts`, merged with the existing raids): lanes, crew at guard posts, and decorations as defences.
+- **The Deep Mist Vault** (from Delvers' Vault, `dungeon-*.ts`): five crystal rooms. A new layout each day (seeded); best time recorded.
+- **The Storm Leviathan** (from Colossus, `colossus-*.ts`): a sleeping sky giant in the Storm Belt, woken once a day.
+- **Bao's Logbook** (from the Almanac, `insight-*.ts`): Bao's growth, harvests, catches, personal bests and the pod's letters.
+
+### Phase 7: feel, look and speed (with every phase)
+- Camera rig (`camera-rig.ts`), fading tall scenery between camera and hero (`occluders.ts`), ink outlines (`outline.ts`), background shader warm-up (`safe-compile.ts`).
+- One **polish pass at the end of each phase** against section 2, with screenshots on a phone and desktop that were actually opened.
+
+## 5. Mapping table (Zoo Garden → Cloudback)
+
+| Zoo Garden | Cloudback | Phase |
+|---|---|---|
+| `dialog-dock`, `tab-cues`, `item-groups` | Panel shell | 0 |
+| `interact-pick` | Interact pick | 0 |
+| `hud-icons`, `hud-layout`, `journal-badges` | Dock and badges | 1 |
+| `minimap`, `place-flags` | Land and ship map, arrival flags | 1 |
+| `quest-walk`, `guide`, `guide-ui` | Goal trail, first-30-minutes pointers | 1 |
+| `STORY_STEPS`, `story-gifts`, `story-catchup` | Chapter ladders | 2 |
+| `goals`, `goals-ui` | Collections and achievements | 2 |
+| `difficulty` | Gentle, Normal, Brave | 2 |
+| `pet-slots`, `pet-guard`, `pet-surge`, `pet-card` | Sky pets | 3 |
+| `farm`, `farm-roam`, `farm-view` | Deck animals | 3 |
+| `placement-ghost`, `decor-move`, `decorations-art` | Decorations | 3 |
+| `helper` (reduced) | Juno's bot | 3 |
+| `storage-slots` | Bag and chest | 3 |
+| `five-rules`, `moves`, `power-rules` | Ring, Hop, bell moves, Great Bell | 4 |
+| `weapon-forge` (3 tiers), `weapon-trail` | Bells | 4 |
+| `elite-roles`, `boss-stagger`, `boss-wear` | Elite Gloom, boss cracks | 4 |
+| `space`, `ship-sequence` | Steering Bao | 5 |
+| `biomes`, `scatter`, `cover-cards`, `breakables` | Islets and dense lands | 5 |
+| `lake-guardian` | Cloud Koi Queen | 5 |
+| `rescue-*` | Deck Defence | 6 |
+| `dungeon-*` | Deep Mist Vault | 6 |
+| `colossus-*` | Storm Leviathan | 6 |
+| `insight-*` | Logbook | 6 |
+| `camera-rig`, `occluders`, `outline`, `flash-materials`, `safe-compile` | Feel and speed | 7 |
 
 ## 6. Rules for every port
 
-1. **Attribution:** port the owner's code with a header note naming the Zoo Garden file; re-theme its names and content. Zoo Pet content is never copied.
-2. **Rules stay pure:** new rules go in `src/rules/` with Node tests. The whole-story simulation (`tests/sim.ts`) learns each new loop, so pacing stays checked.
-3. **Translations:** every new string goes through `t()` with Vietnamese in `src/vi.ts` (the i18n test gates it).
-4. **Speed:** no draw-call or triangle growth on Bao's deck beyond the budgets (design §16); new art is instanced or merged; the packed download stays under 3 MB, with late art loaded on demand.
-5. **Phones:** text at least 11 px, taps at least 44 px, safe areas respected; the dock folds on small screens.
-6. **Saves:** the save version goes up per phase, with a migration; old saves keep everything.
+1. **Attribution:** a header note naming the Zoo Garden file; names and content re-themed. Zoo Pet content is never copied.
+2. **Pure rules** in `src/rules/` with Node tests; views only display state. New systems talk through the event bus.
+3. **The story sim** learns each new loop in the same phase; pacing targets are in each phase's acceptance.
+4. **Translations:** every string goes through `t()`, with Vietnamese in `src/vi.ts`.
+5. **Budgets** measured before and after (draw calls, triangles, download size, frame time on a mid phone).
+6. **Saves:** one migration per phase, with a fixture test.
+7. **Section 2 is the bar.** A phase is not done until every item in it meets it.
 
-## 7. Suggested order
+## 7. Risks
 
-1. **Phase 1** (menus, minimap, journal): the quickest visible jump in quality.
-2. **Phase 2** (goal ladder and daily loops): gives everything else a reason.
-3. **Phase 3** (pets, animals, decorations) and **Phase 5's sky islets**, which build on the scooter and the owner's ideas.
-4. **Phase 4** (fight), then **Phase 6** (modes); **Phase 7** throughout.
+| Risk | Mitigation |
+|---|---|
+| Scope creep: 40+ days of work | Phases ship alone; the pillar test cuts anything off-pillar. |
+| Bao's deck over budget with pets, animals and decorations | Instancing from the start; a decoration cap per deck tier; the budget probe fails the build. |
+| Ports drag in Zoo Garden's assumptions | Port rules plus tests first; rewrite views against Cloudback's state. |
+| Pacing breaks | The sim gates every phase. |
+| Phone controls overcrowd | Three-button rule; the dock folds; the 11/44 audit in the suite. |
 
-Total: roughly 3 weeks of work in seven shippable steps. The owner picks the order; each phase can start on its own.
+## 8. Order and effort
+
+| Phase | Days |
+|---|---|
+| 0: foundations | 2–3 |
+| 1: menus, map, journal | 4–5 |
+| 2: ladders, quests, day cycle | 4–5 |
+| 3: life on Bao | 5–6 |
+| 4: song combat | 5–7 |
+| 5: open sky | 6–8 |
+| 6: after the story | 5–6 |
+| 7: feel and speed | with each phase |
+| **Total** | **31–40 days** (about 6–8 weeks) |
+
+**Recommended start:** Phase 0, then Phase 1. These give the quickest visible jump in quality, and everything later depends on the event bus and the panel shell.
