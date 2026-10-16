@@ -5,10 +5,10 @@
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { CREW, FORMS, HIVES, ITEMS, MARKETS, PLACES, RECIPES, STAGES, TREES, moodLabel } from '../src/rules/content.ts';
+import { CREW, FORMS, HELPERS, HIVES, ITEMS, MARKETS, PLACES, RECIPES, ROOMS, SKILL_NAMES, STAGES, TREES, UPGRADES, moodLabel } from '../src/rules/content.ts';
 import { CHATTER, PROLOGUE, SCENES } from '../src/dialogue.ts';
-import { noteName } from '../src/rules/story.ts';
-import { GATE_WHY } from '../src/rules/voyage.ts';
+import { NOTE_NAMES } from '../src/rules/story.ts';
+import { FLEET_WHY, GATE_WHY } from '../src/rules/voyage.ts';
 
 const ROOT = new URL('../src/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 function files(dir: string): string[] {
@@ -42,7 +42,14 @@ export function visibleStrings() {
   for (const d of Object.values(FORMS)) add(d.name);
   for (const d of Object.values(MARKETS)) add(d!.name);
   for (const m of [90, 60, 30, 10]) add(moodLabel(m));
-  for (const n of ['clover', 'reef', 'ember'] as const) add(noteName(n));
+  for (const n of Object.values(NOTE_NAMES)) add(n);
+  for (const d of Object.values(ROOMS)) { add(d.name); add(d.job); }
+  for (const d of Object.values(SKILL_NAMES)) add(d);
+  for (const d of Object.values(HELPERS)) add(d.perk);
+  for (const d of Object.values(UPGRADES)) { add(d.name); add(d.effect); }
+  for (const why of Object.values(FLEET_WHY)) add(why);
+  // Boss states and reasons passed around as plain strings (hive.ts status(), trade.ts cookBlock()).
+  for (const s of ['Shielded', 'Cracked! Strike!', 'Silent: ring the echo bells', 'Dizzy! Strike!', 'Ring its glowing knots', 'Stuck! Strike!', 'Bao sings! Strike!', 'Open! Strike!', 'Repair the kitchen first', 'Mina will teach you this one', 'Missing ingredients', 'Repair the craft room first', 'A backfolk family']) add(s);
   for (const kind of ['Whale food', 'People food', 'Craft', 'Fish', 'Meals', 'Seeds']) add(kind);
   for (const who of ['Bao', 'The Gloom', 'You']) add(who);
   for (const why of Object.values(GATE_WHY)) add(why);
@@ -52,6 +59,6 @@ export function visibleStrings() {
   for (const lines of Object.values(SCENES)) for (const l of lines) add(l.text);
   for (const lines of Object.values(CHATTER)) for (const l of lines) add(l);
   // Not words: the names that stay the same in both languages are allowed to be missing.
-  for (const same of ['Bao', 'Pip', 'Mina', 'Tam', 'Ria', 'English', 'Tiếng Việt', 'Cloudback']) out.delete(same);
+  for (const same of ['Bao', 'Pip', 'Mina', 'Tam', 'Ria', 'Juno', 'Bram', 'English', 'Tiếng Việt', 'Cloudback']) out.delete(same);
   return [...out].sort();
 }

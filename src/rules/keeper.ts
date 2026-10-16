@@ -1,5 +1,6 @@
-import { BUFF, COAT, ITEMS, KEEPER, LEVEL_XP, MALLET, MAX_LEVEL, type ItemId } from './content.ts';
+import { BUFF, COAT, HOME, ITEMS, KEEPER, LEVEL_XP, MALLET, MAX_LEVEL, type ItemId } from './content.ts';
 import { count, take, type GameState } from './state.ts';
+import { perks } from './home.ts';
 import type { Result } from './garden.ts';
 
 const no = (why: string) => ({ ok: false as const, why });
@@ -16,8 +17,10 @@ export const prevLevelXp = (level: number) => level <= 1 ? 0 : LEVEL_XP[level - 
 
 export const maxHp = (s: GameState) => KEEPER.baseHp + KEEPER.hpPerLevel * (s.hero.level - 1) + COAT[s.gear.coat - 1];
 export const buffOn = (s: GameState, kind: 'power' | 'guard') => s.hero.buff === kind && s.playSeconds < s.hero.buffUntil;
+/** The bath's Fresh buff (a bath after a nap, with the bathroom repaired). */
+export const freshOn = (s: GameState) => s.playSeconds < (s.hero.freshUntil ?? 0);
 /** Damage of one basic ring. */
-export const ringDamage = (s: GameState) => (KEEPER.baseDamage + KEEPER.damagePerLevel * (s.hero.level - 1)) * MALLET[s.gear.mallet - 1] * (buffOn(s, 'power') ? BUFF.power : 1);
+export const ringDamage = (s: GameState) => (KEEPER.baseDamage + KEEPER.damagePerLevel * (s.hero.level - 1)) * MALLET[s.gear.mallet - 1] * (buffOn(s, 'power') ? BUFF.power : 1) * (freshOn(s) ? HOME.fresh.power : 1);
 /** Damage the Keeper takes from a blow of `raw`. */
 export const damageTaken = (s: GameState, raw: number) => Math.max(1, Math.round(raw * (buffOn(s, 'guard') ? BUFF.guard : 1)));
 
@@ -43,13 +46,14 @@ export function eat(s: GameState, item: ItemId): Result<{ heal: number }> {
   if (!e) return no('You cannot eat that');
   if (!take(s, item)) return no('You have none');
   const before = s.hero.hp;
-  heal(s, e.heal);
+  // Cooking: meals heal more at each Cooking level.
+  heal(s, Math.round(e.heal * (ITEMS[item].kind === 'meal' ? perks(s).mealHeal : 1)));
   if (e.buff) { s.hero.buff = e.buff; s.hero.buffUntil = s.playSeconds + BUFF.seconds; }
   return { ok: true, heal: s.hero.hp - before };
 }
 
 /** Quick Eat picks the smallest food that covers the missing health (so a buff meal is not wasted on a scratch), else the biggest. */
-export const QUICK_EAT: ItemId[] = ['cloudpear', 'honeybun', 'sky_stew', 'fish_bun', 'pear_tart'];
+export const QUICK_EAT: ItemId[] = ['cloudpear', 'honeybun', 'sky_stew', 'cocoa', 'fish_bun', 'pear_tart'];
 export function quickEatItem(s: GameState) {
   const have = QUICK_EAT.filter(id => count(s, id) > 0).sort((a, b) => ITEMS[a].eat!.heal - ITEMS[b].eat!.heal);
   if (!have.length) return null;

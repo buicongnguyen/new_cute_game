@@ -56,9 +56,11 @@ export class ActionMap<A extends string> {
   attach(target: Pick<Window, 'addEventListener' | 'removeEventListener'> & { document?: Document }) {
     const onKey = (e: KeyboardEvent) => {
       const action = this.byCode.get(e.code); if (!action) return;
-      // A focused button or field keeps its keys (Enter/Space on Play, typing a save code).
+      // A focused field keeps every key (typing a save code); a focused button keeps only the keys that press it
+      // (Enter/Space on Play), so the game's other keys still work after a HUD button was clicked.
       const el = (e.target as Element | null);
-      if (el && typeof el.closest === 'function' && el.closest('button, input, textarea, select, [contenteditable]')) return;
+      if (el && typeof el.closest === 'function' && el.closest('input, textarea, select, [contenteditable]')) return;
+      if (el && typeof el.closest === 'function' && el.closest('button') && (e.code === 'Enter' || e.code === 'Space' || e.code === 'NumpadEnter')) return;
       if (e.type === 'keydown') { if (!e.repeat) this.press(action); if (!this._blocked) e.preventDefault(); }
       else this.release(action);
     };

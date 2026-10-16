@@ -21,12 +21,13 @@ import style  # noqa: E402
 from kit_cast import MODELS, PREVIEWS, args, camera, label, setup_render  # noqa: E402
 
 PERSON = ['body', 'head', 'arm_l', 'arm_r', 'leg_l', 'leg_r']
-CREW = ['nana', 'pip', 'olla', 'kai', 'mina', 'coal', 'tam', 'ria']
+CREW = ['nana', 'pip', 'olla', 'kai', 'mina', 'coal', 'tam', 'ria', 'juno', 'bram']
+FOLK = ['folk_a', 'folk_b']
 EXPECT = {
     'whale.glb': {'whale': (14000, {'body': None, 'tail': None, 'fin_l': None, 'fin_r': None, 'eye_l': None,
                                     'eye_r': None, 'mouth': None, 'blowhole': None, 'tailtip': 'tail'})},
     'keeper.glb': {'keeper': (3000, dict({p: None for p in PERSON}, mallet='arm_r'))},
-    'crew.glb': {n: (2500, {p: None for p in PERSON}) for n in CREW},
+    'crew.glb': dict({n: (2500, {p: None for p in PERSON}) for n in CREW}, **{n: (2000, {p: None for p in PERSON}) for n in FOLK}),
     'gloom.glb': dict(
         {n: (1500, {'shell': None, 'eye': None}) for n in ('gloomling', 'spitter', 'brute')},
         flyer=(1500, {'shell': None, 'eye': None, 'wing_l': None, 'wing_r': None}),
@@ -34,14 +35,23 @@ EXPECT = {
         puffbun=(1500, {'body': None}), hopfrog=(1500, {'body': None}), rockgoat=(1500, {'body': None}),
         skylark=(1500, {'body': None, 'wing_l': None, 'wing_r': None}),
         cage=(900, {'shell': None}),
-        gloom_ship=(4000, {'shell': None, 'eye': None, 'sail': None}),
-        plank=(300, {'body': None})),
+        plank=(300, {'body': None}),
+        shellback=(1500, {'shell': None, 'eye': None}),
+        puffcap=(1200, {'shell': None, 'cap': None, 'eye': None}),
+        pebbleturtle=(1500, {'body': None}), mushpup=(1500, {'body': None}),
+        gloom_beast=(7000, {'crust': None, 'body': None, 'eye_l': None, 'eye_r': None, 'tail': None, 'fin_l': None, 'fin_r': None}),
+        gloom_raider=(3000, {'crust': None, 'body': None, 'eye': None, 'fin_l': None, 'fin_r': None, 'tail': None})),
     'hives.glb': dict(
         thornhive=(6000, {'shell': None, 'eye': None}),
         clamhive=(6000, {'shell_top': None, 'shell_bottom': None, 'pearl': None}),
         forgehive=(6000, {'body': None, 'head': None, 'arm_l': None, 'arm_r': None}),
         greyheart=(6000, dict({'core': None, 'shell': None}, **{f'shard_{i}': None for i in range(6)})),
-        note=(6000, {})),
+        note=(6000, {}),
+        hushbell=(5000, {'arch': None, 'ice': None, 'bell': None, 'clapper': 'bell'}),
+        echo_bell=(600, {'post': None, 'bell': None}),
+        captain_barnacle=(5000, {'body': None, 'eye': None, 'hat': None, 'claw_l': None, 'claw_r': None,
+                                 'anchor': 'claw_r'}),
+        coilwyrm=(5000, {'coil': None, 'head': None, 'knot_0': None, 'knot_1': None, 'knot_2': None})),
 }
 SIZE = {  # root: (axis index, lo, hi) in glTF metres
     'whale': [(2, 21.0, 23.5), (0, 8.8, 16.0)], 'keeper': [(1, 1.05, 1.2)],
@@ -50,11 +60,15 @@ SIZE = {  # root: (axis index, lo, hi) in glTF metres
     'rockgoat': [(1, 0.85, 1.0)], 'skylark': [(2, 0.35, 0.55)], 'cage': [(1, 1.95, 2.05), (0, 1.35, 1.5)],
     'thornhive': [(1, 4.8, 5.3)], 'clamhive': [(0, 4.8, 5.3)], 'forgehive': [(1, 4.8, 5.2)],
     'greyheart': [(1, 5.4, 6.4)], 'note': [(1, 0.55, 0.65)],
-    'gloom_ship': [(2, 6.8, 7.8), (0, 2.9, 4.0)], 'plank': [(2, 3.2, 3.5), (0, 0.78, 1.05)],
+    'plank': [(2, 3.2, 3.5), (0, 0.78, 1.05)],
+    'shellback': [(2, 1.0, 1.45)], 'puffcap': [(1, 0.85, 1.05)], 'pebbleturtle': [(0, 0.4, 0.7)],
+    'mushpup': [(1, 0.5, 0.7)], 'gloom_beast': [(2, 28.0, 34.0)], 'gloom_raider': [(2, 6.8, 8.2)],
+    'hushbell': [(1, 6.5, 7.5)], 'echo_bell': [(1, 1.55, 1.7)], 'captain_barnacle': [(1, 2.6, 3.2)],
+    'coilwyrm': [(1, 3.2, 3.9), (0, 3.8, 4.8)], 'folk_a': [(1, 1.0, 1.2)], 'folk_b': [(1, 0.7, 0.8)],
 }
 for n in CREW:
     SIZE[n] = [(1, 0.95, 1.2)]
-TOTAL_LIMIT = 1_450_000
+TOTAL_LIMIT = 1_900_000
 FAIL = []
 
 
@@ -214,6 +228,20 @@ def top_check(objs, root, part, xs, zs, want=0.0, tol=0.012):
         fail(f'{root}/{part} top is not at y = {want}: {lo}..{hi}')
 
 
+def rail_gaps(objs):
+    """The galleon's side rails: present at z = -3 and 3, open in the 2 m gaps at z = -6, 0 and 6 (both sides)."""
+    o = find(objs, 'gloom_beast', 'body')
+    inv = o.matrix_world.inverted()
+    for z, x, rail in ((-6.0, 3.85, False), (0.0, 3.85, False), (6.0, 3.85, False), (-5.0, 3.85, True), (1.0, 3.85, True), (5.0, 3.85, True)):
+        for side in (1, -1):
+            ok, loc, _, _ = o.ray_cast(inv @ Vector((side * x, -z, 30.0)), (inv.to_3x3() @ Vector((0, 0, -1))).normalized())
+            y = (o.matrix_world @ loc).z if ok else None
+            got = y is not None and y > 0.3
+            print(f'   rail at z {z:+.0f} side {side:+d}: top {y:.3f} -> {"rail" if got else "open"}')
+            if y is None or got != rail:
+                fail(f'gloom_beast rail check at z {z}, side {side}: top {y}, want {"rail" if rail else "gap"}')
+
+
 def pose(o, rx=0.0, ry=0.0, rz=0.0, sy=None):
     """Rotate a node by glTF Euler angles (glTF X = Blender X, glTF Y = Blender Z, glTF Z = Blender -Y)."""
     o.rotation_mode = 'XYZ'
@@ -291,8 +319,11 @@ def main():
         imported[f] = objs
         print(f'   imported {f}: {len(objs)} objects')
     deck_check(imported['whale.glb'])
-    top_check(imported['gloom.glb'], 'gloom_ship', 'shell', (-0.8, -0.3, 0.3, 0.8), (-2.0, -1.0, 1.0, 2.0))
+    top_check(imported['gloom.glb'], 'gloom_raider', 'body', (-1.2, -0.3, 0.6), (-1.5, 0.2, 1.4), tol=0.02)
     top_check(imported['gloom.glb'], 'plank', 'body', (-0.3, -0.05, 0.2), (0.6, 1.6, 2.4))
+    top_check(imported['gloom.glb'], 'gloom_beast', 'body', (-3.25, -1.75, 0.25, 1.75, 3.25), (-7.0, -5.5, -3.0, -0.5, 1.0, 3.0, 6.0),
+              tol=0.02)   # the plank seams are 1.5 cm deep
+    rail_gaps(imported['gloom.glb'])
     if '--render' in args():
         pose_render(imported)
     print('RESULT', 'FAIL' if FAIL else 'OK', len(FAIL))

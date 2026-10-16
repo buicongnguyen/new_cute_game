@@ -3,22 +3,29 @@
  * Names are English source strings: the UI passes them through t() (src/i18n.ts), which looks up the Vietnamese pack.
  */
 
-export type PlaceId = 'dawnreach' | 'clover' | 'reef' | 'ember' | 'star';
-export type IsleId = Exclude<PlaceId, 'dawnreach'>;
-/** The three isles that hold a Note (the Star holds the Heart). */
-export type NoteIsle = 'clover' | 'reef' | 'ember';
-export const NOTE_ISLES: readonly NoteIsle[] = ['clover', 'reef', 'ember'];
+/** Story v2 (the owner's five chapters): four lands with a Note each, then the Gloom's three ships. */
+export type LandId = 'clover' | 'reef' | 'ember' | 'frost';
+export type ShipId = 'sloop' | 'warship' | 'star';
+export type IsleId = LandId | ShipId;
+export type PlaceId = 'dawnreach' | IsleId;
+/** The four lands that hold a Note. */
+export type NoteIsle = LandId;
+export const NOTE_ISLES: readonly NoteIsle[] = ['clover', 'reef', 'ember', 'frost'];
+export const LANDS: readonly LandId[] = NOTE_ISLES;
+export const SHIPS: readonly ShipId[] = ['sloop', 'warship', 'star'];
+export const isShip = (id: string): id is ShipId => (SHIPS as readonly string[]).includes(id);
+export const isLand = (id: string): id is LandId => (LANDS as readonly string[]).includes(id);
 export type Stage = 0 | 1 | 2 | 3;
 export type TreeId = 'puffberry' | 'ropevine' | 'cloudpear' | 'chimewood' | 'honeybun' | 'glowplum' | 'starfig' | 'golden';
 export type FishId = 'puff_minnow' | 'sun_carp' | 'star_ray' | 'cloud_koi';
 export type MealId = 'pear_tart' | 'fish_bun' | 'sky_stew';
 export type ProduceId = 'puffberry' | 'glowplum' | 'starfig' | 'cloudpear' | 'honeybun' | 'fibre' | 'chimewood' | 'ore';
 export type SeedId = `seed_${TreeId}`;
-export type ItemId = ProduceId | FishId | MealId | SeedId;
+export type ItemId = ProduceId | FishId | MealId | SeedId | 'cocoa';
 export type ItemKind = 'whale' | 'people' | 'craft' | 'fish' | 'meal' | 'seed';
-export type CrewId = 'nana' | 'pip' | 'olla' | 'kai' | 'mina' | 'coal' | 'tam' | 'ria';
-export type FormId = 'gloomling' | 'spitter' | 'brute' | 'flyer';
-export type HiveId = 'thornhive' | 'clamhive' | 'forgehive' | 'greyheart';
+export type CrewId = 'nana' | 'pip' | 'olla' | 'kai' | 'mina' | 'coal' | 'tam' | 'ria' | 'bram' | 'juno';
+export type FormId = 'gloomling' | 'spitter' | 'brute' | 'flyer' | 'shellback' | 'puffcap';
+export type HiveId = 'thornhive' | 'clamhive' | 'forgehive' | 'hushbell' | 'barnacle' | 'coilwyrm' | 'greyheart';
 
 // ------------------------------------------------------------------ whale
 export const STAGES = [
@@ -38,7 +45,7 @@ export const WHALE = {
   moodTick: 60, driftTo: 50,
   /** Specks: [seconds between, most at once] at a crusted isle, and anywhere else. */
   specksCrusted: [40, 5], specksCalm: [180, 2],
-  /** While the Keeper is away from Bao, Nana brushes all but this many specks. */
+  /** While the Captain is away from Bao, Nana brushes all but this many specks. */
   specksAway: 2,
 } as const;
 
@@ -64,6 +71,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   starfig: { name: 'Starfig', kind: 'whale', sell: 24, feed: { hunger: 35, xp: 45, mood: 0 } },
   cloudpear: { name: 'Cloudpear', kind: 'people', sell: 4, eat: { heal: 25 } },
   honeybun: { name: 'Honeybun', kind: 'people', sell: 8, eat: { heal: 45 } },
+  cocoa: { name: 'Warm Cocoa', kind: 'people', sell: 6, eat: { heal: 70 } },
   fibre: { name: 'Fibre', kind: 'craft', sell: 3 },
   chimewood: { name: 'Chimewood', kind: 'craft', sell: 6 },
   ore: { name: 'Ore', kind: 'craft', sell: 6 },
@@ -105,22 +113,29 @@ export const GARDENER_EVERY = 8;
 export const CRUST_RINGS = 3;
 
 // ------------------------------------------------------------------ places
-export interface PlaceDef { name: string; pos: [number, number]; needStage: Stage; needNotes: number; tier: number; gate: string | null; hue: string }
+/**
+ * `after`: a ship of the Gloom fleet is reached only once the ship before it is beaten. The fleet shows itself (and
+ * can be sailed to) once Bao knows all four Notes: the Deep Song.
+ */
+export interface PlaceDef { name: string; kind: 'start' | 'land' | 'ship'; pos: [number, number]; needStage: Stage; needNotes: number; tier: number; gate: string | null; hue: string; after?: ShipId }
 export const PLACES: Record<PlaceId, PlaceDef> = {
-  dawnreach: { name: 'Dawnreach', pos: [0, 0], needStage: 0, needNotes: 0, tier: 0, gate: null, hue: '#7cc8ff' },
-  clover: { name: 'Clover Rise', pos: [13, -9], needStage: 0, needNotes: 0, tier: 0, gate: null, hue: '#7bd54a' },
-  reef: { name: 'Lantern Reef', pos: [-14, -28], needStage: 1, needNotes: 0, tier: 1, gate: 'Wind Wall', hue: '#2fd0c8' },
-  ember: { name: 'Ember Peaks', pos: [16, -46], needStage: 2, needNotes: 0, tier: 2, gate: 'Storm Belt', hue: '#ff6a2a' },
-  star: { name: 'The Grey Star', pos: [0, -66], needStage: 3, needNotes: 3, tier: 3, gate: 'Deep Mist', hue: '#7a5cff' },
+  dawnreach: { name: 'Dawnreach', kind: 'start', pos: [0, 0], needStage: 0, needNotes: 0, tier: 0, gate: null, hue: '#7cc8ff' },
+  clover: { name: 'Clover Rise', kind: 'land', pos: [13, -9], needStage: 0, needNotes: 0, tier: 0, gate: null, hue: '#7bd54a' },
+  reef: { name: 'Lantern Reef', kind: 'land', pos: [-14, -28], needStage: 1, needNotes: 0, tier: 1, gate: 'Wind Wall', hue: '#2fd0c8' },
+  ember: { name: 'Ember Peaks', kind: 'land', pos: [16, -46], needStage: 2, needNotes: 0, tier: 2, gate: 'Storm Belt', hue: '#ff6a2a' },
+  frost: { name: 'Frostfall', kind: 'land', pos: [-15, -62], needStage: 3, needNotes: 0, tier: 3, gate: 'Frost Veil', hue: '#8fd8ff' },
+  sloop: { name: 'The Scout Sloop', kind: 'ship', pos: [14, -74], needStage: 3, needNotes: 4, tier: 3, gate: null, hue: '#b26bff' },
+  warship: { name: 'The Warship', kind: 'ship', pos: [-8, -80], needStage: 3, needNotes: 4, tier: 4, gate: null, hue: '#b26bff', after: 'sloop' },
+  star: { name: 'The Grey Star', kind: 'ship', pos: [3, -98], needStage: 3, needNotes: 4, tier: 4, gate: 'Deep Mist', hue: '#7a5cff', after: 'warship' },
 };
 export const PLACE_IDS = Object.keys(PLACES) as PlaceId[];
-export const ISLE_IDS: readonly IsleId[] = ['clover', 'reef', 'ember', 'star'];
-/** Fullness spent per league; a hungry flight is twice as slow. Random raids never come on the Deep Song dive. */
+export const ISLE_IDS: readonly IsleId[] = ['clover', 'reef', 'ember', 'frost', 'sloop', 'warship', 'star'];
+/** Fullness spent per league (×0.85 with the Study repaired); a hungry flight is twice as slow. */
 export const VOYAGE = { base: 24, perLeague: .9, max: 75, costPerLeague: 2, hungrySlow: 2, raidAt: .4, randomRaid: .2, dewEvery: 6, dew: { hunger: 1, mood: 1, glimmer: 1 }, treasure: 15 } as const;
 
 // ------------------------------------------------------------------- keeper
-/** Cumulative XP for levels 2..15 (index 0 = level 2). */
-export const LEVEL_XP = [40, 100, 190, 300, 440, 600, 800, 1040, 1320, 1650, 2080, 2600, 3200, 3900] as const;
+/** Cumulative XP for levels 2..20 (index 0 = level 2). */
+export const LEVEL_XP = [40, 100, 190, 300, 440, 600, 800, 1040, 1320, 1650, 2080, 2600, 3200, 3900, 4800, 5900, 7200, 8700, 10400] as const;
 export const MAX_LEVEL = LEVEL_XP.length + 1;
 export const KEEPER = {
   baseHp: 100, hpPerLevel: 15, baseDamage: 10, damagePerLevel: 2,
@@ -134,46 +149,96 @@ export const MALLET = [1, 1.4, 2.2] as const;
 export const COAT = [0, 40, 120] as const;
 export const BUFF = { seconds: 150, power: 1.2, guard: .75 } as const;
 
+// ------------------------------------------------------------ home repairs
+/**
+ * Nana's cottage below deck starts dusty: the kitchen, craft room, study and bathroom are boarded up (chapter 1).
+ * Each repair costs materials and glimmer and opens a job (chapter 2: the ship's economy).
+ */
+export type RoomId = 'kitchen' | 'craft' | 'study' | 'bath';
+export interface RoomDef { name: string; cost: Partial<Record<ItemId, number>>; glimmer: number; job: string }
+export const ROOMS: Record<RoomId, RoomDef> = {
+  kitchen: { name: 'Kitchen', cost: { fibre: 3 }, glimmer: 15, job: 'Cook meals at the stove' },
+  craft: { name: 'Craft room', cost: { chimewood: 4 }, glimmer: 40, job: 'Workbench glimmer costs 20% less; the Good Line and keepsakes' },
+  study: { name: 'Study', cost: { chimewood: 2, fibre: 4 }, glimmer: 60, job: 'Voyages cost 15% less fullness; the globe and the journal desk' },
+  bath: { name: 'Bathroom', cost: { ore: 2 }, glimmer: 80, job: 'A bath after a nap makes you Fresh: +15% damage for 5 minutes' },
+};
+export const ROOM_IDS = Object.keys(ROOMS) as RoomId[];
+export const HOME = { craftDiscount: .8, studyVoyage: .85, fresh: { power: 1.15, seconds: 300 } } as const;
+
+// ---------------------------------------------------------------- skills
+/**
+ * Life skills (chapter 2): everything you do trains one, up to level 10, and every level gives a small perk.
+ * Gardening from harvests, Fishing from catches, Cooking from meals, Crafting from making things and repairs.
+ */
+export type SkillId = 'garden' | 'fish' | 'cook' | 'craft';
+export const SKILL_IDS: readonly SkillId[] = ['garden', 'fish', 'cook', 'craft'];
+export const SKILL_NAMES: Record<SkillId, string> = { garden: 'Gardening', fish: 'Fishing', cook: 'Cooking', craft: 'Crafting' };
+/** Cumulative skill XP for levels 2..10. */
+export const SKILL_XP = [10, 25, 45, 70, 100, 140, 190, 250, 320] as const;
+export const SKILL_MAX = SKILL_XP.length + 1;
+export const SKILL_GAIN = { harvest: 2, catch: 4, cook: 5, craft: 6, repair: 10 } as const;
+/** Per level above 1. */
+export const SKILL_PERK = {
+  garden: { speed: .02, bonus: .04 },
+  fish: { window: .03, rare: .06 },
+  cook: { heal: .04, extra: .05 },
+  craft: { discount: .03 },
+} as const;
+
 // -------------------------------------------------------------- workbench
 export type RecipeId = 'rope' | 'mallet2' | 'mallet3' | 'coat2' | 'coat3' | 'line' | 'post' | 'lanterns' | 'crown' | 'goldbell';
-export interface RecipeDef { name: string; cost: Partial<Record<ItemId, number>>; glimmer: number; needsTam: boolean; effect: string; needsRope?: boolean; keepsake?: boolean }
+export interface RecipeDef { name: string; cost: Partial<Record<ItemId, number>>; glimmer: number; needsTam: boolean; effect: string; needsRope?: boolean; needsRoom?: RoomId; keepsake?: boolean }
 export const RECIPES: Record<RecipeId, RecipeDef> = {
-  rope: { name: 'Climbing Rope', cost: { fibre: 3 }, glimmer: 0, needsTam: false, effect: 'Go down to isles' },
+  rope: { name: 'Climbing Rope', cost: { fibre: 3 }, glimmer: 0, needsTam: false, effect: 'Go down to the lands' },
   mallet2: { name: 'Mallet II', cost: { chimewood: 4 }, glimmer: 30, needsTam: false, effect: 'Damage ×1.4' },
   mallet3: { name: 'Mallet III', cost: { chimewood: 6, ore: 6 }, glimmer: 150, needsTam: true, effect: 'Damage ×2.2' },
   coat2: { name: 'Coat II', cost: { fibre: 6 }, glimmer: 30, needsTam: false, effect: '+40 max HP', needsRope: true },
   coat3: { name: 'Coat III', cost: { fibre: 10, ore: 6 }, glimmer: 150, needsTam: true, effect: '+120 max HP' },
-  line: { name: 'Good Line', cost: { fibre: 4 }, glimmer: 20, needsTam: false, effect: 'Longer bites, rarer fish', needsRope: true },
+  line: { name: 'Good Line', cost: { fibre: 4 }, glimmer: 20, needsTam: false, effect: 'Longer bites, rarer fish', needsRope: true, needsRoom: 'craft' },
   post: { name: 'Chime Post', cost: { chimewood: 3 }, glimmer: 15, needsTam: false, effect: 'A raid tower on a post spot' },
   // Keepsakes only look lovely: a glimmer sink for the late game and after the ending.
-  lanterns: { name: 'Lantern string', cost: { fibre: 4 }, glimmer: 80, needsTam: false, effect: 'Paper lanterns around Bao’s back', keepsake: true, needsRope: true },
-  crown: { name: 'Flower crown for Bao', cost: { cloudpear: 2 }, glimmer: 150, needsTam: false, effect: 'Bao wears flowers', keepsake: true },
+  lanterns: { name: 'Lantern string', cost: { fibre: 4 }, glimmer: 80, needsTam: false, effect: 'Paper lanterns around Bao’s back', keepsake: true, needsRope: true, needsRoom: 'craft' },
+  crown: { name: 'Flower crown for Bao', cost: { cloudpear: 2 }, glimmer: 150, needsTam: false, effect: 'Bao wears flowers', keepsake: true, needsRoom: 'craft' },
   goldbell: { name: 'Golden bell', cost: { ore: 4, chimewood: 4 }, glimmer: 300, needsTam: true, effect: 'Your mallet shines gold', keepsake: true },
 };
 export const RECIPE_IDS = Object.keys(RECIPES) as RecipeId[];
-/** A post's ring deals this share of the Keeper's ring damage and slows Gloom forms (×1.5 with Tam). */
+/** A post's ring deals this share of the Captain's ring damage and slows Gloom forms (×1.5 with Tam). */
 export const POST = { spots: 4, share: .5, every: 1.2, radius: 3.5, tamBonus: 1.5, slow: .6, slowFor: 1 } as const;
 
-export const MEALS: Record<MealId, { cost: Partial<Record<ItemId | 'fish', number>> }> = {
-  pear_tart: { cost: { cloudpear: 2 } },
-  fish_bun: { cost: { honeybun: 1, fish: 1 } },
-  sky_stew: { cost: { cloudpear: 1, fish: 2 } },
+/** The Pear Tart is cooked from the start (in the repaired kitchen); Mina teaches the other two. */
+export const MEALS: Record<MealId, { cost: Partial<Record<ItemId | 'fish', number>>; mina: boolean }> = {
+  pear_tart: { cost: { cloudpear: 2 }, mina: false },
+  fish_bun: { cost: { honeybun: 1, fish: 1 }, mina: true },
+  sky_stew: { cost: { cloudpear: 1, fish: 2 }, mina: true },
 };
 export const MEAL_IDS = Object.keys(MEALS) as MealId[];
+/** Mina leaves a Fish Bun in your bag once every "day" of play (20 minutes). */
+export const MINA = { every: 1200, meal: 'fish_bun' as MealId } as const;
+
+// ------------------------------------------------------------ shipping crate
+/** Sky-post finches carry crate goods away at the basic price: 75% of the sell price (at least 1). */
+export const CRATE = { share: .75 } as const;
 
 // ----------------------------------------------------------------- markets
-export interface MarketDef { owner: CrewId; name: string; sells: Partial<Record<ItemId, number>>; likes: ItemKind }
-export const MARKETS: Partial<Record<IsleId, MarketDef>> = {
+/** Skiff upgrades sold at Old Kai's market. */
+export type UpgradeId = 'bait';
+export const UPGRADES: Record<UpgradeId, { name: string; effect: string }> = {
+  bait: { name: 'Bait pot', effect: 'Fish bite sooner from the skiff' },
+};
+export const BAIT = { wait: .6 } as const;
+export interface MarketDef { owner: CrewId; name: string; sells: Partial<Record<ItemId, number>>; likes: ItemKind; upgrades?: Partial<Record<UpgradeId, number>> }
+export const MARKETS: Partial<Record<LandId, MarketDef>> = {
   clover: { owner: 'olla', name: 'Clover Market', likes: 'fish', sells: { seed_puffberry: 5, seed_ropevine: 6, seed_cloudpear: 10, seed_chimewood: 14, seed_glowplum: 28 } },
-  reef: { owner: 'kai', name: 'Reef Market', likes: 'people', sells: { seed_puffberry: 5, seed_ropevine: 6, seed_honeybun: 18, seed_starfig: 55 } },
+  reef: { owner: 'kai', name: 'Reef Market', likes: 'people', sells: { seed_puffberry: 5, seed_ropevine: 6, seed_honeybun: 18, seed_starfig: 55 }, upgrades: { bait: 60 } },
   ember: { owner: 'coal', name: 'Ember Market', likes: 'whale', sells: { seed_puffberry: 5, seed_ropevine: 6, ore: 16, starfig: 45 } },
+  frost: { owner: 'bram', name: 'Frost Market', likes: 'craft', sells: { seed_puffberry: 5, seed_ropevine: 6, seed_chimewood: 14, cocoa: 15 } },
 };
 export const LIKED_BONUS = 1.5;
 
 // -------------------------------------------------------------------- crew
-export interface CrewDef { name: string; isle: IsleId | null; joins: boolean; job: string; color: string }
+export interface CrewDef { name: string; isle: LandId | null; joins: boolean; job: string; color: string }
 export const CREW: Record<CrewId, CrewDef> = {
-  nana: { name: 'Nana Sumi', isle: null, joins: true, job: 'Mentor', color: '#c77dff' },
+  nana: { name: 'Nana Sumi', isle: null, joins: true, job: 'First mate', color: '#c77dff' },
   pip: { name: 'Pip', isle: 'clover', joins: true, job: 'Gardener', color: '#7bd54a' },
   olla: { name: 'Mayor Olla', isle: 'clover', joins: false, job: 'Clover Market', color: '#ffc83a' },
   kai: { name: 'Old Kai', isle: 'reef', joins: false, job: 'Reef Market', color: '#35b6f2' },
@@ -181,7 +246,25 @@ export const CREW: Record<CrewId, CrewDef> = {
   coal: { name: 'Granny Coal', isle: 'ember', joins: false, job: 'Ember Market', color: '#8a8a9a' },
   tam: { name: 'Tam', isle: 'ember', joins: true, job: 'Smith', color: '#c77a3a' },
   ria: { name: 'Ria', isle: 'reef', joins: true, job: 'Lookout', color: '#ef3b3b' },
+  bram: { name: 'Bram', isle: 'frost', joins: false, job: 'Frost Market', color: '#e8504a' },
+  juno: { name: 'Juno', isle: 'frost', joins: true, job: 'Engineer', color: '#ff9a2a' },
 };
+/** Crew who can join a boarding mission (two at a time), and what each one does there. */
+export type HelperId = 'pip' | 'mina' | 'tam' | 'ria';
+export const HELPERS: Record<HelperId, { perk: string; damage: number; push: number; slow: boolean; heal: number }> = {
+  pip: { perk: 'Shoves raiders toward the rails', damage: .35, push: 1.6, slow: false, heal: 0 },
+  mina: { perk: 'Heals you a little every 10 s', damage: .3, push: 1, slow: false, heal: 10 },
+  tam: { perk: 'Rings hard', damage: .6, push: 1, slow: false, heal: 0 },
+  ria: { perk: 'Her rings slow raiders down', damage: .35, push: 1, slow: true, heal: 0 },
+};
+export const HELPER_IDS = Object.keys(HELPERS) as HelperId[];
+export const HELPER = { every: 1.6, reach: 2.4, healEvery: 10, follow: 2.2, speed: 4.6 } as const;
+/** Juno's chime cannon fires a ringing bell at the thickest crowd of Gloom forms (raids and boardings). */
+export const CANNON = { every: 7, radius: 2.8, push: 2.6, damage: .8, soften: .1 } as const;
+/** The lift down to the skiff (twice as fast with Juno). */
+export const LIFT = { seconds: 2.4, juno: .5, drop: 16 } as const;
+/** Nana's conch calls the rope down where you stand, except near a boss: its hush swallows the sound. */
+export const CONCH = { arena: 13 } as const;
 
 // ---------------------------------------------------------------- the Gloom
 export interface FormDef { name: string; hp: number; damage: number; speed: number; xp: number; glimmer: number; radius: number; native: string }
@@ -190,28 +273,38 @@ export const FORMS: Record<FormId, FormDef> = {
   spitter: { name: 'Spitter', hp: 26, damage: 8, speed: 1.6, xp: 10, glimmer: 3, radius: .45, native: 'hopfrog' },
   brute: { name: 'Rammer', hp: 90, damage: 14, speed: 1.8, xp: 24, glimmer: 6, radius: .9, native: 'rockgoat' },
   flyer: { name: 'Flyer', hp: 40, damage: 10, speed: 3.2, xp: 14, glimmer: 4, radius: .5, native: 'skylark' },
+  shellback: { name: 'Shellback', hp: 70, damage: 12, speed: 1.5, xp: 18, glimmer: 5, radius: .6, native: 'pebbleturtle' },
+  puffcap: { name: 'Puffcap', hp: 40, damage: 10, speed: 2.0, xp: 14, glimmer: 4, radius: .5, native: 'mushpup' },
 };
 export const ATTACKS = {
   bump: { reach: 1.1, cooldown: 1.3, windup: .3 },
   shard: { windup: .6, speed: 9, range: 8, cooldown: 2.4 },
   charge: { windup: .8, length: 7, speed: 9, cooldown: 3.5 },
   dive: { windup: .7, radius: 1.6, cooldown: 3.2 },
+  /** Shellback: a shield bash; its front shield takes 15% of a ring, and it turns slowly (rad/s), so step behind it. */
+  bash: { reach: 1.3, windup: .45, cooldown: 1.8, front: .15, turn: 1.8 },
+  /** Puffcap: swells when close, then bursts into a ring that knocks everything back (raiders too). */
+  puff: { trigger: 2.2, windup: 1.2, radius: 2.6, push: 3.0, cooldown: 4.5 },
 } as const;
 export const SPIRE = { hp: 120, xp: 30, glimmer: 10, wakeEvery: 7, wakeRange: 13, maxAwake: 3 } as const;
 export const TIERS = [
   { name: 'Clover', hp: 1, damage: .8, reward: 1, level: 1 },
   { name: 'Reef', hp: 1.9, damage: 1.5, reward: 1.6, level: 5 },
   { name: 'Ember', hp: 3, damage: 1.8, reward: 2.4, level: 9 },
-  { name: 'Star', hp: 4.4, damage: 2.4, reward: 3.2, level: 13 },
+  { name: 'Frost', hp: 3.7, damage: 2.1, reward: 2.8, level: 13 },
+  { name: 'Fleet', hp: 4.4, damage: 2.4, reward: 3.2, level: 15 },
 ] as const;
-export interface HiveDef { name: string; isle: IsleId; hp: number; xp: number; glimmer: number; radius: number }
+export interface HiveDef { name: string; isle: IsleId; hp: number; xp: number; glimmer: number; radius: number; model: string }
 export const HIVES: Record<HiveId, HiveDef> = {
-  thornhive: { name: 'Thornhive', isle: 'clover', hp: 480, xp: 150, glimmer: 80, radius: 2.2 },
-  clamhive: { name: 'Clamhive', isle: 'reef', hp: 1500, xp: 300, glimmer: 160, radius: 2.6 },
-  forgehive: { name: 'Forgehive', isle: 'ember', hp: 3000, xp: 520, glimmer: 280, radius: 2.4 },
-  greyheart: { name: 'Grey Heart', isle: 'star', hp: 5000, xp: 900, glimmer: 500, radius: 2.8 },
+  thornhive: { name: 'Thornhive', isle: 'clover', hp: 480, xp: 150, glimmer: 80, radius: 2.2, model: 'thornhive' },
+  clamhive: { name: 'Clamhive', isle: 'reef', hp: 1500, xp: 300, glimmer: 160, radius: 2.6, model: 'clamhive' },
+  forgehive: { name: 'Forgehive', isle: 'ember', hp: 3000, xp: 520, glimmer: 280, radius: 2.4, model: 'forgehive' },
+  hushbell: { name: 'Hush Bell', isle: 'frost', hp: 3200, xp: 640, glimmer: 340, radius: 2.4, model: 'hushbell' },
+  barnacle: { name: 'Captain Barnacle', isle: 'sloop', hp: 2800, xp: 560, glimmer: 360, radius: 1.8, model: 'captain_barnacle' },
+  coilwyrm: { name: 'Coilwyrm', isle: 'warship', hp: 3400, xp: 700, glimmer: 420, radius: 2.4, model: 'coilwyrm' },
+  greyheart: { name: 'Grey Heart', isle: 'star', hp: 5000, xp: 900, glimmer: 500, radius: 2.8, model: 'greyheart' },
 };
-export const HIVE_OF: Record<IsleId, HiveId> = { clover: 'thornhive', reef: 'clamhive', ember: 'forgehive', star: 'greyheart' };
+export const HIVE_OF: Record<IsleId, HiveId> = { clover: 'thornhive', reef: 'clamhive', ember: 'forgehive', frost: 'hushbell', sloop: 'barnacle', warship: 'coilwyrm', star: 'greyheart' };
 /** Hive moves. Damage is multiplied by the isle tier's damage factor; every move has a wind-up of at least 0.6 s. */
 export const HIVE_MOVES = {
   thornRing: { damage: 14, windup: 1.0, radius: 7.5, safe: 2.4 },
@@ -222,35 +315,59 @@ export const HIVE_MOVES = {
   slam: { damage: 20, windup: 1.0, radius: 3.4 },
   crackLines: { damage: 18, windup: .9, length: 17, width: 1.5, count: 2 },
   callFlyers: { count: 2 },
+  /** The Hush Bell: a dome of silence over your spot (inside it the mallet makes no sound and does no damage). */
+  hushDome: { windup: .9, radius: 3.2, seconds: 6 },
+  frostRing: { damage: 16, windup: 1.0, radius: 8.5 },
+  iceShards: { damage: 11, windup: .8, count: 6, speed: 9, spread: 1.3 },
+  callPuffcaps: { count: 2 },
+  /** Captain Barnacle: the anchor lands on a marked circle and sticks; the chain sweeps the deck (hop over it). */
+  anchorThrow: { damage: 22, windup: 1.0, radius: 2.2 },
+  chainSweep: { damage: 16, windup: 1.1, radius: 8.5 },
+  callCrew: { count: 2 },
+  /** The Coilwyrm: its head strikes a marked circle; it spits shards. */
+  headStrike: { damage: 20, windup: .9, radius: 2.0 },
+  spitShards: { damage: 12, windup: .7, count: 3, speed: 10, spread: .6 },
 } as const;
 export type HiveMove = keyof typeof HIVE_MOVES;
 export const HIVE_PATTERNS: Record<HiveId, HiveMove[]> = {
   thornhive: ['thornRing', 'spikeLines', 'wake'],
   clamhive: ['pearlVolley', 'tideRing'],
   forgehive: ['slam', 'crackLines', 'callFlyers'],
+  hushbell: ['hushDome', 'frostRing', 'iceShards', 'callPuffcaps'],
+  barnacle: ['anchorThrow', 'chainSweep', 'anchorThrow', 'callCrew'],
+  coilwyrm: ['headStrike', 'spitShards', 'headStrike', 'tideRing'],
   greyheart: ['thornRing', 'pearlVolley', 'slam', 'spikeLines', 'tideRing'],
 };
 /** Seconds between Hive moves. */
 export const HIVE_PACE = 3.4;
 /** The Clamhive gapes for 1.9 s after each move and shuts at the next wind-up (logic review 8: it was open 94% of the time). */
 export const CLAM = { closedTaken: .15, openSeconds: 1.9 } as const;
+/** The Hush Bell takes nothing while silent; ringing all three echo bells cracks the silence for 8 s (×1.25). */
+export const HUSH = { crackSeconds: 8, crackTaken: 1.25 } as const;
+/** Captain Barnacle's shell takes 40%; after an anchor throw it is stuck to its anchor for 3.5 s and takes 150%. */
+export const BARNACLE = { taken: .4, stuckTaken: 1.5, stuck: 3.5 } as const;
+/** The Coilwyrm is untouchable while coiled up; ringing the three knots on its coils (2 rings each) leaves it dizzy for 7 s (×1.4). */
+export const WYRM = { knots: 3, knotRings: 2, dizzy: 7, dizzyTaken: 1.4 } as const;
+/** The Grey Star's deck lists toward one rail and then the other, every 12 s, sliding everyone 0.9 m/s. */
+export const LIST = { every: 12, drift: .9 } as const;
 /** Each faint at a Hive cracks its crust a little (Bao hums from above): it comes back 10% weaker, at most 30%. */
 export const HIVE_CRACK = { perFaint: .1, most: 3 } as const;
-/** Bao sings every 20 s during the finale: the Heart's shield cracks for 5 s and the song heals the Keeper. */
+/** Bao sings every 20 s during the finale: the Heart's shield cracks for 5 s and the song heals the Captain. */
 export const HEART = { shieldTaken: .4, songTaken: 1.4, songEvery: 20, songSeconds: 5, songHeal: 40 } as const;
 export const RESCUE = { rings: 3, xp: 25, glimmer: 15 } as const;
+/** A family freed from a Gloom ship's hold: XP and glimmer (× the tier's reward) and a thank-you gift. */
+export const FAMILY = { xp: 30, glimmer: 30 } as const;
 export const FAINT = { groupsReset: true } as const;
-/** Forms per raid wave: base + perIsle × isles freed; tier factor of the newest freed isle. */
 /**
  * Raids are ship battles (the owner, 2026-10-16): Gloom ships come alongside from different sides and raiders walk
  * over planks. Bao's battle stations sink every tree and fitting below the deck (fewer things to draw in a fight),
- * leaving only the tools: two gongs and any Chime Posts. Raiders head for the hatch; one standing on it for
- * `crustAfter` s crusts a tree stored below. Knocking a raider off the deck edge sends it overboard (it is freed as it
- * falls), the best way to win. Scripted raids: 2 waves of base + perIsle × isles freed; random raids: 1 wave of
- * smallBase + perIsle × isles freed.
+ * leaving only the tools: two gongs, any Chime Posts and Juno's cannon. Raiders head for the hatch; one standing on it
+ * for `crustAfter` s crusts a tree stored below. Knocking a raider off the deck edge sends it overboard (it is freed
+ * as it falls), the best way to win. Scripted raids: 2 waves of base + perIsle × lands freed; random raids: 1 wave of
+ * smallBase + perIsle × lands freed.
  */
-export const RAID = { waves: 2, base: 4, perIsle: 2, smallBase: 2, tierFactor: .8, warn: 3, warnLookout: 10, ships: 2, boardEvery: .9, crustAfter: 5, aggro: 3, spitterAggro: 7, timeout: 100, winPerWave: 25,
-  /** Knockback on the deck in a raid (metres per ring), Spin, and a rung gong's blast. */
+export const RAID = { waves: 2, base: 4, perIsle: 2, smallBase: 2, most: 10, tierFactor: .8, warn: 3, warnLookout: 10, ships: 2, boardEvery: .9, crustAfter: 5, aggro: 3, spitterAggro: 7, timeout: 100, winPerWave: 25,
+  /** Knockback on a deck (metres per ring), Spin, and a rung gong's blast. */
   push: 1.15, spinPush: 2.1, gong: { radius: 4.8, push: 3.4, damage: .6, cooldown: 6 } } as const;
 export const LEFTOVER = { every: 1800 } as const;
 export const ORE = { perRock: 2, back: 600 } as const;
@@ -269,19 +386,37 @@ export const FISHING = {
     deep: { puff_minnow: 30, sun_carp: 35, star_ray: 25, cloud_koi: 10 },
   } as Record<'calm' | 'reef' | 'deep', Record<FishId, number>>,
 };
-export const fishWaters = (place: PlaceId) => place === 'reef' ? 'reef' : place === 'ember' || place === 'star' ? 'deep' : 'calm';
+export const fishWaters = (place: PlaceId) => place === 'reef' ? 'reef' : place === 'dawnreach' || place === 'clover' ? 'calm' : 'deep';
 
 // --------------------------------------------------------------- isle maps
 /** A group of Gloom forms standing around a point; `spire` names the Spire it guards (index), if any. */
 export interface GroupDef { at: [number, number]; forms: FormId[]; spire?: number }
+/** `locked`: the cage stands inside a place a Spire guards (Juno's workshop): it opens only once that Spire is broken. */
+export interface CageDef { who: CrewId; at: [number, number]; locked?: number }
+export interface CaptiveDef { at: [number, number]; gift: [ItemId, number] }
 export interface IsleMap {
   radius: number; landing: [number, number]; market: [number, number] | null;
-  groups: GroupDef[]; spires: [number, number][]; cages: { who: CrewId; at: [number, number] }[];
+  groups: GroupDef[]; spires: [number, number][]; cages: CageDef[];
   hive: [number, number]; ore: [number, number][]; wild: [number, number][]; decor: { kind: string; at: [number, number]; rot?: number }[];
+  /** Ships: families in crystal cages by the hold hatch. */
+  captives: CaptiveDef[];
+  /** The Hush Bell's three echo bells. */
+  echo: [number, number][];
 }
 const G = (n: number, f: FormId) => Array<FormId>(n).fill(f);
+/**
+ * A Gloom ship (gloom.glb `gloom_beast` × 1.6): like Bao, a sky creature with a flat deck on its back (the owner: no
+ * masts, nothing tall in the middle), crusted over by the Gloom. Its head points to +z; rails run along both sides with
+ * three gaps per side where raiders can be knocked overboard, and the hold hatch is on the centre line.
+ */
+export const BEAST = { scale: 1.6, half: [6.4, 14.4] as const, gaps: [-9.6, 0, 9.6] as const, gapHalf: 1.6, hold: [0, 7.2] as [number, number] };
+const ship = (groups: GroupDef[], hive: [number, number], gifts: [ItemId, number][]): IsleMap => ({
+  radius: 15, landing: [-5.0, 9.6], market: null, groups, spires: [], cages: [], hive, ore: [], wild: [], decor: [], echo: [],
+  captives: [{ at: [2.4, 7.2], gift: gifts[0] }, { at: [-2.4, 6.4], gift: gifts[1] }],
+});
+const land = (m: Omit<IsleMap, 'captives' | 'echo'> & { echo?: [number, number][] }): IsleMap => ({ captives: [], echo: [], ...m });
 export const ISLE_MAPS: Record<IsleId, IsleMap> = {
-  clover: {
+  clover: land({
     radius: 34, landing: [0, 24], market: [-5.5, 22],
     groups: [
       { at: [-7, 11], forms: G(4, 'gloomling') },
@@ -292,8 +427,8 @@ export const ISLE_MAPS: Record<IsleId, IsleMap> = {
     cages: [{ who: 'olla', at: [4.5, 19.5] }, { who: 'pip', at: [-18, -4] }],
     hive: [0, -21], ore: [], wild: [[7, 13], [-4, -9]],
     decor: [{ kind: 'windmill', at: [19, 13] }, { kind: 'windmill', at: [-21, 15], rot: 1 }, { kind: 'windmill', at: [22, -14], rot: 2 }],
-  },
-  reef: {
+  }),
+  reef: land({
     radius: 35, landing: [0, 25], market: [5.5, 22.5],
     groups: [
       { at: [7, 12], forms: [...G(3, 'gloomling'), ...G(2, 'spitter')] },
@@ -305,28 +440,48 @@ export const ISLE_MAPS: Record<IsleId, IsleMap> = {
     cages: [{ who: 'kai', at: [-6, 21] }, { who: 'ria', at: [12.5, 16] }, { who: 'mina', at: [19, -13] }],
     hive: [0, -23], ore: [[-21, 10], [21, 4]], wild: [[10, 18], [-4, -11]],
     decor: [{ kind: 'coral_arch', at: [-3, 15] }, { kind: 'coral_arch', at: [4, -14], rot: 1.2 }, { kind: 'lantern', at: [-8, 18] }, { kind: 'lantern', at: [9, 6] }, { kind: 'lantern', at: [-14, -12] }, { kind: 'lantern', at: [12, -18] }],
-  },
-  ember: {
+  }),
+  ember: land({
     radius: 36, landing: [0, 25], market: [-5.5, 22.5],
     groups: [
       { at: [-6, 12], forms: [...G(2, 'flyer'), ...G(3, 'gloomling')] },
       { at: [-14, 5], forms: ['brute', ...G(2, 'spitter'), 'flyer'], spire: 0 },
-      { at: [14, 3], forms: [...G(2, 'brute'), ...G(2, 'flyer')], spire: 1 },
-      { at: [2, -8], forms: [...G(3, 'spitter'), ...G(2, 'flyer'), 'brute'], spire: 2 },
+      { at: [14, 3], forms: [...G(2, 'brute'), 'shellback', 'flyer'], spire: 1 },
+      { at: [2, -8], forms: [...G(2, 'spitter'), 'shellback', ...G(2, 'flyer'), 'brute'], spire: 2 },
     ],
     spires: [[-17, 2], [17, 0], [-2, -11]],
     cages: [{ who: 'coal', at: [5, 21] }, { who: 'tam', at: [-20, 9] }],
     hive: [0, -25], ore: [[-22, -6], [22, -8], [10, 14], [-10, -17]], wild: [],
     decor: [{ kind: 'forge', at: [-22, 11] }, { kind: 'forge', at: [18, 12], rot: 2 }],
-  },
-  star: {
-    radius: 32, landing: [0, 24], market: null,
+  }),
+  frost: land({
+    radius: 36, landing: [0, 25], market: [5.5, 22.5],
     groups: [
-      { at: [0, 11], forms: [...G(4, 'gloomling'), ...G(2, 'spitter')] },
-      { at: [0, -3], forms: [...G(2, 'brute'), ...G(2, 'flyer')] },
+      { at: [7, 13], forms: [...G(2, 'puffcap'), ...G(3, 'gloomling')] },
+      { at: [-13, 6], forms: ['shellback', ...G(2, 'spitter'), 'puffcap'], spire: 0 },
+      { at: [14, 2], forms: [...G(2, 'shellback'), ...G(2, 'flyer')], spire: 1 },
+      { at: [-3, -9], forms: [...G(2, 'puffcap'), 'shellback', 'brute', 'spitter'], spire: 2 },
     ],
-    spires: [], cages: [], hive: [0, -19], ore: [], wild: [], decor: [],
-  },
+    spires: [[-16, 2], [17, -2], [-6, -12]],
+    // Juno is locked in her workshop (the ice hut) behind the first Spire.
+    cages: [{ who: 'bram', at: [-5, 21] }, { who: 'juno', at: [-19, -1.5], locked: 0 }],
+    hive: [0, -25], ore: [[-23, -8], [22, -10]], wild: [],
+    decor: [{ kind: 'ice_hut', at: [-21.5, -4.5], rot: .9 }, { kind: 'snow_lantern', at: [-6, 16] }, { kind: 'snow_lantern', at: [9, 7] }, { kind: 'snow_lantern', at: [-10, -4] }, { kind: 'snow_lantern', at: [10, -15] }],
+    echo: [[-8.5, -21], [8.5, -21], [0, -34]],
+  }),
+  // The Gloom fleet (chapter 5): the deck is a fight across from the plank to the captain.
+  sloop: ship([
+    { at: [1.8, 3.2], forms: [...G(3, 'gloomling'), ...G(2, 'spitter')] },
+    { at: [2.6, -6.5], forms: ['shellback', ...G(2, 'puffcap'), 'gloomling'] },
+  ], [0, -10.8], [['seed_starfig', 1], ['ore', 3]]),
+  warship: ship([
+    { at: [2.2, 3.4], forms: [...G(2, 'spitter'), 'shellback', ...G(2, 'gloomling')] },
+    { at: [-2.4, -10.2], forms: ['brute', ...G(2, 'flyer'), 'puffcap'] },
+  ], [0, -3.2], [['cocoa', 2], ['seed_glowplum', 1]]),
+  star: ship([
+    { at: [2.0, 3.2], forms: [...G(3, 'gloomling'), ...G(2, 'puffcap')] },
+    { at: [-2.4, -2.0], forms: [...G(2, 'brute'), 'flyer', 'shellback'] },
+  ], [0, -9.8], [['cloud_koi', 1], ['seed_honeybun', 1]]),
 };
 
 // ------------------------------------------------------------- Bao's deck
@@ -336,15 +491,21 @@ export const DECK = {
   plots: [[-1, -4.2], [1, -4.2], [-1, -2.4], [1, -2.4], [-1, 1.4], [1, 1.4], [-1, 3.2], [1, 3.2], [-1, -.6], [1, -.6]] as [number, number][],
   maptable: [2.1, -5.9] as [number, number],
   feed: [0, -6.9] as [number, number],
-  /** The hatch down to Nana's cabin (it replaced the hut: the owner's wooden-ship deck, 2026-10-16). */
+  /** The hatch down to Nana's cottage (it replaced the hut: the owner's wooden-ship deck, 2026-10-16). */
   hatch: [-2.6, .6] as [number, number],
   workbench: [2.75, .2] as [number, number],
-  kitchen: [2.75, 2.4] as [number, number],
+  /** The shipping crate, where sky-post finches collect goods. */
+  crate: [2.75, 2.4] as [number, number],
   pantry: [-2.6, 3.0] as [number, number],
   ropepost: [3.3, -2.9] as [number, number],
-  fishspot: [0, 7.0] as [number, number],
-  posts: [[-2.8, -3.9], [-3.1, -1.6], [2.1, 4.6], [-1.9, 5.3]] as [number, number][],
+  /** The fishing lift on the starboard rail, down to the skiff. */
+  lift: [3.75, 4.6] as [number, number],
+  /** Juno's chime cannon at the stern. */
+  cannon: [0, 6.5] as [number, number],
+  /** Where Bao's boarding plank leaves the starboard rail when a Gloom ship is alongside. */
+  plank: [4.0, -1.0] as [number, number],
+  posts: [[-2.8, -3.9], [-3.1, -1.6], [2.0, 4.9], [-1.9, 5.3]] as [number, number][],
   /** Battle stations: two gongs rise from the deck in a raid (ring one to blast raiders toward the edge). */
   gongs: [[-1.9, -2.6], [1.9, 2.4]] as [number, number][],
-  crewSpots: { nana: [-1.3, 4.6], pip: [0, -1.5], mina: [2.1, 3.3], tam: [1.9, 1.2], ria: [1.4, -5.2], olla: [0, 0], kai: [0, 0], coal: [0, 0] } as Record<CrewId, [number, number]>,
+  crewSpots: { nana: [-1.3, 4.6], pip: [0, -1.5], mina: [0, 4.9], tam: [1.9, 1.2], ria: [1.4, -5.2], juno: [-1.2, 6.1], olla: [0, 0], kai: [0, 0], coal: [0, 0], bram: [0, 0] } as Record<CrewId, [number, number]>,
 };

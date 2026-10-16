@@ -46,6 +46,8 @@ def mats():
     m['gloom'] = K.gloom_crystal()
     m['glow_gloom'] = K.G('gloom', '#B26BFF', 2.4)
     m['glow_moss'] = K.G('moss', 'moss_light', 1.2)
+    m['sky_light'] = K.M('sky_light', 0.6)
+    m['snow'] = K.M('snow', 0.85)
     return m
 
 
@@ -793,16 +795,383 @@ def gong(m):
     return dict(body=p, children=[('disc', d, hang)], markers=[])
 
 
+# ================================================ captain's deck tools + Frostfall
+# Added 2026-10-16 (five-chapter story: Bao is the ship, the player its captain).
+class Soup:
+    """Faces with their own vertices, each oriented toward a wanted direction (Piece.build welds them)."""
+
+    def __init__(self):
+        self.verts, self.faces, self.tags = [], [], []
+
+    def add(self, pts, tag, want):
+        pts = [Vector(q) for q in pts]
+        idx = list(range(len(self.verts), len(self.verts) + len(pts)))
+        self.verts += pts
+        n = Vector()
+        for i in range(1, len(pts) - 1):
+            n += (pts[i] - pts[0]).cross(pts[i + 1] - pts[0])
+        if n.dot(Vector(want)) < 0:
+            idx.reverse()
+        self.faces.append(tuple(idx))
+        self.tags.append(tag)
+
+    def geo(self):
+        return Geo(self.verts, self.faces, self.tags)
+
+
+def yz_slab(outline, x0, x1):
+    """An outline in the (y, z) plane extruded along X from x0 to x1."""
+    g = slab([(y, z) for y, z in outline], [(1.0, x0), (1.0, x1)])
+    g.deform(lambda v: (v.z, v.x, v.y))
+    return g.outward()
+
+
+def lift(m):
+    """A little wooden crane on Bao's side: post, jib along +X, pulley, winch. Children `platform` (pivot at its
+    top centre, where the rope hooks on) and `rope` (pivot where it leaves the pulley; it hangs 1.0 m down to the
+    platform, so the code can scale rope.scale.y = drop / 1.0 while it lowers the platform)."""
+    p = Piece('lift')
+    H = 2.35
+    for size in ((0.95, 0.24, 0.14), (0.24, 0.95, 0.14)):
+        p.add(K.cbox(size, 0.045), m['wood_dark'], xf((0, 0, 0.07)))
+    p.add(rbox((0.2, 0.2, H), 0.05, 1), m['wood'], xf((0, 0, H / 2)))
+    p.add(rbox((1.85, 0.16, 0.16), 0.045, 1), m['wood'], xf((0.77, 0, H - 0.12)))
+    p.add(K.cbox((0.1, 0.1, 1.14), 0.025), m['wood_dark'], xf((0.42, 0, 1.78), (0, RAD(45), 0)))
+    p.add(ico0(0.065, (0, 0, H + 0.03)), m['gold'])
+    p.add(ico0(0.05, (1.72, 0, H - 0.12)), m['gold'])
+    pul = Vector((1.48, 0, H - 0.34))
+    p.add(K.cbox((0.06, 0.2, 0.18), 0.015), m['iron'], xf((1.48, 0, H - 0.25)))
+    p.add(torus(0.12, 0.034, 12, 4), m['iron'], xf(pul, (RAD(90), 0, 0)))
+    p.add(rcyl(0.09, 0.05, 0.015, 8, z0=-0.025, arc=1), m['wood_light'], xf(pul, (RAD(90), 0, 0)))
+    # Winch drum with a crank on the front of the post, and the rope up the post, along the jib, over the pulley.
+    drum = Vector((0.0, -0.21, 1.0))
+    p.add(rcyl(0.11, 0.32, 0.03, 10, z0=-0.16, arc=1), m['wood_light'], xf(drum, (0, RAD(90), 0)))
+    p.add(rcyl(0.125, 0.2, 0.02, 10, z0=-0.1, arc=1), m['straw'], xf(drum, (0, RAD(90), 0)))
+    p.add(tube([drum + Vector((0.16, 0, 0)), drum + Vector((0.24, 0, 0)), drum + Vector((0.24, 0, -0.17)),
+                drum + Vector((0.24, -0.12, -0.17))], 0.022, sides=4, cap_end=True), m['iron'])
+    p.add(tube([drum + Vector((0, 0.03, 0.12)), Vector((0.0, -0.13, H - 0.04)), Vector((0.3, -0.0, H - 0.02)),
+                pul + Vector((-0.04, 0, 0.12))], 0.02, sides=4), m['straw'])
+    plat = Piece('lift_platform')
+    ring = Vector((1.6, 0, 0.95))
+    for i, y in enumerate((-0.3, 0.0, 0.3)):
+        plat.add(K.cbox((0.92, 0.28, 0.07), 0.02), m['wood'] if i % 2 else m['wood_light'], xf((1.6, y, 0.085)))
+    for x in (1.25, 1.95):
+        plat.add(K.cbox((0.08, 0.92, 0.05), 0.015), m['wood_dark'], xf((x, 0, 0.035)))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            plat.add(tube([Vector((1.6 + sx * 0.4, sy * 0.4, 0.12)), ring + Vector((sx * 0.03, sy * 0.03, -0.02))],
+                          0.014, sides=3), m['straw'])
+    plat.add(torus(0.05, 0.014, 8, 3), m['iron'], xf(ring + Vector((0, 0, 0.03)), (RAD(90), 0, 0)))
+    rope = Piece('lift_rope')
+    top = Vector((1.6, 0, pul.z))
+    rope.add(tube([top, ring + Vector((0, 0, 0.05))], 0.02, sides=5), m['straw'])
+    return dict(body=p, children=[('platform', plat, ring), ('rope', rope, top)], markers=[])
+
+
+def skiff(m):
+    """A small cute fishing boat, bow toward glTF +Z, 3.2 m long and 1.4 m wide, with a flat floor at y = 0."""
+    p = Piece('skiff')
+    L, N, t = 3.2, 10, 0.07
+    y0 = -L / 2
+
+    def W(s):
+        return 0.7 * math.sin(math.pi * 0.5 * min(1.0, s / 0.6)) ** 0.8 if s < 0.6 else 0.7 - 0.2 * ((s - 0.6) / 0.4) ** 2
+
+    def ZT(s):
+        return 0.34 + 0.18 * (1 - s) ** 3 + 0.05 * s ** 3
+
+    def ZB(s):
+        return -0.3 + 0.2 * (1 - min(1.0, s / 0.3)) ** 2 + 0.06 * s * s
+
+    def prof(s):
+        w, zt, zb = W(s), ZT(s), ZB(s)
+        return [(w, zt), (w * 0.99, zt * 0.45), (w * 0.9, zb * 0.42), (w * 0.56, zb * 0.88), (0.0, zb)]
+
+    def Y(s):
+        return y0 + L * s
+    soup = Soup()
+    ss = [(i / N) ** 1.15 for i in range(N + 1)]
+    for a, b in zip(ss, ss[1:]):
+        pa, pb = prof(a), prof(b)
+        for k in range(4):
+            for sx in (1, -1):
+                q = [Vector((sx * pa[k][0], Y(a), pa[k][1])), Vector((sx * pb[k][0], Y(b), pb[k][1])),
+                     Vector((sx * pb[k + 1][0], Y(b), pb[k + 1][1])), Vector((sx * pa[k + 1][0], Y(a), pa[k + 1][1]))]
+                c = sum(q, Vector()) / 4
+                soup.add(q, 'red' if k == 0 else 'wood', c - Vector((0, c.y, 0.05)))
+    pe = prof(1.0)
+    transom = [Vector((x, Y(1.0), z)) for x, z in pe] + [Vector((-x, Y(1.0), z)) for x, z in reversed(pe[:-1])]
+    soup.add(transom, 'wood', (0, 1, 0))
+    s_in = [0.12 + (1 - 0.12) * i / 8 for i in range(9)]
+
+    def WF(s):
+        return W(s) * 0.93 - t - 0.01
+    for a, b in zip(s_in, s_in[1:]):
+        for sx in (1, -1):
+            wall = [Vector((sx * (W(a) - t), Y(a), ZT(a))), Vector((sx * (W(b) - t), Y(b), ZT(b))),
+                    Vector((sx * WF(b), Y(b), 0.0)), Vector((sx * WF(a), Y(a), 0.0))]
+            soup.add(wall, 'wood_light', (-sx, 0, 0.3))
+            top = [Vector((sx * W(a), Y(a), ZT(a))), Vector((sx * W(b), Y(b), ZT(b))),
+                   Vector((sx * (W(b) - t), Y(b), ZT(b))), Vector((sx * (W(a) - t), Y(a), ZT(a)))]
+            soup.add(top, 'wood_dark', (0, 0, 1))
+    floor = [Vector((WF(s), Y(s), 0.0)) for s in s_in] + [Vector((-WF(s), Y(s), 0.0)) for s in reversed(s_in)]
+    soup.add(floor, 'wood_light', (0, 0, 1))
+    a0 = s_in[0]
+    soup.add([Vector((WF(a0), Y(a0), 0.0)), Vector((-WF(a0), Y(a0), 0.0)), Vector((-(W(a0) - t), Y(a0), ZT(a0))),
+              Vector((W(a0) - t, Y(a0), ZT(a0)))], 'wood', (0, 1, 0))
+    p.add(soup.geo(), {k: m[k] for k in ('red', 'wood', 'wood_light', 'wood_dark')})
+    # Foredeck over the bow, plank seams in the floor.
+    fd = [Vector((0.0, Y(0.0) + 0.04, ZT(a0)))] + [Vector((W(s) - 0.02, Y(s), ZT(a0))) for s in (0.04, 0.08, a0)] + \
+         [Vector((-(W(s) - 0.02), Y(s), ZT(a0))) for s in (a0, 0.08, 0.04)]
+    fdg = Geo(fd + [v - Vector((0, 0, 0.05)) for v in fd], [tuple(range(len(fd))), tuple(range(2 * len(fd) - 1, len(fd) - 1, -1))] +
+              [(i, (i + 1) % len(fd), len(fd) + (i + 1) % len(fd), len(fd) + i) for i in range(len(fd))]).outward()
+    p.add(fdg, m['wood_dark'])
+    for x in (-0.2, 0.2):
+        p.add(cube((0.025, L * 0.8, 0.006), (x, 0.12, 0.003)), m['wood'])
+    # Striped awning over the stern, on four posts, with a little bench under it.
+    ya, yb, hz = 0.62, 1.5, 1.25
+    for x in (-0.5, 0.5):
+        for y in (ya + 0.06, yb - 0.06):
+            p.add(tube([(x, y, 0.0), (x, y, hz)], 0.03, sides=4), m['wood_dark'])
+    segs = 6
+    arch = [(0.58 * math.cos(math.pi * k / segs), hz + 0.16 * math.sin(math.pi * k / segs)) for k in range(segs + 1)]
+    for k in range(segs):
+        (xa, za), (xb, zb) = arch[k], arch[k + 1]
+        panel = Geo([(xa, ya, za), (xb, ya, zb), (xb, yb, zb), (xa, yb, za), ((xa + xb) / 2, ya - 0.1, (za + zb) / 2 - 0.08)],
+                    [(0, 1, 2, 3), (0, 4, 1)])
+        p.add(K.merge(panel, panel.flipped().transformed(xf((0, 0, -0.025)))), m['red'] if k % 2 else m['white'], smooth=False)
+    p.add(K.cbox((2 * (W(0.9) - t), 0.32, 0.06), 0.02), m['wood'], xf((0, 1.22, 0.32)))
+    # Bucket, a rope coil on the foredeck, a bow lantern and a rod holder with a rod.
+    p.add(lathe([(0.0, 0.0), (0.12, 0.0), (0.15, 0.26), (0.13, 0.26), (0.11, 0.03)], 8), m['teal'], xf((0.32, -0.2, 0)))
+    p.add(torus(0.13, 0.035, 10, 4), m['straw'], xf((0.0, Y(0.07), ZT(a0) + 0.035)))
+    lp = Vector((0.0, Y(0.03) + 0.05, ZT(a0)))
+    p.add(tube([lp, lp + Vector((0, 0, 0.62)), lp + Vector((0, -0.18, 0.66))], 0.025, sides=4), m['wood_dark'])
+    paper_lantern(p, m['lantern'], m['red'], lp + Vector((0, -0.18, 0.62)), 0.12, 0.24, 8, tassel=False)
+    hold = Vector((W(0.55) - 0.03, Y(0.55), ZT(0.55)))
+    p.add(rcyl(0.04, 0.22, 0.012, 6, z0=-0.11, arc=1), m['iron'], xf(hold, (RAD(-20), RAD(25), 0)))
+    p.add(tube([hold + Vector((0.0, 0.03, -0.1)), hold + Vector((0.5, 0.45, 1.1))], [0.018, 0.008], sides=4), m['wood'])
+    return dict(body=p, children=[], markers=[])
+
+
+def crate(m):
+    """Bao's shipping crate with a slot lid (child `lid`, hinged at the back) and a postbird perch with a nest."""
+    p = Piece('crate')
+    W, D, H = 0.9, 0.7, 0.55
+    box(p, m['wood'], (W, D, H), (0, 0, H / 2), 0.05)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            p.add(K.cbox((0.09, 0.09, H + 0.01), 0.02), m['wood_dark'], xf((sx * (W / 2 - 0.02), sy * (D / 2 - 0.02), H / 2)))
+    p.add(K.cbox((W + 0.02, D + 0.02, 0.08), 0.02), m['wood_dark'], xf((0, 0, 0.22)))
+    p.add(disc(star_outline(5, 0.08, 0.035), dome=0.01), m['gold'], xf((0, -D / 2 - 0.016, 0.36), (RAD(90), 0, 0)))
+    # Perch on the right side with a straw nest (the sky-post finches' stop).
+    px = W / 2 + 0.07
+    p.add(tube([(px, 0.12, 0.05), (px, 0.12, 1.02)], 0.03, sides=5, cap_end=True), m['wood_dark'])
+    p.add(tube([(px - 0.12, 0.12, 0.8), (px + 0.14, 0.12, 0.8)], 0.018, sides=4, cap_start=True, cap_end=True), m['wood'])
+    nest = lathe([(0.04, 0.0), (0.15, 0.04), (0.19, 0.11), (0.15, 0.12), (0.1, 0.06), (0.0, 0.05)], 8,
+                 mod=lambda th, i: 1 + 0.07 * math.cos(5 * th + i))
+    p.add(nest, m['straw'], xf((px, 0.12, 1.0)))
+    for k, (dx, dy) in enumerate(((-0.04, 0.02), (0.04, -0.02))):
+        p.add(ico0(0.035, (px + dx, 0.12 + dy, 1.08), 1.25), m['sky_light'])
+    p.add(Geo([(px, 0.12, 1.0), (px, 0.12, 0.88), (px + 0.0, -0.06, 0.95)], [(0, 1, 2)]), m['red'], smooth=False)
+    lid = Piece('crate_lid')
+    hinge = Vector((0, D / 2 + 0.01, H + 0.01))
+    lid.add(rbox((W + 0.04, D + 0.04, 0.08), 0.035, 1), m['wood_light'], xf((0, 0, H + 0.05)))
+    lid.add(K.cbox((0.42, 0.14, 0.03), 0.01), m['gold'], xf((0, -0.08, H + 0.095)))
+    lid.add(cube((0.32, 0.05, 0.02), (0, -0.08, H + 0.105)), m['charcoal'])
+    for x in (-0.28, 0.28):
+        lid.add(tube([(x - 0.07, hinge.y, hinge.z), (x + 0.07, hinge.y, hinge.z)], 0.03, sides=5, cap_start=True,
+                     cap_end=True), m['iron'])
+    return dict(body=p, children=[('lid', lid, hinge)], markers=[])
+
+
+def chime_cannon(m):
+    """The engineer's cannon that fires ringing bells: brass bell-mouthed barrel (child `barrel`, pivot at the
+    trunnions, so the code aims it with barrel.rotation.x) on a wooden carriage with two wheels."""
+    p = Piece('chime_cannon')
+    cheek = [(0.75, 0.0), (0.75, 0.18), (0.25, 0.3), (0.12, 0.52), (-0.02, 0.6), (-0.14, 0.52), (-0.3, 0.44), (-0.32, 0.28),
+             (-0.2, 0.18), (0.25, 0.08)]
+    for x0 in (-0.28, 0.2):
+        p.add(yz_slab(cheek, x0, x0 + 0.08), m['wood'])
+    p.add(K.cbox((0.48, 0.5, 0.07), 0.02), m['wood_dark'], xf((0, 0.5, 0.12)))
+    axle = Vector((0, -0.12, 0.3))
+    p.add(tube([axle + Vector((-0.5, 0, 0)), axle + Vector((0.5, 0, 0))], 0.04, sides=6, cap_start=True, cap_end=True),
+          m['iron'])
+    for x in (-0.42, 0.42):
+        p.add(rcyl(0.3, 0.09, 0.03, 12, z0=-0.045, arc=1), m['wood_light'], xf(axle + Vector((x, 0, 0)), (0, RAD(90), 0)))
+        p.add(torus(0.3, 0.025, 12, 3), m['gold'], xf(axle + Vector((x + (0.045 if x > 0 else -0.045), 0, 0)), (0, RAD(90), 0)))
+        p.add(ico0(0.06, axle + Vector((x * 1.14, 0, 0))), m['iron'])
+    bell = bell_geo(0.2, 0.12)
+    for k, (x, y) in enumerate(((-0.1, 0.52), (0.12, 0.6))):
+        p.add(K.merge(bell, ico0(0.035, (0, 0, -0.205))), m['gold'], xf((x, y, 0.36), (0, 0, k)))
+    brl = Piece('chime_cannon_barrel')
+    T = Vector((0, -0.02, 0.62))
+    prof = [(0.0, -0.36), (0.07, -0.35), (0.13, -0.3), (0.15, -0.2), (0.155, -0.12), (0.135, -0.1), (0.13, 0.25),
+            (0.145, 0.27), (0.12, 0.3), (0.11, 0.48), (0.17, 0.58), (0.25, 0.66), (0.26, 0.69), (0.2, 0.68), (0.1, 0.6),
+            (0.0, 0.58)]
+    g = lathe(prof, 10, tag=lambda b, s2: 1 if b >= 13 else 0)
+    frame = xf(T, (RAD(70), 0, 0))
+    brl.add(g, {0: m['gold'], 1: m['charcoal']}, frame)
+    brl.add(ico0(0.06, frame @ Vector((0, 0, -0.4))), m['sun'])
+    brl.add(tube([T + Vector((-0.24, 0, 0)), T + Vector((0.24, 0, 0))], 0.045, sides=6, cap_start=True, cap_end=True),
+            m['iron'])
+    return dict(body=p, children=[('barrel', brl, T)], markers=[])
+
+
+def bao_plank(m):
+    """Bao's boarding plank: three warm planks on battens with rope rails, 3.5 m along +Z, top at y = 0."""
+    p = Piece('bao_plank')
+    Lp = 3.5
+    for i, x in enumerate((-0.27, 0.0, 0.27)):
+        p.add(K.cbox((0.25, Lp, 0.07), 0.02), m['wood'] if i % 2 == 0 else m['wood_light'], xf((x, -Lp / 2, -0.035)))
+    for y in (-0.3, -Lp + 0.3):
+        p.add(cube((0.86, 0.12, 0.06), (0, y, -0.1)), m['wood_dark'])
+    for sx in (-1, 1):
+        posts = [-0.15, -Lp / 2, -Lp + 0.15]
+        for y in posts:
+            p.add(tube([(sx * 0.43, y, -0.08), (sx * 0.43, y, 0.62)], 0.03, sides=4), m['wood_dark'])
+        rail = [(sx * 0.43, -0.15 - (Lp - 0.3) * k / 4, 0.6 - 0.08 * math.sin(math.pi * ((k / 2) % 1.0))) for k in range(5)]
+        p.add(tube(rail, 0.022, sides=4), m['straw'])
+    return dict(body=p, children=[], markers=[])
+
+
+def snow_lantern(m):
+    """A carved Frostfall snow lantern: snow pillars round a warm glowing core under a soft snow cap."""
+    p = Piece('snow_lantern')
+    p.add(no_floor(blob((0, 0, 0.0), (0.46, 0.42, 0.24), 10, LATS_LO, 0.05, 3)), m['snow'])
+    p.add(rcyl(0.22, 0.3, 0.06, 8, z0=0.15, arc=1), m['snow'])
+    p.add(rcyl(0.15, 0.32, 0.03, 8, z0=0.43, arc=1), m['lantern'])
+    for k in range(4):
+        a = RAD(45 + 90 * k)
+        p.add(K.cbox((0.11, 0.11, 0.34), 0.03), m['snow'], xf((math.cos(a) * 0.17, math.sin(a) * 0.17, 0.6), (0, 0, a)))
+    cap = lathe([(0.12, 0.76), (0.36, 0.78), (0.4, 0.84), (0.3, 0.92), (0.12, 0.98), (0.0, 1.0)], 10,
+                tag=lambda b, s2: 1 if b == 0 else 0)
+    p.add(cap, {0: m['snow'], 1: m['sky_light']})
+    p.add(ico0(0.07, (0, 0, 1.05)), m['snow'])
+    return dict(body=p, children=[], markers=[])
+
+
+def ice_hut(m):
+    """A cozy round ice-brick hut: brick dome, entrance vault with a wooden door, a warm window, smoking chimney."""
+    p = Piece('ice_hut')
+    R = 1.55
+    lats = [0, 16, 32, 48, 63, 77, 90]
+    row_segs = [16, 16, 16, 14, 12, 8]
+    for k in range(6):
+        a0, a1 = RAD(lats[k]), RAD(lats[k + 1])
+        prof = [(R * math.cos(a0), R * math.sin(a0) * 0.92), (R * math.cos(a1) if k < 5 else 0.0, R * math.sin(a1) * 0.92)]
+        sg = row_segs[k]
+        row = lathe(prof, sg, phase=(k % 2) * math.pi / sg, tag=lambda b, s2, k=k: 1 if (s2 * 7 + k * 3) % 5 == 0 else 0)
+        p.add(row, {0: m['snow'], 1: m['sky_light']})
+    # Entrance vault toward the front, bricked the same way, with the wooden door set inside.
+    # An elliptical vault, tall enough for a 1.1 m character to walk through.
+    (rox, roz), (rix, riz), y0, y1 = (0.8, 1.2), (0.62, 1.04), -R - 0.42, -0.75
+    soup = Soup()
+    n = 8
+    for k in range(n):
+        a0, a1 = math.pi * k / n, math.pi * (k + 1) / n
+        o0, o1 = (rox * math.cos(a0), roz * math.sin(a0)), (rox * math.cos(a1), roz * math.sin(a1))
+        i0, i1 = (rix * math.cos(a0), riz * math.sin(a0)), (rix * math.cos(a1), riz * math.sin(a1))
+        tag = 'snow' if k % 2 else 'sky_light'
+        soup.add([(o0[0], y0, o0[1]), (o1[0], y0, o1[1]), (o1[0], y1, o1[1]), (o0[0], y1, o0[1])], tag,
+                 ((o0[0] + o1[0]) / 2, 0, (o0[1] + o1[1]) / 2))
+        soup.add([(i0[0], y0, i0[1]), (i1[0], y0, i1[1]), (o1[0], y0, o1[1]), (o0[0], y0, o0[1])], 'snow', (0, -1, 0))
+    p.add(soup.geo(), {'snow': m['snow'], 'sky_light': m['sky_light']})
+    dy = y0 + 0.36
+    p.add(standing(arch_outline(0.96, 1.0, 6), 0.06, (0, dy, 0.0), lip=0.015), m['wood'])
+    for x in (-0.17, 0.17):
+        p.add(K.cbox((0.035, 0.03, 0.82), 0.01), m['wood_dark'], xf((x, dy - 0.035, 0.44)))
+    for z in (0.28, 0.66):
+        p.add(K.cbox((0.72, 0.03, 0.06), 0.012), m['iron'], xf((0, dy - 0.04, z)))
+    p.add(torus(0.05, 0.014, 6, 3), m['gold'], xf((0.28, dy - 0.05, 0.45), (RAD(90), 0, 0)))
+    # A warm round window on the right, and a chimney with smoke puffs.
+    wa = RAD(-25)
+    wc = Vector((math.cos(wa) * R * 0.86, math.sin(wa) * R * 0.86, 0.8))
+    wn = Vector((math.cos(wa), math.sin(wa), 0.45)).normalized()
+    p.add(torus(0.2, 0.045, 10, 4), m['wood_dark'], facing(wc + wn * 0.02, wn))
+    p.add(disc(K.circle(10, 0.19), dome=0.02), m['lantern'], facing(wc, wn))
+    ch = Vector((0.55, 0.45, 1.0))
+    p.add(rcyl(0.11, 0.62, 0.02, 8, z0=0.0, arc=1, r_top=0.1), m['iron'], xf(ch))
+    p.add(rcyl(0.15, 0.08, 0.02, 8, z0=0.6, arc=1), m['charcoal'], xf(ch))
+    for k, (dz, dx, r) in enumerate(((0.85, 0.02, 0.13), (1.12, 0.12, 0.16), (1.42, 0.06, 0.12))):
+        p.add(blob(ch + Vector((dx, 0, dz)), (r, r * 0.9, r * 0.8), 8, LATS_LO, 0.08, k), m['cloud'])
+    # Snow banked round the base, and a little stack of firewood by the door.
+    bank = [(R * 1.02 * math.cos(TAU * k / 22 + 0.3), R * 1.02 * math.sin(TAU * k / 22 + 0.3), 0.06) for k in range(23)]
+    bg = tube(bank, [0.16 + 0.05 * math.sin(k * 2.3) for k in range(23)], sides=4, flatten=1.4)
+    bg = bg.keep(lambda f, gg: all(abs(gg.verts[i].x) > 0.66 or gg.verts[i].y > -R * 0.7 for i in f))
+    p.add(bg, m['snow'])
+    for k, (y, z) in enumerate(((y0 + 0.3, 0.075), (y0 + 0.46, 0.075), (y0 + 0.38, 0.2))):
+        p.add(tube([(0.9, y, z), (1.4, y, z)], 0.075, sides=6, cap_start=True, cap_end=True), m['wood'])
+    return dict(body=p, children=[], markers=[])
+
+
+BATCH5 = ['lift', 'skiff', 'crate', 'chime_cannon', 'bao_plank', 'snow_lantern', 'ice_hut']
+BATCH5_BUDGET = {'lift': 1500, 'skiff': 1500, 'crate': 800, 'chime_cannon': 1200, 'bao_plank': 300, 'snow_lantern': 500,
+                 'ice_hut': 1500}
+
+
+def batch5_previews(roots, m):
+    """deck-tools.png (lift lowered, crate open, cannon aimed) and frostfall-props.png (snow lantern, ice hut)."""
+    for o in bpy.data.objects:
+        if o.type in ('MESH', 'FONT', 'EMPTY'):
+            o.hide_render = True
+    lay = {'lift': (-5.2, 0.6, 0), 'skiff': (-1.6, 0.4, 0.55), 'crate': (1.0, 1.0, 0), 'chime_cannon': (2.8, 0.9, 0),
+           'bao_plank': (4.6, 2.0, 0.12)}
+    shown = []
+    for n, (x, y, z) in lay.items():
+        roots[n].location = (x, y, z)
+        roots[n].rotation_euler = (0, 0, 0)
+        shown += K.subtree(roots[n])
+    lifted = K.place_copy(roots['lift'], (-5.2, -2.6, 0))
+    for o in K.subtree(lifted):
+        if o.name.startswith('platform'):
+            o.location.z -= 0.55
+        if o.name.startswith('rope'):
+            o.scale.z = (1.0 + 0.55) / 1.0
+    opened = K.place_copy(roots['crate'], (1.0, -1.6, 0))
+    for o in K.subtree(opened):
+        if o.name.startswith('lid'):
+            o.rotation_euler = (-1.7, 0, 0)
+    aimed = K.place_copy(roots['chime_cannon'], (2.8, -1.8, 0))
+    for o in K.subtree(aimed):
+        if o.name.startswith('barrel'):
+            o.rotation_euler = (0.35, 0, 0)
+    shown += K.subtree(lifted) + K.subtree(opened) + K.subtree(aimed)
+    deck = Piece('Preview deck b5')
+    for i in range(14):
+        deck.add(K.cbox((14.0, 0.48, 0.06), 0.015), m['wood'] if i % 2 else m['wood_light'], xf((0, -4.0 + 0.5 * i, -0.03)))
+    dko = deck.build(sharp=0)
+    for o in shown + [dko]:
+        o.hide_render = False
+    roots['skiff'].location.x, roots['skiff'].location.y = -1.6, -0.6
+    K.frame(shown, 2200, margin=0.4)
+    style.render(os.path.join(K.PREVIEWS, 'deck-tools.png'))
+    for o in shown + [dko]:
+        o.hide_render = True
+    snow = Piece('Preview snow')
+    snow.add(disc(K.circle(32, 5.5), dome=0.04), m['snow'])
+    so = snow.build(sharp=0)
+    so.location = (0, 0, -0.03)
+    roots['ice_hut'].location = (0.6, 0.6, 0)
+    roots['snow_lantern'].location = (-1.9, -1.2, 0)
+    lantern2 = K.place_copy(roots['snow_lantern'], (2.6, -1.6, 0), 0.4, 0.85)
+    show2 = K.subtree(roots['ice_hut']) + K.subtree(roots['snow_lantern']) + K.subtree(lantern2)
+    for o in show2 + [so]:
+        o.hide_render = False
+    K.frame(show2, 1600, margin=0.6)
+    style.render(os.path.join(K.PREVIEWS, 'frostfall-props.png'))
+
+
 # ===================================================================== main
 def check(stats):
     errors = []
     for n, s in stats.items():
-        limit = NEW_BUDGET[n] if n in NEW_IDS else BUDGET
+        limit = NEW_BUDGET[n] if n in NEW_IDS else BATCH5_BUDGET[n] if n in BATCH5 else BUDGET
         if s['tris'] > limit:
             errors.append(f'{n}: {s["tris"]} tris > {limit}')
-        if n not in ('skydew', 'hatch') and abs(s['min_y']) > 0.01:
+        if n not in ('skydew', 'hatch', 'skiff', 'bao_plank') and abs(s['min_y']) > 0.01:
             errors.append(f'{n}: base {s["min_y"]}')
-    want = {'hatch': ['door'], 'planter': ['soil'], 'gong': ['disc']}
+    want = {'hatch': ['door'], 'planter': ['soil'], 'gong': ['disc'], 'lift': ['platform', 'rope'], 'crate': ['lid'],
+            'chime_cannon': ['barrel']}
     for n, kids in want.items():
         if sorted(stats[n]['children']) != kids:
             errors.append(f'{n}: children {stats[n]["children"]} (want {kids})')
@@ -879,11 +1248,11 @@ def main():
     m = mats()
     roots = {}
     extra = {}
-    for n in IDS + NEW_IDS:
+    for n in IDS + NEW_IDS + BATCH5:
         out = globals()[n](m)
         if isinstance(out, dict):
             body = out['body']
-            if n != 'hatch':
+            if n not in ('hatch', 'skiff', 'bao_plank'):
                 body.deform(lambda v: (v.x, v.y, max(0.0, v.z)))
             obj = body.build(sharp=50, name=n)
             for cname, piece, pivot in out['children']:
@@ -925,21 +1294,29 @@ def main():
                                                   'hatch/door pivots on the hinge at the back edge, open with '
                                                   'door.rotation.x -> -1.9; planter/soil: empty marker at the '
                                                   'soil top; the hatch shaft reaches below y = 0; gong/disc pivots '
-                                                  'at its top hanging point, wobble it with disc.rotation.x'))
+                                                  'at its top hanging point, wobble it with disc.rotation.x; '
+                                                  'lift/platform pivots at its top centre (lower it in y), '
+                                                  'lift/rope hangs 1.0 m from its pivot (scale y = drop / 1.0); '
+                                                  'crate/lid hinges at the back (rotation.x negative opens); '
+                                                  'chime_cannon/barrel pivots at the trunnions (aim with '
+                                                  'rotation.x); skiff floor and bao_plank top at y = 0'))
     if '--render' in K.args():
         order = ['hut', 'windmill', 'market', 'forge', 'coral_arch', 'tent',
                  'kitchen', 'workbench', 'maptable', 'fishspot', 'ropepost', 'pantry',
                  'chimepost', 'lantern', 'ore_rock', 'postspot', 'rod', 'speck', 'skydew']
-        new_small = ['hatch', 'planter', 'gong']
+        new_small = ['hatch', 'planter', 'gong', 'lift', 'skiff', 'crate', 'chime_cannon', 'bao_plank', 'snow_lantern',
+                     'ice_hut']
         cells = [(roots[n], f'{n}  {stats[n]["tris"]}') for n in order + new_small]
         placed = K.contact_sheet(cells, os.path.join(K.PREVIEWS, 'props.png'), cols=6, pitch=(4.4, 4.7),
                                  width_px=2400, label_size=0.26, label_dy=2.15)
         roots['skydew'].location.z += 0.6  # it floats
-        for tag, names in (('a', order[:6]), ('b', order[6:12]), ('c', order[12:]), ('d', new_small)):
+        for tag, names in (('a', order[:6]), ('b', order[6:12]), ('c', order[12:]), ('d', new_small[:5]),
+                           ('e', new_small[5:])):
             objs = [o for n in names for o in K.subtree(roots[n]) if o.type == 'MESH']
             K.frame(objs, 2000, margin=0.3)
             style.render(os.path.join(K.PREVIEWS, f'props-closeup-{tag}.png'))
         hatch_preview(roots, placed, m)
+        batch5_previews(roots, m)
     if errors:
         raise SystemExit('props contract failures:\n  ' + '\n  '.join(errors))
     print('props OK')

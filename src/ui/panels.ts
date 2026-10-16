@@ -1,16 +1,18 @@
 import { h } from './dom.ts';
 import { language, setLanguage, t } from '../i18n.ts';
-import { CREW, FISH, ITEMS, MALLET, COAT, MARKETS, MEALS, MEAL_IDS, NOTE_ISLES, PLACES, PLACE_IDS, RECIPES, RECIPE_IDS, STAGES, TREES, TREE_IDS, moodFactor, moodLabel, seedOf, type IsleId, type ItemId, type ItemKind, type MealId, type PlaceId, type RecipeId, type TreeId } from '../rules/content.ts';
+import { CREW, FISH, HELPERS, HELPER_IDS, ITEMS, MALLET, COAT, MARKETS, MEALS, MEAL_IDS, NOTE_ISLES, PLACES, PLACE_IDS, RECIPES, RECIPE_IDS, ROOMS, SKILL_IDS, SKILL_NAMES, STAGES, TREES, TREE_IDS, UPGRADES, moodFactor, moodLabel, seedOf,
+  type HelperId, type IsleId, type ItemId, type ItemKind, type LandId, type MealId, type PlaceId, type RecipeId, type RoomId, type TreeId, type UpgradeId } from '../rules/content.ts';
 import { count, type GameState } from '../rules/state.ts';
 import { plotProgress, plotSecondsLeft, gardenSpeed } from '../rules/garden.ts';
 import { canGrow, growNeeds, canFeed } from '../rules/whale.ts';
 import { canSail, voyagePlan } from '../rules/voyage.ts';
-import { recipeState, sellPrice, marketOpen, canCook, lockReason } from '../rules/trade.ts';
+import { recipeState, recipeGlimmer, sellPrice, marketOpen, cookBlock, lockReason, hasUpgrade } from '../rules/trade.ts';
+import { cratePrice, perks, repairState, skillLevel, skillNext } from '../rules/home.ts';
 import { noteName, storyIsle } from '../rules/story.ts';
 import { maxHp, ringDamage } from '../rules/keeper.ts';
 import { getVolume, setVolume, play } from '../sfx.ts';
 
-export type PanelKind = 'plot' | 'bao' | 'map' | 'workbench' | 'kitchen' | 'market' | 'bag' | 'journal' | 'settings';
+export type PanelKind = 'plot' | 'bao' | 'map' | 'workbench' | 'kitchen' | 'market' | 'bag' | 'journal' | 'settings' | 'crate' | 'repair' | 'board';
 export interface GameApi {
   state(): GameState;
   onDeck(): boolean;
@@ -18,7 +20,8 @@ export interface GameApi {
   feed(item: ItemId): void; feedAll(): void; pet(): void; grow(): void;
   sail(to: PlaceId): void;
   craft(id: RecipeId): void; cook(id: MealId): void;
-  sell(isle: IsleId, item: ItemId, n: number): void; buy(isle: IsleId, item: ItemId): void;
+  ship(item: ItemId, n: number): void; repair(room: RoomId): void; board(picked: HelperId[]): void;
+  sell(isle: IsleId, item: ItemId, n: number): void; buy(isle: IsleId, item: ItemId): void; upgrade(isle: IsleId, id: UpgradeId): void;
   eat(item: ItemId): void;
   exportSave(): string; importSave(code: string): boolean; reset(): void; replayPrologue(): void;
   settings: { shake: boolean; graphics: string; setShake(v: boolean): void; setGraphics(v: string): void };
@@ -26,9 +29,10 @@ export interface GameApi {
 
 const KIND_LABEL: Record<ItemKind, string> = { whale: 'Whale food', people: 'People food', craft: 'Craft', fish: 'Fish', meal: 'Meals', seed: 'Seeds' };
 const ICON: Partial<Record<ItemId | 'glimmer', string>> = {
-  puffberry: '🍓', glowplum: '🫐', starfig: '⭐', cloudpear: '🍐', honeybun: '🥯', fibre: '🧶', chimewood: '🪵', ore: '🪨',
+  puffberry: '🍓', glowplum: '🫐', starfig: '⭐', cloudpear: '🍐', honeybun: '🥯', cocoa: '☕', fibre: '🧶', chimewood: '🪵', ore: '🪨',
   puff_minnow: '🐟', sun_carp: '🐠', star_ray: '🪼', cloud_koi: '🎏', pear_tart: '🥧', fish_bun: '🥟', sky_stew: '🍲', glimmer: '✦',
 };
+const SKILL_ICON = { garden: '🌱', fish: '🎣', cook: '🍳', craft: '🔨' } as const;
 export const itemIcon = (id: ItemId) => ICON[id] ?? (id.startsWith('seed_') ? '🌱' : '•');
 const mmss = (s: number) => s >= 60 ? `${Math.floor(s / 60)}m ${Math.ceil(s % 60)}s` : `${Math.ceil(s)}s`;
 const costLine = (s: GameState, cost: Partial<Record<string, number>>, glimmer = 0) => h('div', { class: 'cost' },
@@ -42,6 +46,7 @@ export class Panels {
   private arg: unknown = null;
   private mapPick: PlaceId | null = null;
   private marketTab: 'sell' | 'buy' = 'sell';
+  private picked: HelperId[] = [];
   onClose: (() => void) | null = null;
   constructor(parent: HTMLElement, private api: GameApi) {
     this.sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' });
@@ -52,7 +57,12 @@ export class Panels {
     window.addEventListener('keydown', e => { if (e.key === 'Escape' && this.kind) { e.preventDefault(); this.close(); } });
   }
   get open() { return this.kind !== null; }
-  show(kind: PanelKind, arg: unknown = null) { this.kind = kind; this.arg = arg; if (kind === 'map') this.mapPick = null; this.root.hidden = false; this.render(); }
+  show(kind: PanelKind, arg: unknown = null) {
+    this.kind = kind; this.arg = arg;
+    if (kind === 'map') this.mapPick = null;
+    if (kind === 'board') { const s = this.api.state(); this.picked = s.boarders.filter(id => s.crew.includes(id)); if (this.picked.length < 2) for (const id of HELPER_IDS) if (s.crew.includes(id) && !this.picked.includes(id) && this.picked.length < 2) this.picked.push(id); }
+    this.root.hidden = false; this.render();
+  }
   close() { if (!this.kind) return; this.kind = null; this.root.hidden = true; this.sheet.replaceChildren(); this.onClose?.(); }
   /**
    * Called every HUD tick: re-renders only when the panel's numbers changed, never while a finger or the mouse is
@@ -76,7 +86,7 @@ export class Panels {
   /** What the open panel shows, as one string: when it is unchanged nothing is rebuilt. */
   private signature() {
     const s = this.api.state(), p = this.kind === 'plot' ? s.plots[this.arg as number] : null;
-    return JSON.stringify([this.kind, this.arg, language(), this.api.onDeck(), s.glimmer, s.items, s.gear, s.posts, s.keepsakes, s.crew.length, s.notes, s.rescued.length, s.place,
+    return JSON.stringify([this.kind, this.arg, language(), this.api.onDeck(), s.glimmer, s.items, s.gear, s.rooms, s.skills, s.posts, s.keepsakes, s.crew.length, s.notes, s.rescued.length, s.place, this.picked,
       s.whale.stage, s.whale.xp, Math.round(s.whale.hunger), Math.round(s.whale.mood), s.whale.specks, s.playSeconds >= s.whale.petAt,
       p ? [p.tree, p.phase, p.crust, Math.ceil(plotSecondsLeft(s, p))] : null,
       this.kind === 'map' ? [s.voyage?.to, Math.round((s.voyage?.elapsed ?? 0) / Math.max(1, s.voyage?.duration ?? 1) * 40), this.mapPick] : null]);
@@ -107,6 +117,9 @@ export class Panels {
       case 'bag': return this.bag(s);
       case 'journal': return this.journal(s);
       case 'settings': return this.settings();
+      case 'crate': return this.crate(s);
+      case 'repair': return this.repair(s, this.arg as RoomId);
+      case 'board': return this.board(s);
     }
   }
 
@@ -124,7 +137,7 @@ export class Panels {
             h('div', { class: 'grow' }, h('b', {}, t(tr.name)), h('small', {}, `${t(KIND_LABEL[tr.kind === 'decor' ? 'seed' : tr.kind])} · ${t('first fruit {t}', { t: mmss(tr.grow / gardenSpeed(s)) })}${tr.yield ? ` · ${tr.yield[1]}× ${itemIcon(tr.yield[0])}` : ''}`)),
             h('span', { class: 'count' }, `×${count(s, seedOf(id))}`),
             this.button(t('Plant'), () => { this.api.plant(i, id); this.close(); }));
-        })) : h('p', {}, t('You have no seeds. Markets on rescued isles sell them.')));
+        })) : h('p', {}, t('You have no seeds. Markets on rescued lands sell them.')));
     }
     const tr = TREES[p.tree];
     const left = plotSecondsLeft(s, p);
@@ -164,39 +177,47 @@ export class Panels {
   }
 
   private map(s: GameState) {
-    const W = 320, H = 360, sx = (x: number) => W / 2 + x * 4.2, sy = (y: number) => 30 - y * 4.6;
+    // The Gloom fleet shows itself (on the map too) once Bao knows all four Notes.
+    const fleet = s.notes.length >= 4;
+    const places = PLACE_IDS.filter(id => PLACES[id].kind !== 'ship' || fleet);
+    const W = 320, H = 440, sx = (x: number) => W / 2 + x * 4.6, sy = (y: number) => 22 + -y * 3.9;
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('class', 'skymap');
     const el = (tag: string, attrs: Record<string, string | number>, text?: string) => { const n = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v)); if (text) n.textContent = text; svg.append(n); return n; };
     el('rect', { x: 0, y: 0, width: W, height: H, rx: 16, fill: '#1c4fa8' });
-    for (let i = 0; i < 26; i++) el('circle', { cx: (i * 97) % W, cy: (i * 53) % H, r: 8 + (i % 4) * 5, fill: '#ffffff', opacity: .08 });
-    for (const gate of [{ y: -20, label: 'Wind Wall' }, { y: -38, label: 'Storm Belt' }, { y: -58, label: 'Deep Mist' }]) {
+    for (let i = 0; i < 28; i++) el('circle', { cx: (i * 97) % W, cy: (i * 53) % H, r: 8 + (i % 4) * 5, fill: '#ffffff', opacity: .08 });
+    if (fleet) el('rect', { x: 0, y: sy(-68), width: W, height: H - sy(-68), fill: '#3a2a7a', opacity: .55 });
+    // Each gate's name sits on the side and the edge of its line that no place label uses.
+    const gates: { y: number; label: string; left?: boolean; below?: boolean }[] = [{ y: -20, label: 'Wind Wall', below: true }, { y: -38, label: 'Storm Belt' }, { y: -54, label: 'Frost Veil', left: true }, ...(fleet ? [{ y: -92, label: 'Deep Mist' }] : [])];
+    for (const gate of gates) {
       el('line', { x1: 10, x2: W - 10, y1: sy(gate.y), y2: sy(gate.y), stroke: '#bfe2ff', 'stroke-width': 3, 'stroke-dasharray': '6 6', opacity: .55 });
-      el('text', { x: W - 14, y: sy(gate.y) - 5, fill: '#dff0ff', 'font-size': 12.5, 'text-anchor': 'end' }, t(gate.label));
+      el('text', { x: gate.left ? 14 : W - 14, y: sy(gate.y) + (gate.below ? 16 : -6), fill: '#dff0ff', 'font-size': 12.5, 'text-anchor': gate.left ? 'start' : 'end' }, t(gate.label));
     }
-    for (const id of PLACE_IDS) {
-      const p = PLACES[id], [x, y] = p.pos, freed = id !== 'dawnreach' && s.isles[id].freed;
+    for (const id of places) {
+      const p = PLACES[id], [x, y] = p.pos, freed = id !== 'dawnreach' && s.isles[id].freed, ship = p.kind === 'ship';
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       g.setAttribute('class', `place ${this.mapPick === id ? 'picked' : ''}`); g.setAttribute('tabindex', '0'); g.setAttribute('role', 'button');
       g.addEventListener('click', () => { this.mapPick = id; play('click'); this.render(); });
       svg.append(g);
-      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      Object.entries({ cx: sx(x), cy: sy(y), r: id === 'dawnreach' ? 9 : 17, fill: id === 'dawnreach' ? '#7cc8ff' : freed ? p.hue : '#8c86a8', stroke: '#ffffff', 'stroke-width': this.mapPick === id ? 4 : 2 }).forEach(([k, v]) => c.setAttribute(k, String(v)));
-      g.append(c);
+      const shape = document.createElementNS('http://www.w3.org/2000/svg', ship ? 'rect' : 'circle');
+      const attrs: Record<string, string | number> = ship ? { x: sx(x) - 16, y: sy(y) - 11, width: 32, height: 22, rx: 7 } : { cx: sx(x), cy: sy(y), r: id === 'dawnreach' ? 9 : 17 };
+      Object.entries({ ...attrs, fill: id === 'dawnreach' ? '#7cc8ff' : freed ? (ship ? '#ffd7a0' : p.hue) : ship ? '#5e4a9a' : '#8c86a8', stroke: '#ffffff', 'stroke-width': this.mapPick === id ? 4 : 2 }).forEach(([k, v]) => shape.setAttribute(k, String(v)));
+      g.append(shape);
+      if (ship) { const icon = document.createElementNS('http://www.w3.org/2000/svg', 'text'); Object.entries({ x: sx(x), y: sy(y) + 5, 'font-size': 14, 'text-anchor': 'middle' }).forEach(([k, v]) => icon.setAttribute(k, String(v))); icon.textContent = freed ? '✓' : '⛵'; g.append(icon); }
       const tx = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      Object.entries({ x: sx(x), y: sy(y) + 32, fill: '#ffffff', 'font-size': 12, 'font-weight': 700, 'text-anchor': 'middle' }).forEach(([k, v]) => tx.setAttribute(k, String(v)));
+      Object.entries({ x: sx(x), y: sy(y) + 30, fill: '#ffffff', 'font-size': 12, 'font-weight': 700, 'text-anchor': 'middle' }).forEach(([k, v]) => tx.setAttribute(k, String(v)));
       tx.textContent = t(p.name); g.append(tx);
       // A larger invisible target so the tap area is at least 44 px.
       const hit = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      Object.entries({ cx: sx(x), cy: sy(y) + 6, r: 30, fill: 'transparent' }).forEach(([k, v]) => hit.setAttribute(k, String(v)));
+      Object.entries({ cx: sx(x), cy: sy(y) + 6, r: 26, fill: 'transparent' }).forEach(([k, v]) => hit.setAttribute(k, String(v)));
       g.append(hit);
     }
     const here = s.voyage ? s.voyage.to : s.place, [bx, by] = PLACES[s.voyage ? s.voyage.from : s.place].pos;
     let px = bx, py = by;
     if (s.voyage) { const [tx2, ty2] = PLACES[here].pos, k = s.voyage.elapsed / s.voyage.duration; px = bx + (tx2 - bx) * k; py = by + (ty2 - by) * k; }
-    el('text', { x: sx(px), y: sy(py) + 6, 'font-size': 20, 'text-anchor': 'middle' }, '🐋');
+    el('text', { x: sx(px) + (s.voyage ? 0 : 20), y: sy(py) - (s.voyage ? -6 : 10), 'font-size': 20, 'text-anchor': 'middle' }, '🐋');
     const pick = this.mapPick;
-    let info: Node | null = h('p', { class: 'hint' }, t('Tap a place to see the way there.'));
+    let info: Node | null = h('p', { class: 'hint' }, fleet ? t('Tap a place to see the way there. The Gloom fleet waits beyond Frostfall.') : t('Tap a place to see the way there.'));
     if (pick && pick !== s.place) {
       const ok = canSail(s, pick), plan = voyagePlan(s, pick), story = storyIsle(s);
       info = h('div', { class: 'map-info' },
@@ -212,29 +233,68 @@ export class Panels {
   private workbench(s: GameState) {
     return this.frame(t('Workbench'),
       h('p', { class: 'hint' }, t('Mallet ×{m} · Coat +{c} HP · Damage {d}', { m: MALLET[s.gear.mallet - 1], c: COAT[s.gear.coat - 1], d: Math.round(ringDamage(s)) })),
+      s.rooms.craft ? h('p', { class: 'hint' }, t('The craft room takes 20% off every glimmer cost.')) : null,
       h('div', { class: 'list' }, ...RECIPE_IDS.map(id => {
         const r = RECIPES[id], st = recipeState(s, id);
         if (st === 'owned' && id !== 'post') return null;
         return h('div', { class: `row ${st}` },
-          h('div', { class: 'grow' }, h('b', {}, t(r.name)), h('small', {}, t(r.effect)), st === 'locked' ? h('small', { class: 'warn' }, t(lockReason(s, id))) : costLine(s, r.cost, r.glimmer), id === 'post' ? h('small', {}, t('{n}/4 posts built', { n: s.posts.length })) : null),
+          h('div', { class: 'grow' }, h('b', {}, t(r.name)), h('small', {}, t(r.effect)), st === 'locked' ? h('small', { class: 'warn' }, t(lockReason(s, id))) : costLine(s, r.cost, recipeGlimmer(s, id)), id === 'post' ? h('small', {}, t('{n}/4 posts built', { n: s.posts.length })) : null),
           this.button(t('Make'), () => this.api.craft(id), { disabled: st !== 'ready' }));
       })));
   }
 
   private kitchen(s: GameState) {
-    return this.frame(t('Mina’s Kitchen'),
+    return this.frame(t('Kitchen'),
       h('p', { class: 'hint' }, t('Meals heal more, and some give a buff for 150 s.')),
       h('div', { class: 'list' }, ...MEAL_IDS.map(id => {
-        const def = ITEMS[id];
+        const def = ITEMS[id], why = cookBlock(s, id), heal = Math.round(def.eat!.heal * perks(s).mealHeal);
         return h('div', { class: 'row' }, h('span', { class: 'big' }, itemIcon(id)),
-          h('div', { class: 'grow' }, h('b', {}, t(def.name)), h('small', {}, `+${def.eat!.heal} HP${def.eat!.buff === 'power' ? ` · ${t('+20% damage')}` : def.eat!.buff === 'guard' ? ` · ${t('−25% damage taken')}` : ''}`), costLine(s, MEALS[id].cost)),
+          h('div', { class: 'grow' }, h('b', {}, t(def.name)), h('small', {}, `+${heal} HP${def.eat!.buff === 'power' ? ` · ${t('+20% damage')}` : def.eat!.buff === 'guard' ? ` · ${t('−25% damage taken')}` : ''}`),
+            why === 'Mina will teach you this one' ? h('small', { class: 'warn' }, t(why)) : costLine(s, MEALS[id].cost)),
           h('span', { class: 'count' }, `×${count(s, id)}`),
-          this.button(t('Cook'), () => this.api.cook(id), { disabled: !canCook(s, id) }));
+          this.button(t('Cook'), () => this.api.cook(id), { disabled: !!why }));
       })));
   }
 
+  /** The shipping crate: sky-post finches buy anything that sells, at the basic price. */
+  private crate(s: GameState) {
+    const items = (Object.keys(s.items) as ItemId[]).filter(id => cratePrice(id) > 0 && count(s, id) > 0);
+    return this.frame(t('Shipping crate'),
+      h('p', { class: 'hint' }, t('Sky-post finches carry goods away and bring glimmer back. Markets pay more for what they like.')),
+      items.length ? h('div', { class: 'list' }, ...items.map(id => h('div', { class: 'row' }, h('span', { class: 'big' }, itemIcon(id)),
+        h('div', { class: 'grow' }, h('b', {}, t(ITEMS[id].name)), h('small', {}, `✦ ${cratePrice(id)}`)),
+        h('span', { class: 'count' }, `×${count(s, id)}`),
+        this.button(t('Ship 1'), () => this.api.ship(id, 1)), this.button(t('All'), () => this.api.ship(id, count(s, id)))))) : h('p', { class: 'hint' }, t('Nothing to ship.')),
+      h('p', { class: 'hint' }, `✦ ${s.glimmer} ${t('glimmer')}`));
+  }
+
+  /** Fixing up a boarded room of the cottage (chapter 2). */
+  private repair(s: GameState, room: RoomId) {
+    const r = ROOMS[room], st = repairState(s, room);
+    if (st === 'done') return this.close();
+    return this.frame(t('Repair the {room}', { room: t(r.name) }),
+      h('p', {}, t(r.job)),
+      costLine(s, r.cost, r.glimmer),
+      h('div', { class: 'acts' }, this.button(t('Repair'), () => this.api.repair(room), { disabled: st !== 'ready', kind: 'primary' })),
+      st !== 'ready' ? h('p', { class: 'hint' }, t('Grow, ship or trade for what is missing.')) : null);
+  }
+
+  /** Picking two crew mates for a boarding mission (chapter 5). */
+  private board(s: GameState) {
+    const ship = s.place as IsleId, can = HELPER_IDS.filter(id => s.crew.includes(id));
+    return this.frame(t('Board {ship}', { ship: t(PLACES[ship].name) }),
+      h('p', { class: 'hint' }, t('Pick two crew mates to board with you. They fight beside you and are never hurt.')),
+      h('div', { class: 'list' }, ...can.map(id => {
+        const on = this.picked.includes(id);
+        return h('div', { class: `row ${on ? 'ready' : ''}` }, h('span', { class: 'dot', style: { background: CREW[id].color } }),
+          h('div', { class: 'grow' }, h('b', {}, t(CREW[id].name)), h('small', {}, t(HELPERS[id].perk))),
+          this.button(on ? t('Picked') : t('Choose'), () => { this.picked = on ? this.picked.filter(x => x !== id) : [...this.picked, id].slice(-2); }, { kind: on ? 'on' : '' }));
+      })),
+      h('div', { class: 'acts' }, this.button(t('Board!'), () => this.api.board(this.picked), { kind: 'primary', disabled: !this.picked.length && can.length > 0 })));
+  }
+
   private market(s: GameState, isle: IsleId) {
-    const m = MARKETS[isle];
+    const m = MARKETS[isle as LandId];
     if (!m || !marketOpen(s, isle)) return this.close();
     const tabs = h('div', { class: 'tabs' },
       this.button(t('Sell'), () => { this.marketTab = 'sell'; }, { kind: this.marketTab === 'sell' ? 'on' : '' }),
@@ -251,7 +311,10 @@ export class Panels {
       body = h('div', { class: 'list' }, ...(Object.entries(m.sells) as [ItemId, number][]).map(([id, price]) => h('div', { class: 'row' }, h('span', { class: 'big' }, itemIcon(id)),
         h('div', { class: 'grow' }, h('b', {}, t(ITEMS[id].name)), h('small', {}, id.startsWith('seed_') ? t(KIND_LABEL[TREES[id.slice(5) as TreeId].kind === 'decor' ? 'seed' : TREES[id.slice(5) as TreeId].kind as ItemKind]) : t(KIND_LABEL[ITEMS[id].kind]))),
         h('span', { class: 'count' }, `×${count(s, id)}`),
-        this.button(`✦ ${price}`, () => this.api.buy(isle, id), { disabled: s.glimmer < price }))));
+        this.button(`✦ ${price}`, () => this.api.buy(isle, id), { disabled: s.glimmer < price }))),
+        ...(Object.entries(m.upgrades ?? {}) as [UpgradeId, number][]).map(([id, price]) => h('div', { class: 'row' }, h('span', { class: 'big' }, '🪣'),
+          h('div', { class: 'grow' }, h('b', {}, t(UPGRADES[id].name)), h('small', {}, t(UPGRADES[id].effect))),
+          hasUpgrade(s, id) ? h('span', { class: 'count' }, '✔') : this.button(`✦ ${price}`, () => this.api.upgrade(isle, id), { disabled: s.glimmer < price }))));
     }
     return this.frame(t(m.name), h('p', { class: 'hint' }, `${t(owner)}: ${t('pays ×1.5 for {kind}', { kind: t(KIND_LABEL[m.likes]) })} · ✦ ${s.glimmer}`), tabs, body);
   }
@@ -272,16 +335,36 @@ export class Panels {
   }
 
   private journal(s: GameState) {
-    const chapters: [string, boolean][] = [['Morning on a small whale', s.gear.rope], ['Clover Rise', s.isles.clover.freed], ['Lantern Reef', s.isles.reef.freed], ['Ember Peaks', s.isles.ember.freed], ['The Grey Star', s.isles.star.freed]];
+    const f = s.story.flags;
+    const chapters: [string, boolean][] = [
+      ['Wake up, Captain', !!f.petted], ['The ship’s economy', s.gear.rope],
+      ['Landing and rescue', s.notes.length >= 4], ['Friends at work', s.crew.includes('juno')],
+      ['Taking the fight to the Gloom', s.isles.star.freed],
+    ];
+    const p = perks(s);
+    const perkText: Record<string, string> = {
+      garden: t('Growth +{a}% · bonus fruit {b}%', { a: Math.round((p.growth - 1) * 100), b: Math.round(p.bonusFruit * 100) }),
+      fish: t('Bite window +{a} s · rare fish +{b}%', { a: p.biteWindow.toFixed(2), b: Math.round((p.rare - 1) * 100) }),
+      cook: t('Meals heal +{a}% · second portion {b}%', { a: Math.round((p.mealHeal - 1) * 100), b: Math.round(p.portion * 100) }),
+      craft: t('Glimmer costs −{a}%', { a: Math.round((1 - p.craftCost) * 100) }),
+    };
     return this.frame(t('Journal'),
       h('h3', {}, t('Chapters')),
       h('ol', { class: 'chapters' }, ...chapters.map(([name, done]) => h('li', { class: done ? 'done' : '' }, `${done ? '✔ ' : ''}${t(name)}`))),
+      h('h3', {}, t('Skills')),
+      h('div', { class: 'list' }, ...SKILL_IDS.map(id => {
+        const level = skillLevel(s, id), next = skillNext(level);
+        return h('div', { class: 'row' }, h('span', { class: 'big' }, SKILL_ICON[id]),
+          h('div', { class: 'grow' }, h('b', {}, `${t(SKILL_NAMES[id])} · ${t('level {n}', { n: level })}`), h('small', {}, perkText[id]), h('small', {}, next ? t('{xp}/{next} skill XP', { xp: s.skills[id], next }) : t('Top level!'))));
+      })),
+      h('h3', {}, t('Home')),
+      h('p', {}, (Object.keys(ROOMS) as RoomId[]).map(r => `${s.rooms[r] ? '✔' : '✖'} ${t(ROOMS[r].name)}`).join(' · ')),
       h('h3', {}, t('Crew aboard Bao')),
       h('div', { class: 'list' }, ...s.crew.map(id => h('div', { class: 'row' }, h('span', { class: 'dot', style: { background: CREW[id].color } }), h('div', { class: 'grow' }, h('b', {}, t(CREW[id].name)), h('small', {}, t(CREW[id].job)))))),
       h('h3', {}, t('Rescued')),
       h('p', {}, s.rescued.length ? s.rescued.map(id => t(CREW[id].name)).join(', ') : t('No one yet.')),
       h('h3', {}, t('Records')),
-      h('div', { class: 'stats' }, stat(t('Isles freed'), String(s.stats.freed)), stat(t('Fish caught'), String(s.stats.fish)), stat(t('Fruit picked'), String(s.stats.harvested)), stat(t('Voyages'), String(s.stats.voyages)), stat(t('Raids won'), String(s.stats.raidsWon)), stat(t('Level'), String(s.hero.level))));
+      h('div', { class: 'stats' }, stat(t('Lands freed'), String(['clover', 'reef', 'ember', 'frost'].filter(id => s.isles[id as IsleId].freed).length)), stat(t('Ships freed'), String(['sloop', 'warship', 'star'].filter(id => s.isles[id as IsleId].freed).length)), stat(t('Families freed'), String(s.stats.families)), stat(t('Fish caught'), String(s.stats.fish)), stat(t('Fruit picked'), String(s.stats.harvested)), stat(t('Meals cooked'), String(s.stats.cooked)), stat(t('Voyages'), String(s.stats.voyages)), stat(t('Raids won'), String(s.stats.raidsWon)), stat(t('Level'), String(s.hero.level))));
   }
 
   private settings() {

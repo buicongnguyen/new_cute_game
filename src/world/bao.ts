@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { DECK, STAGES, type CrewId } from '../rules/content.ts';
+import { DECK, LIFT, STAGES, type CrewId } from '../rules/content.ts';
 import type { GameState } from '../rules/state.ts';
 import { treeStage } from '../rules/garden.ts';
 import { findChild, part, standIn, whole } from './assets.ts';
@@ -44,6 +44,11 @@ export class Bao {
   get stowed() { return this.battleK > .97; }
   /** Wobbles a gong's disc after it is rung. */
   ringGong(i: number) { const g = this.gongs[i]; if (g) g.userData.ring = 1; }
+  /** Juno's chime cannon (it stays up at battle stations) and Bao's boarding plank (out when a Gloom ship is alongside). */
+  cannon: T.Object3D | null = null;
+  plank: T.Object3D | null = null;
+  plankOut = false;
+  private liftK = 0; private liftTarget = 0; private crateOpen = 0; private recoil = 0;
   /** Keepsakes (they only decorate) and Tam's anvil. */
   private lanterns: T.Object3D[] = [];
   private crown = new T.Group();
@@ -74,10 +79,10 @@ export class Bao {
     };
     make('hatch', fallbackHatch, false);
     make('workbench', () => standIn('box', '#c77a3a', 1.1));
-    make('kitchen', () => standIn('box', '#ff8a2a', 1.0));
     make('maptable', () => standIn('box', '#8a4b25', .9));
     make('ropepost', () => standIn('pillar', '#c77a3a', .5));
-    make('fishspot', () => standIn('box', '#e3a05a', .7), false);
+    make('crate', () => standIn('box', '#c98a4a', .9));
+    make('lift', () => standIn('pillar', '#c77a3a', .6));
     make('pantry', () => standIn('box', '#f2b33d', .8));
     for (let i = 0; i < DECK.posts.length; i++) {
       const p = part('props', 'chimepost', { shadows: true }) ?? standIn('pillar', '#ffc83a', .6);
@@ -93,6 +98,10 @@ export class Bao {
     const kinds = ['flower_a', 'flower_b', 'flower_c'];
     for (let i = 0; i < 7; i++) { const f = part('nature', kinds[i % 3]) ?? standIn('blob', '#ff5c8a', .4); f.position.set((i - 3) * .55, 0, Math.abs(i - 3) * .18); this.crown.add(f); }
     this.crown.visible = false; this.stow.add(this.crown);
+    this.cannon = part('props', 'chime_cannon', { shadows: true }) ?? standIn('box', '#d9a441', .8);
+    this.cannon.visible = false; this.deck.add(this.cannon);
+    this.plank = part('props', 'bao_plank', { shadows: true }) ?? standIn('box', '#c98a4a', .5);
+    this.plank.visible = false; this.deck.add(this.plank);
     this.anvil = part('props', 'forge', { shadows: true });
     if (this.anvil) { this.anvil.scale.setScalar(.55); this.anvil.visible = false; this.stow.add(this.anvil); }
   }
@@ -111,8 +120,11 @@ export class Bao {
   private layout() {
     this.whale.scale.setScalar(this.scale);
     const put = (name: string, p: readonly [number, number], rot = 0) => { const o = this.props[name]; if (o) { this.at(p, o.position); o.rotation.y = rot; } };
-    put('hatch', DECK.hatch, .4); put('workbench', DECK.workbench, -Math.PI / 2); put('kitchen', DECK.kitchen, -Math.PI / 2);
-    put('maptable', DECK.maptable, .3); put('ropepost', DECK.ropepost, -Math.PI / 2); put('fishspot', DECK.fishspot, Math.PI); put('pantry', DECK.pantry, Math.PI / 2);
+    put('hatch', DECK.hatch, .4); put('workbench', DECK.workbench, -Math.PI / 2); put('crate', DECK.crate, -Math.PI / 2);
+    put('maptable', DECK.maptable, .3); put('ropepost', DECK.ropepost, -Math.PI / 2); put('lift', DECK.lift, 0); put('pantry', DECK.pantry, Math.PI / 2);
+    if (this.cannon) this.at(DECK.cannon, this.cannon.position);
+    // The plank leaves the starboard rail (its +z turned to +x).
+    if (this.plank) { this.plank.position.set(DECK.half[0] * this.scale * .93, 0, DECK.plank[1] * this.scale); this.plank.rotation.y = Math.PI / 2; }
     this.posts.forEach((p, i) => this.at(DECK.posts[i], p.position));
     this.plots.forEach((pv, i) => this.at(DECK.plots[i], pv.group.position));
     this.lanterns.forEach((l, i) => { const a = i / this.lanterns.length * Math.PI * 2 + .2; l.position.set(Math.cos(a) * DECK.half[0] * .93 * this.scale, 0, Math.sin(a) * DECK.half[1] * .93 * this.scale); });
@@ -125,8 +137,9 @@ export class Bao {
 
   /** Mirror the save into the view (cheap: only visibility and models that changed). */
   sync(s: GameState, raidActive: boolean) {
-    this.props.kitchen.visible = s.crew.includes('mina');
     if (this.anvil) this.anvil.visible = s.crew.includes('tam');
+    if (this.cannon) this.cannon.visible = s.crew.includes('juno');
+    if (this.plank) this.plank.visible = this.plankOut;
     for (const l of this.lanterns) l.visible = s.keepsakes.includes('lanterns');
     this.crown.visible = s.keepsakes.includes('crown');
     this.posts.forEach((p, i) => { p.visible = s.posts.includes(i); });
@@ -137,6 +150,27 @@ export class Bao {
   }
 
   happy() { this.happyFor = .9; }
+  /** The fishing lift's platform: 0 at the deck, 1 down at the skiff (`drop` metres below). */
+  lowerLift(k: number) { this.liftTarget = k; }
+  get liftDown() { return this.liftK; }
+  setLift(k: number) { this.liftK = this.liftTarget = k; this.poseLift(); }
+  private liftDrop = LIFT.drop;
+  private poseLift() {
+    const lift = this.props.lift, platform = lift ? findChild(lift, 'platform') : null, rope = lift ? findChild(lift, 'rope') : null;
+    const drop = this.liftK * this.liftDrop;
+    if (platform) { platform.userData.y0 ??= platform.position.y; platform.position.y = (platform.userData.y0 as number) - drop; }
+    if (rope) rope.scale.y = 1 + drop;
+  }
+  /** World position of the lift's platform top (where the Captain stands on the way down). */
+  liftSpot(out = new T.Vector3()) { this.at(DECK.lift, out); out.x += 1.6; out.y = -this.liftK * this.liftDrop; return out; }
+  /** The crate's lid lifts while the finches fly off. */
+  openCrate() { this.crateOpen = 1.4; }
+  /** Turns Juno's cannon toward a deck point and kicks the barrel back. */
+  fireCannon(at: T.Vector3) {
+    const c = this.cannon; if (!c) return;
+    c.rotation.y = Math.atan2(at.x - c.position.x, at.z - c.position.z);
+    this.recoil = 1;
+  }
   /** Opens the hatch's gate for a moment (entering or leaving the cabin, the crew hiding in a raid). */
   openHatch(seconds = 1.2) { this.hatchOpen = seconds; }
   private hatchOpen = 0;
@@ -180,6 +214,13 @@ export class Bao {
     const door = this.hatchDoor ??= findChild(this.props.hatch, 'door');
     if (door) door.rotation.x += ((this.hatchOpen > 0 ? -1.9 : 0) - door.rotation.x) * (1 - Math.exp(-9 * dt));
     for (const pv of this.plots) pv.update(dt, t);
+    if (Math.abs(this.liftK - this.liftTarget) > .0005) { this.liftK += Math.sign(this.liftTarget - this.liftK) * Math.min(Math.abs(this.liftTarget - this.liftK), dt * 1.2); this.poseLift(); }
+    this.crateOpen = Math.max(0, this.crateOpen - dt);
+    const lid = this.props.crate ? (this.props.crate.userData.lid ??= findChild(this.props.crate, 'lid')) as T.Object3D | null : null;
+    if (lid) lid.rotation.x += ((this.crateOpen > 0 ? -1.5 : 0) - lid.rotation.x) * (1 - Math.exp(-9 * dt));
+    this.recoil = Math.max(0, this.recoil - dt * 3);
+    const barrel = this.cannon ? (this.cannon.userData.barrel ??= findChild(this.cannon, 'barrel')) as T.Object3D | null : null;
+    if (barrel) { barrel.userData.z0 ??= barrel.position.z; barrel.position.z = (barrel.userData.z0 as number) - this.recoil * .25; }
   }
 
   /** World position of the deck's front edge, where fruit is tossed to Bao's mouth. */

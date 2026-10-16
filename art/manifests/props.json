@@ -1,6 +1,6 @@
 {
   "file": "props.glb",
-  "bytes": 503104,
+  "bytes": 663832,
   "roots": {
     "hut": {
       "tris": 1291,
@@ -401,6 +401,137 @@
       "children": [
         "disc"
       ]
+    },
+    "lift": {
+      "tris": 1104,
+      "size": [
+        2.535,
+        2.435,
+        0.95
+      ],
+      "materials": [
+        "pal_gold",
+        "pal_iron",
+        "pal_straw",
+        "pal_wood",
+        "pal_wood_dark",
+        "pal_wood_light"
+      ],
+      "children": [
+        "platform",
+        "rope"
+      ]
+    },
+    "skiff": {
+      "tris": 825,
+      "size": [
+        1.868,
+        1.761,
+        3.361
+      ],
+      "materials": [
+        "glow_lantern",
+        "pal_iron",
+        "pal_red",
+        "pal_straw",
+        "pal_teal",
+        "pal_white",
+        "pal_wood",
+        "pal_wood_dark",
+        "pal_wood_light"
+      ],
+      "children": []
+    },
+    "crate": {
+      "tris": 672,
+      "size": [
+        1.179,
+        1.12,
+        0.765
+      ],
+      "materials": [
+        "pal_charcoal",
+        "pal_gold",
+        "pal_iron",
+        "pal_red",
+        "pal_sky_light",
+        "pal_straw",
+        "pal_wood",
+        "pal_wood_dark",
+        "pal_wood_light"
+      ],
+      "children": [
+        "lid"
+      ]
+    },
+    "chime_cannon": {
+      "tris": 1104,
+      "size": [
+        1.06,
+        1.088,
+        1.503
+      ],
+      "materials": [
+        "pal_charcoal",
+        "pal_gold",
+        "pal_iron",
+        "pal_sun",
+        "pal_wood",
+        "pal_wood_dark",
+        "pal_wood_light"
+      ],
+      "children": [
+        "barrel"
+      ]
+    },
+    "bao_plank": {
+      "tris": 268,
+      "size": [
+        0.92,
+        0.752,
+        3.5
+      ],
+      "materials": [
+        "pal_straw",
+        "pal_wood",
+        "pal_wood_dark",
+        "pal_wood_light"
+      ],
+      "children": []
+    },
+    "snow_lantern": {
+      "tris": 464,
+      "size": [
+        0.91,
+        1.11,
+        0.79
+      ],
+      "materials": [
+        "glow_lantern",
+        "pal_sky_light",
+        "pal_snow"
+      ],
+      "children": []
+    },
+    "ice_hut": {
+      "tris": 1016,
+      "size": [
+        3.604,
+        2.515,
+        3.776
+      ],
+      "materials": [
+        "glow_lantern",
+        "pal_charcoal",
+        "pal_cloud",
+        "pal_gold",
+        "pal_iron",
+        "pal_sky_light",
+        "pal_snow",
+        "pal_wood",
+        "pal_wood_dark"
+      ],
+      "children": []
     }
   },
   "generator": "art/blender/kit/build_props.py",
@@ -429,7 +560,27 @@
       0.0,
       1.7,
       -0.0
+    ],
+    "lift/platform": [
+      1.6,
+      0.95,
+      -0.0
+    ],
+    "lift/rope": [
+      1.6,
+      2.01,
+      -0.0
+    ],
+    "crate/lid": [
+      0.0,
+      0.56,
+      -0.36
+    ],
+    "chime_cannon/barrel": [
+      0.0,
+      0.62,
+      0.02
     ]
   },
-  "notes": "windmill/blades: pivot at the hub, spin about local +Z (the front axis); rod: origin at the butt, tip marker at the end; skydew: origin at its underside centre; market awning uses pal_awning; lanterns/windows use glow_lantern (set emissive 0 for unlit); hatch/door pivots on the hinge at the back edge, open with door.rotation.x -> -1.9; planter/soil: empty marker at the soil top; the hatch shaft reaches below y = 0; gong/disc pivots at its top hanging point, wobble it with disc.rotation.x"
+  "notes": "windmill/blades: pivot at the hub, spin about local +Z (the front axis); rod: origin at the butt, tip marker at the end; skydew: origin at its underside centre; market awning uses pal_awning; lanterns/windows use glow_lantern (set emissive 0 for unlit); hatch/door pivots on the hinge at the back edge, open with door.rotation.x -> -1.9; planter/soil: empty marker at the soil top; the hatch shaft reaches below y = 0; gong/disc pivots at its top hanging point, wobble it with disc.rotation.x; lift/platform pivots at its top centre (lower it in y), lift/rope hangs 1.0 m from its pivot (scale y = drop / 1.0); crate/lid hinges at the back (rotation.x negative opens); chime_cannon/barrel pivots at the trunnions (aim with rotation.x); skiff floor and bao_plank top at y = 0"
 }

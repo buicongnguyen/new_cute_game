@@ -35,6 +35,7 @@ def mats():
         cream=K.M('cream', 0.6), bark=K.M('bark', 0.7), wood=K.M('wood', 0.6), wood_light=K.M('wood_light', 0.6),
         coral=K.M('coral', 0.5), teal=K.M('teal', 0.5), mint=K.M('mint', 0.5), soil_dark=K.M('soil_dark', 0.8),
         lava=K.G('lava', 'lava', 2.2), cloud=K.M('cloud', 0.9), cloud_shade=K.M('cloud_shade', 0.9),
+        snow=K.M('snow', 0.85), sky_light=K.M('sky_light', 0.6), glass=K.M('glass', 0.35),
     )
 
 
@@ -357,11 +358,94 @@ def cloud_puff(m):
     return p
 
 
+# ================================================================ Frostfall
+# Added 2026-10-16: the snowy fourth land. White snow, pale ice blue and dark pine green; never violet.
+def tree_snow(m):
+    """A snow-laden pine: dark green tiers with white snow on every tier top, low enough to hide the trunk."""
+    p = Piece('tree_snow')
+    p.add(lathe([(0.16, 0.0), (0.12, 0.12), (0.09, 0.6)], 6), m['leaf_dark'])
+    tiers = [(0.28, 1.25, 1.0), (0.9, 1.95, 0.82), (1.55, 2.6, 0.62), (2.15, 3.25, 0.42)]
+    for k, (b, t, r) in enumerate(tiers):
+        # Green skirt, then a snow cap from ~80% of the radius up, with a wavy lower edge.
+        zs = b + 0.3 * (t - b)
+        prof = [(0.25 * r, b + 0.02), (r, b + 0.1), (0.93 * r, b + 0.2), (0.8 * r, zs), (0.0, t)]
+
+        def mod(th, i, k=k):
+            return 1 + 0.08 * math.cos(6 * th + k) if i in (1, 2, 3) else 1.0
+        g = lathe(prof, 12, mod=mod, phase=k * 0.45, tag=lambda band, s: 1 if band >= 3 else 0)
+        for v in g.verts:
+            th = math.atan2(v.y, v.x)
+            if abs(v.z - (b + 0.1)) < 1e-5:
+                v.z -= 0.07 * (0.5 + 0.5 * math.cos(6 * th + k))
+            elif abs(v.z - zs) < 1e-5:
+                v.z += 0.05 * math.cos(5 * th + 2 * k)
+        p.add(g, {0: m['leaf_dark'], 1: m['snow']})
+    p.add(no_floor(blob((0, 0, 0.0), (0.95, 0.9, 0.22), 12, LATS_LO, 0.08, 9)), m['snow'])
+    return p
+
+
+def rock_snow(m):
+    p = Piece('rock_snow')
+    planes = [((0.3, -0.6, 0.75), 0.42), ((-0.8, -0.3, 0.5), 0.5), ((0.75, 0.4, 0.5), 0.5), ((0, 0, 1), 0.5),
+              ((-0.3, 0.85, 0.45), 0.5)]
+    g = faceted((0, 0, 0.3), (0.64, 0.56, 0.55), 11, LATS5, 41, planes)
+    g.retag(lambda c, n, t: 1 if n.z > 0.55 else 0)
+    p.add(g, {0: m['stone'], 1: m['snow']})
+    g2 = faceted((0.55, -0.32, 0.06), (0.28, 0.25, 0.22), 8, LATS_LO, 42, [((0, 0, 1), 0.14), ((0.7, -0.5, 0.4), 0.18)])
+    g2.retag(lambda c, n, t: 1 if n.z > 0.6 else 0)
+    p.add(g2, {0: m['stone'], 1: m['snow']})
+    return p
+
+
+def ice_rock(m):
+    """A chunky block of pale cyan ice with snow on top: broad flat facets, no spikes (never mistaken for Gloom)."""
+    p = Piece('ice_rock')
+    planes = [((0.2, -0.9, 0.3), 0.36), ((-0.9, -0.2, 0.3), 0.4), ((0.9, 0.3, 0.2), 0.42), ((-0.2, 0.9, 0.3), 0.4),
+              ((0, 0, 1), 0.46), ((0.5, -0.5, 0.7), 0.5), ((-0.6, 0.4, 0.7), 0.5)]
+    g = faceted((0, 0, 0.32), (0.62, 0.55, 0.6), 10, LATS5, 51, planes, 0.03)
+    g.retag(lambda c, n, t: 1 if n.z > 0.8 else 0)
+    p.add(g, {0: m['glass'], 1: m['snow']})
+    for k, (c, r) in enumerate((((0.62, -0.25, 0.1), 0.22), ((-0.55, -0.4, 0.08), 0.17))):
+        g2 = faceted(c, (r, r * 0.9, r * 0.85), 6, LATS_LO, 52 + k, [((0, 0, 1), r * 0.6), ((0.6, -0.6, 0.5), r * 0.7)], 0.02)
+        g2.retag(lambda cc, n, t: 1 if n.z > 0.8 else 0)
+        p.add(g2, {0: m['glass'], 1: m['snow']})
+    return p
+
+
+def snowdrift(m):
+    p = Piece('snowdrift')
+    blobs = [dict(c=(0.0, 0.0, 0.0), r=(0.95, 0.6, 0.42), segs=12, m=m['sky_light'], top=m['snow'], split=2, lats=LATS_LO),
+             dict(c=(0.75, 0.15, 0.0), r=(0.55, 0.45, 0.3), segs=10, m=m['sky_light'], top=m['snow'], split=2, lats=LATS_LO),
+             dict(c=(-0.7, -0.1, 0.0), r=(0.5, 0.42, 0.26), segs=10, m=m['sky_light'], top=m['snow'], split=1, lats=LATS_LO)]
+    canopy(p, blobs, 0.07, floor=0.0, seed=71)
+    return p
+
+
+def snow_flower(m):
+    """Little blue and white flowers poking up through a snow mound."""
+    p = Piece('snow_flower')
+    p.add(no_floor(blob((0, 0, 0.0), (0.3, 0.27, 0.12), 10, LATS_LO, 0.08, 5)), m['snow'])
+    for i, (x, y, h, r, blue) in enumerate(((0.0, 0.02, 0.24, 0.075, True), (-0.14, -0.08, 0.19, 0.065, False),
+                                            (0.15, -0.06, 0.2, 0.07, True), (0.06, 0.15, 0.17, 0.06, False),
+                                            (-0.1, 0.12, 0.22, 0.065, True))):
+        top = Vector((x, y, h))
+        petal, centre = (m['sky'], m['snow']) if blue else (m['snow'], m['sky'])
+        p.add(tube([(x * 0.6, y * 0.6, 0.08), top - Vector((0, 0, 0.01))], [0.012, 0.009], sides=3), m['sky'])
+        frame = facing(top, (x * 1.5, y * 1.5 - 0.3, 1.0), spin=i * 0.8)
+        p.add(disc(lobed(5, 2, 0.55 * r, r, 0.6), dome=-0.012), petal, frame)
+        p.add(lathe([(0.32 * r, 0.0), (0.0, 0.22 * r)], 6), centre, frame @ xf((0, 0, -0.002)))
+    return p
+
+
+FROST_IDS = ['tree_snow', 'rock_snow', 'ice_rock', 'snowdrift', 'snow_flower']
+FROST_BUDGET = {'tree_snow': 700, 'rock_snow': 400, 'ice_rock': 400, 'snowdrift': 300, 'snow_flower': 350}
+
+
 # ===================================================================== main
 def check(stats):
     errors = []
     for n, s in stats.items():
-        lim = BUDGET.get(n, 400)
+        lim = FROST_BUDGET[n] if n in FROST_IDS else BUDGET.get(n, 400)
         if s['tris'] > lim:
             errors.append(f'{n}: {s["tris"]} tris > {lim}')
         if not 1 <= len(s['materials']) <= 2:
@@ -380,7 +464,7 @@ def main():
     style.reset_scene()
     m = mats()
     roots = {}
-    for n in IDS:
+    for n in IDS + FROST_IDS:
         piece = globals()[n](m)
         if n.startswith('flower_'):
             piece.deform(lambda v: v * 1.25)
@@ -398,7 +482,7 @@ def main():
     if '--render' in K.args():
         order = ['tree_round', 'tree_pine', 'palm', 'cloud_puff', 'coral_a', 'coral_b', 'fence',
                  'rock_a', 'rock_b', 'rock_c', 'lava_rock_a', 'lava_rock_b', 'bush_a', 'bush_b',
-                 'flower_a', 'flower_b', 'flower_c', 'grass_tuft', 'mushroom']
+                 'flower_a', 'flower_b', 'flower_c', 'grass_tuft', 'mushroom'] + FROST_IDS
         cells = [(roots[n], f'{n}  {stats[n]["tris"]}') for n in order]
         placed = K.contact_sheet(cells, os.path.join(K.PREVIEWS, 'nature.png'), cols=7, pitch=(3.8, 3.4),
                                  width_px=2400, label_size=0.24, label_dy=1.45)
@@ -420,6 +504,26 @@ def main():
         K.frame(shown, 2400, margin=0.25)
         style.render(os.path.join(K.PREVIEWS, 'nature-closeup.png'))
         for o in shown:
+            o.hide_render = True
+        # Frostfall close-up on snow-white ground (the ground colour is changed for this render only).
+        gmat = bpy.data.objects['Preview ground'].data.materials[0]
+        gbsdf = next(nd for nd in gmat.node_tree.nodes if nd.type == 'BSDF_PRINCIPLED')
+        old_ground = tuple(gbsdf.inputs['Base Color'].default_value)
+        gbsdf.inputs['Base Color'].default_value = style.rgba('#E6F0FA')
+        x = 0.0
+        frost = []
+        for n in ['tree_snow', 'rock_snow', 'ice_rock', 'snowdrift', 'snow_flower']:
+            o = roots[n]
+            w = max(stats[n]['size'][0], 0.5)
+            x += w / 2 + 0.35
+            o.location = (x, 0, 0)
+            o.hide_render = False
+            frost.append(o)
+            x += w / 2
+        K.frame(frost, 2000, margin=0.3)
+        style.render(os.path.join(K.PREVIEWS, 'nature-frostfall.png'))
+        gbsdf.inputs['Base Color'].default_value = old_ground
+        for o in frost:
             o.hide_render = True
         cl = roots['cloud_puff']
         cl.hide_render = False

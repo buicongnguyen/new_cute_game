@@ -23,7 +23,7 @@ The Cloud Sea is an endless sky of clouds with floating lands drifting in it.
 
 ## Before the story
 
-A pod of sky whales sang across the Cloud Sea every night, and their song kept the sky bright. Then the **Grey Star** fell: a shard of pure Gloom. It crusted the lands grey and broke the whales' song into four **Notes**, and each Note was swallowed by a **Hive**, a crystal anchor the Gloom grew on a land. The Grey Star sank into the **Deep Mist**, pulling the sleeping pod down beneath it. Then it began to build a fleet of crusted ships.
+A pod of sky whales sang across the Cloud Sea every night, and their song kept the sky bright. Then the **Grey Star** fell: a shard of pure Gloom. It crusted the lands grey and broke the whales' song into four **Notes**, and each Note was swallowed by a **Hive**, a crystal anchor the Gloom grew on a land. The Grey Star sank into the **Deep Mist**, pulling the sleeping pod down beneath it. Then it began to build a fleet: sky creatures it crusted over, with decks on their backs like Bao's, grey and hushed.
 
 As the crust closed over the pod, the eldest whale, **Grand Hana**, pushed her only calf, **Bao**, up through the clouds. Two backfolk clung to Bao's back: old **Nana Sumi** and her grandchild. That's you.
 
@@ -41,9 +41,9 @@ As the crust closed over the pod, the eldest whale, **Grand Hana**, pushed her o
 | **Mina** | A cook from Lantern Reef, proud of her honey buns. | **Cook**: new recipes, and a meal in your bag every morning. |
 | **Granny Coal** | A retired blacksmith on Ember Peaks. Gruff and generous. | Stays and runs the **Ember Market** (ore, starfigs). |
 | **Tam** | A young smith. Shy, serious. | **Smith**: the best mallet and coat, and stronger chime posts. |
-| **Bram** | An old innkeeper on Frostfall, with a big white beard. | Stays and runs the **Frost Market** (warm cocoa, snowberry seeds). |
+| **Bram** | An old innkeeper on Frostfall, with a big white beard. | Stays and runs the **Frost Market** (warm cocoa; he pays well for craft goods). |
 | **Juno** | An engineer from Frostfall. Never without goggles. | **Engineer**: speeds up the lift, builds the boarding plank and the chime cannon. Without Juno, Bao cannot board an enemy ship. |
-| **The Gloom** | A hush that wants everything still forever. It only whispers: "…stay still…". | Its creatures, the Hives on the lands, raids on Bao, and its fleet. |
+| **The Gloom** | A hush that wants everything still forever. It only whispers: "…stay still…". | Its creatures, the Hives on the lands, raids on Bao, and its fleet of crusted sky beasts. |
 | **Grand Hana** | Bao's mother, asleep beneath the Grey Star. Your parents sleep in the crust on her back. | The prologue and the ending. |
 
 ---
@@ -128,26 +128,26 @@ This chapter runs alongside Chapter 3. Every freed friend makes the ship's econo
 - **Ria:** gives warnings 10 seconds before raids, spots treasure clouds on voyages, and finds the Gloom fleet on the sky map.
 - **Tam:** sets up an anvil by the workbench for Mallet III and Coat III, and makes Chime Posts ring harder.
 - **Juno:** makes the lift twice as fast, builds Bao's **boarding plank** and the **chime cannon**, which fires ringing bells at Gloom ships during raids and boardings.
-- **The camp friends** (Olla, Kai, Coal, Bram) run their markets. Kai's market sells skiff upgrades, and Bram's sells snowberry seeds and cocoa, a warm drink that heals well.
+- **The camp friends** (Olla, Kai, Coal, Bram) run their markets. Kai's market sells a skiff upgrade (the bait pot: fish bite sooner), and Bram's sells warm cocoa, which heals well, and pays well for craft goods.
 - **In raids** the crew climb down the hatch and bang pots; hiding is fine, keeping still is not.
 - **In Chapter 5** two crew mates of your choice join you when you board an enemy ship.
 
 ## Chapter 5: "Taking the fight to the Gloom"
 
-With all four Notes, Bao remembers the **Deep Song**. The Gloom hears it, and its fleet rises from the Deep Mist. Ria spots it from the lookout: *"Three sails, Captain! And the last one… that's no ship. That's the Grey Star."*
+With all four Notes, Bao remembers the **Deep Song**. The Gloom hears it, and its fleet rises from the Deep Mist. The Gloom's ships are not sailing ships: each is a sky creature it has crusted over, with a flat deck on its back, like Bao but grey and hushed. Nothing tall stands on their decks. Ria spots them from the lookout: *"Ships, Captain! Sky beasts, crusted grey, with decks on their backs like Bao! And the biggest one… it carries the Grey Star."*
 
 Each ship is a mission on the sky map:
 
 1. **Sail at the ship.** Bao chases it down, and the chime cannon softens its crust.
 2. **Board.** Juno lays the boarding plank. You and two crew mates cross onto the enemy deck.
-3. **Fight across the deck.** Its raiders guard it. Knock them overboard through the gaps in the rails, as at home.
+3. **Fight across the deck.** Its raiders guard the captain: while any group stands, the captain's crust is closed. Knock them overboard through the gaps in the rails, as at home.
 4. **Free the captives** in the hold: backfolk families the Gloom took. Each freed family gives a thank-you gift.
-5. **Beat the captain.**
+5. **Beat the captain.** Its crust shatters off the beast it rode, and the creature's own colours pour back: it is free, and swims home.
 
 | Ship | Captain | How the fight works |
 |---|---|---|
-| **The Scout Sloop** | **Captain Barnacle**, a crusted crab with a crystal tricorn | It **sweeps the deck with its anchor chain**: hop over it. It **throws the anchor** at a shadow on the deck: step aside. When the anchor sticks in the rail, the captain is stuck too. Hit it then. |
-| **The Warship** | **The Mastwyrm**, a crystal serpent coiled round the mainmast | Its head strikes down at a shadow, and it spits shards. Ring the three glowing **knots** on its coil (Hop up onto the hold hatch to reach the high one) until it falls to the deck, dizzy. Then strike its head. |
+| **The Scout Sloop** | **Captain Barnacle**, a crusted crab with a crystal tricorn | It **sweeps the deck with its anchor chain**: hop over it (a hop's moment of safety clears the chain). It **throws the anchor** at a shadow on the deck: step aside. The anchor bites into the deck and holds the crab fast for a few seconds. Hit it then. |
+| **The Warship** | **The Coilwyrm**, a crystal serpent lying coiled in the middle of the deck | Its head strikes down at a shadow, it spits shards, and its coils lash the deck in a ring. Ring the three glowing **knots** on its coils until it flops down, dizzy. Then strike its head. |
 | **The Grey Star** | **The Grey Heart**, the core of the fleet's flagship | It uses every move you have learned. The deck **lists** (tilts), so you slide toward one rail. Every 20 seconds Bao sings from above, cracking the shield for 5 seconds and healing you. Strike then. |
 
 **The ending.**

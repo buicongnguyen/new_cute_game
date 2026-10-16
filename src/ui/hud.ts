@@ -9,14 +9,14 @@ import type { Line, Speaker } from '../dialogue.ts';
 import { play } from '../sfx.ts';
 
 export interface HudActions {
-  context(): void; ring(): void; spin(): void; hop(): void; eat(): void; reel(): void;
+  context(): void; ring(): void; spin(): void; hop(): void; eat(): void; reel(): void; conch(): void; pull(): void;
   open(panel: 'bag' | 'bao' | 'map' | 'journal' | 'settings'): void;
   grow(): void;
 }
-export interface HudView { mode: 'deck' | 'isle'; combat: boolean; context: string | null; contextIcon: string; fishing: 'off' | 'wait' | 'bite'; cooldowns: { spin: number; hop: number }; eat: string | null; bossName?: string; boss?: number; bossShield?: boolean; raid?: string | null; place: string }
+export interface HudView { mode: 'deck' | 'isle' | 'house' | 'skiff'; combat: boolean; context: string | null; contextIcon: string; fishing: 'off' | 'wait' | 'bite'; cooldowns: { spin: number; hop: number }; eat: string | null; bossName?: string; boss?: number; bossShield?: boolean; bossStatus?: string | null; raid?: string | null; place: string; conch?: boolean; pull?: boolean }
 
-const WHO_COLOR: Record<Speaker, string> = { bao: '#3fa9f5', gloom: '#9a8cc8', keeper: '#16a9a0', ...Object.fromEntries(Object.entries(CREW).map(([k, v]) => [k, v.color])) } as Record<Speaker, string>;
-const WHO_NAME = (w: Speaker) => w === 'bao' ? 'Bao' : w === 'gloom' ? 'The Gloom' : w === 'keeper' ? 'You' : CREW[w].name;
+const WHO_COLOR: Record<Speaker, string> = { bao: '#3fa9f5', gloom: '#9a8cc8', keeper: '#16a9a0', folk: '#5aa8e0', ...Object.fromEntries(Object.entries(CREW).map(([k, v]) => [k, v.color])) } as Record<Speaker, string>;
+const WHO_NAME = (w: Speaker) => w === 'bao' ? 'Bao' : w === 'gloom' ? 'The Gloom' : w === 'keeper' ? 'You' : w === 'folk' ? 'A backfolk family' : CREW[w].name;
 
 /** The HUD: top cards, goal, the phone stick and buttons, toasts and the speech card. */
 export class Hud {
@@ -55,6 +55,8 @@ export class Hud {
       h('div', { class: 'stick-zone', id: 'stick-zone' }),
       this.stickBase = h('div', { class: 'stick', hidden: true }, this.stickKnob = h('div', { class: 'knob' })),
       h('div', { class: 'buttons', id: 'buttons' },
+        h('button', { class: 'btn conch', id: 'b-conch', hidden: true, 'aria-label': t('Blow the conch'), title: t('Blow the conch'), onclick: () => { play('click'); this.act.conch(); } }, h('span', { class: 'ico' }, '🐚')),
+        h('button', { class: 'btn pull', id: 'b-pull', hidden: true, 'aria-label': t('Pull the rope'), title: t('Pull the rope'), onclick: () => { play('click'); this.act.pull(); } }, h('span', { class: 'ico' }, '🪢'), h('small', {}, t('Pull the rope'))),
         h('button', { class: 'btn eat', id: 'b-eat', 'aria-label': t('Quick Eat'), onclick: () => this.act.eat() }, h('span', { class: 'ico' }, '🍐'), h('small', { id: 'b-eat-n' })),
         h('button', { class: 'btn hop', id: 'b-hop', 'aria-label': t('Hop'), onpointerdown: (e: PointerEvent) => { e.preventDefault(); this.act.hop(); } }, h('span', { class: 'ico' }, '💨'), h('i', { class: 'cd', id: 'b-hop-cd' })),
         h('button', { class: 'btn spin', id: 'b-spin', 'aria-label': t('Chime Spin'), onpointerdown: (e: PointerEvent) => { e.preventDefault(); this.act.spin(); } }, h('span', { class: 'ico' }, '🌀'), h('i', { class: 'cd', id: 'b-spin-cd' })),
@@ -66,6 +68,8 @@ export class Hud {
     );
     parent.append(this.root);
     $('#h-grow', this.root)!.addEventListener('click', e => { e.stopPropagation(); this.act.grow(); });
+    // A clicked HUD button lets go of the keyboard focus, so Space and F go back to the game.
+    this.root.addEventListener('click', e => { const b = (e.target as Element).closest?.('button'); if (b) (b as HTMLElement).blur(); });
     this.bindStick($('#stick-zone', this.root)!);
   }
 
@@ -142,6 +146,8 @@ export class Hud {
     // Buttons.
     toggle($('#b-ring', r), view.combat); toggle($('#b-spin', r), view.combat); toggle($('#b-hop', r), view.combat || view.mode === 'isle');
     toggle($('#b-eat', r), view.mode === 'isle' || view.combat);
+    toggle($('#b-conch', r), !!view.conch);
+    toggle($('#b-pull', r), !!view.pull);
     setText($('#b-eat-n', r), view.eat ? '✓' : '–');
     $('#b-eat', r)!.classList.toggle('empty', !view.eat);
     const ctx = $('#b-ctx', r)!;
@@ -154,7 +160,7 @@ export class Hud {
     cooldown($('#b-spin-cd', r), view.cooldowns.spin); cooldown($('#b-hop-cd', r), view.cooldowns.hop);
     toggle($('#h-boss', r), view.boss !== undefined);
     if (view.boss !== undefined) {
-      setText($('#h-boss-n', r), `${t(view.bossName ?? '')}${view.bossShield ? ` · ${t('Shielded')}` : ''}`);
+      setText($('#h-boss-n', r), `${t(view.bossName ?? '')}${view.bossStatus ? ` · ${t(view.bossStatus)}` : ''}`);
       setWidth($('#h-boss-hp', r), view.boss);
       $('#h-boss', r)!.classList.toggle('shielded', !!view.bossShield);
     }

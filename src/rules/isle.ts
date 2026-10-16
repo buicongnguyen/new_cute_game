@@ -1,4 +1,4 @@
-import { CREW, FORMS, HIVE_CRACK, HIVES, HIVE_OF, ISLE_MAPS, LEFTOVER, ORE, PLACES, RESCUE, SPIRE, TIERS, WHALE, WILD, type CrewId, type FormId, type IsleId, type NoteIsle, type ProduceId } from './content.ts';
+import { CANNON, CREW, FAMILY, FORMS, HIVE_CRACK, HIVES, HIVE_OF, ISLE_MAPS, LANDS, LEFTOVER, ORE, PLACES, RESCUE, SPIRE, TIERS, WHALE, WILD, isLand, isShip, type CrewId, type FormId, type IsleId, type ItemId, type LandId, type NoteIsle, type ProduceId } from './content.ts';
 import { give, type GameState } from './state.ts';
 import { addXp } from './keeper.ts';
 import type { Result } from './garden.ts';
@@ -32,14 +32,17 @@ export function spireBroken(s: GameState, isle: IsleId, index: number) {
   s.glimmer += st.glimmer;
   return { levels: addXp(s, st.xp), xp: st.xp, glimmer: st.glimmer };
 }
-/** The Hive is shielded until every Spire on its isle is broken. */
-export const hiveShielded = (s: GameState, isle: IsleId) => s.isles[isle].spires.some(b => !b);
+/** A land's Hive is shielded until every Spire on it is broken; a ship's captain while any of its raider groups stands. */
+export const hiveShielded = (s: GameState, isle: IsleId) => isShip(isle) ? s.isles[isle].groups.some(b => !b) : s.isles[isle].spires.some(b => !b);
+/** A cage locked inside a place a Spire guards (Juno's workshop) opens only once that Spire is broken. */
+export const cageLocked = (s: GameState, isle: IsleId, index: number) => { const c = ISLE_MAPS[isle].cages[index]; return !!c && c.locked !== undefined && !s.isles[isle].spires[c.locked]; };
 
 /** A cage rang open. Crew climb aboard (the scene walks them to the rope); camp people open their market. */
 export function rescue(s: GameState, isle: IsleId, index: number): Result<{ who: typeof ISLE_MAPS[IsleId]['cages'][number]['who']; joins: boolean; levels: number }> {
   const cage = ISLE_MAPS[isle].cages[index];
   if (!cage) return no('No cage there');
   if (s.isles[isle].cages[index]) return no('Already free');
+  if (cageLocked(s, isle, index)) return no('Break the Spire that guards it first');
   s.isles[isle].cages[index] = true;
   if (!s.rescued.includes(cage.who)) s.rescued.push(cage.who);
   const joins = CREW[cage.who].joins;
@@ -48,6 +51,18 @@ export function rescue(s: GameState, isle: IsleId, index: number): Result<{ who:
   s.glimmer += Math.round(RESCUE.glimmer * tier.reward);
   const levels = addXp(s, RESCUE.xp * tier.reward);
   return { ok: true, who: cage.who, joins, levels };
+}
+
+/** A family freed from a Gloom ship's hold: XP, glimmer and their thank-you gift. */
+export function freeCaptive(s: GameState, isle: IsleId, index: number): Result<{ gift: [ItemId, number]; glimmer: number; levels: number }> {
+  const c = ISLE_MAPS[isle].captives[index];
+  if (!c) return no('No cage there');
+  if (s.isles[isle].captives[index]) return no('Already free');
+  s.isles[isle].captives[index] = true;
+  const tier = TIERS[tierOf(isle)], glimmer = Math.round(FAMILY.glimmer * tier.reward);
+  s.glimmer += glimmer; give(s, c.gift[0], c.gift[1]);
+  s.stats.families++;
+  return { ok: true, gift: c.gift, glimmer, levels: addXp(s, FAMILY.xp * tier.reward) };
 }
 
 /** The Hive broke: the isle is free. Returns the Note (if any) and rewards. */
@@ -65,15 +80,17 @@ export function hiveBroken(s: GameState, isle: IsleId) {
     if (!s.rescued.includes(c.who)) s.rescued.push(c.who);
     if (CREW[c.who].joins && !s.crew.includes(c.who)) s.crew.push(c.who);
   });
+  // A beaten captain sets every family still in the hold free.
+  const families = ISLE_MAPS[isle].captives.map((_, i) => i).filter(i => !progress.captives[i]).map(i => freeCaptive(s, isle, i)).filter(r => r.ok).length;
   const hive = hiveOf(isle);
   s.glimmer += hive.glimmer;
   const levels = addXp(s, hive.xp);
   let note: NoteIsle | null = null;
-  if (isle !== 'star') {
+  if (isLand(isle)) {
     note = isle;
     if (!s.notes.includes(note)) s.notes.push(note);
     if (!s.raidsOwed.includes(isle)) s.raidsOwed.push(isle);
-  } else {
+  } else if (isle === 'star') {
     s.story.ended = true;
     // The Golden Seed drifts down from Hana's moss right away, so a reload during the ending cannot lose it.
     if (!s.items.seed_golden && !s.plots.some(p => p.tree === 'golden')) give(s, 'seed_golden');
@@ -81,8 +98,8 @@ export function hiveBroken(s: GameState, isle: IsleId) {
   s.whale.mood = Math.min(WHALE.maxMood, s.whale.mood + WHALE.songMood);
   s.whale.songs++;
   s.stats.freed++;
-  if (isle !== 'star' && s.place === isle) s.whale.specks = 0;
-  return { note, levels, xp: hive.xp, glimmer: hive.glimmer, opened };
+  if (s.place === isle) s.whale.specks = 0;
+  return { note, levels, xp: hive.xp, glimmer: hive.glimmer, opened, families };
 }
 
 export const oreReady = (s: GameState, isle: IsleId, index: number) => s.playSeconds >= (s.isles[isle].oreAt[index] ?? Infinity);
@@ -93,10 +110,10 @@ export function mineOre(s: GameState, isle: IsleId, index: number): Result<{ n: 
   return { ok: true, n: ORE.perRock };
 }
 /** Wild plants: Puffberry bushes on Clover, Cloudpear trees on the reef. */
-export const WILD_YIELD: Partial<Record<IsleId, [ProduceId, number]>> = { clover: ['puffberry', 3], reef: ['cloudpear', 2] };
+export const WILD_YIELD: Partial<Record<LandId, [ProduceId, number]>> = { clover: ['puffberry', 3], reef: ['cloudpear', 2] };
 export const wildReady = (s: GameState, isle: IsleId, index: number) => s.playSeconds >= (s.isles[isle].wildAt[index] ?? Infinity);
 export function pickWild(s: GameState, isle: IsleId, index: number): Result<{ item: ProduceId; n: number }> {
-  const y = WILD_YIELD[isle];
+  const y = WILD_YIELD[isle as LandId];
   if (!y || !wildReady(s, isle, index)) return no('Nothing ripe here yet');
   s.isles[isle].wildAt[index] = s.playSeconds + WILD.back;
   give(s, y[0], y[1]);
@@ -111,8 +128,8 @@ export function faint(s: GameState, atHive: IsleId | null = null) {
   s.stats.faints++;
   if (atHive && !s.isles[atHive].freed) s.isles[atHive].cracks = Math.min(HIVE_CRACK.most, s.isles[atHive].cracks + 1);
 }
-/** The Hive's health now (cracks taken off). */
-export const hiveMaxHp = (s: GameState, isle: IsleId) => Math.round(hiveOf(isle).hp * (1 - HIVE_CRACK.perFaint * s.isles[isle].cracks));
+/** The boss's health now: cracks taken off, and on a ship 10% less after Juno's chime cannon softens its crust. */
+export const hiveMaxHp = (s: GameState, isle: IsleId) => Math.round(hiveOf(isle).hp * (1 - HIVE_CRACK.perFaint * s.isles[isle].cracks) * (isShip(isle) ? 1 - CANNON.soften : 1));
 
 /** After the ending, a small leftover group returns to one freed isle every 30 minutes of play. */
 export function tickLeftover(s: GameState, dt: number) {
@@ -120,7 +137,7 @@ export function tickLeftover(s: GameState, dt: number) {
   s.timers.leftover += dt;
   if (s.timers.leftover < LEFTOVER.every) return null;
   s.timers.leftover = 0;
-  const target = (['clover', 'reef', 'ember'] as IsleId[]).find(id => s.isles[id].freed && !s.isles[id].leftover);
+  const target = LANDS.find(id => s.isles[id].freed && !s.isles[id].leftover);
   if (target) s.isles[target].leftover = true;
   return target ?? null;
 }

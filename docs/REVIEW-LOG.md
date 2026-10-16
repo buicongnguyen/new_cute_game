@@ -226,3 +226,25 @@ Every land and every ship has a boss, designed differently from Zoo Garden's. Th
 | 16 | New enemies should do new things, not have more HP. | The **Shellback** (shielded at the front: get behind it or spin) and the **Puffcap** (its burst knocks things back, so on Bao it can throw raiders overboard). |
 | 17 | Each land played the same way. | Each land's rescue has its own twist (Ria's lighthouse rocks, Tam's forge, Juno locked in her workshop behind a Spire). |
 | 18 | Each chapter needs a visible payoff. | Chapter 1: Bao opens its eye. Chapter 2: the kitchen fire lights. Chapter 3: each land's colour returns. Chapter 4: friends at their posts. Chapter 5: each ship's crystal shatters, then the pod rises. |
+
+### Building it: what changed while implementing, and the owner's ship note
+
+| # | Finding | Change |
+|---|---|---|
+| 19 | The owner (2026-10-16): the Gloom's ships are flat decks on the backs of animals, like Bao. No big mast or sail in the middle. | Every Gloom ship is a crusted **sky beast** (`gloom_beast`) with a clear, flat deck; raids come on small crusted creatures (`gloom_raider`). Beating a captain shatters the crust off the beast, and its own colours pour back (its own Gloom-tint uniform). The serpent captain became the **Coilwyrm**, coiled in the middle of the deck. |
+| 20 | Four lands meant the Captain hit the old level cap (15) before Frostfall. | Levels go to 20. Recommended levels: Frostfall 13, the fleet 15. |
+| 21 | In the scripted runs, room repairs ate the Chimewood that the next mallet needed. | The simulated player keeps gear first. Real players choose, and the craft room's 20% discount pays the Chimewood back. |
+| 22 | Raid waves grew with every land (24 raiders after Frostfall). | At most 10 per wave. |
+| 23 | Lesson lines played on timers (the deck tour, the conch) and could pop up under the next tap. | They play on arrival instead. |
+| 24 | Desktop bug (from before story v2): after clicking a HUD button, the button kept keyboard focus and swallowed F and Space. | HUD buttons drop focus after a click, and a focused button keeps only Enter and Space. |
+| 25 | The new models pushed the download to 3.4 MB. | The build meshopt-compresses the models (gltfpack `-cc -noq -kn -km -ke`): 2.7 MB. It keeps float vertices, node names and material names, which the code relies on. |
+| 26 | From the deck camera, the mast hid the fight. | Gone, with the owner's change (19). |
+
+Scripted runs with the real rules (`tests/progression.test.ts`):
+
+| Player | Story length | Faints | Raids |
+|---|---|---|---|
+| Attentive | 34 min | 1 | 4 scripted |
+| Casual (worst case) | 63 min | 6 | 4 scripted |
+
+Nobody gets stuck. Every land is reached at or above its recommended level, and Bao never waits more than 1.1 min for growth after a Note.

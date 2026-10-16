@@ -6,7 +6,7 @@ import { makeToon } from './look.ts';
 import { noteView } from './hive.ts';
 import { Actor } from './actors.ts';
 import type { Blocker } from './isle-view.ts';
-import { CREW, type CrewId, type NoteIsle } from '../rules/content.ts';
+import { CREW, NOTE_ISLES, type CrewId, type NoteIsle, type RoomId } from '../rules/content.ts';
 
 /**
  * Nana's cottage below Bao's hatch: Zoo Garden's house (the owner's own plan, furniture kit and merging view, ported
@@ -106,20 +106,74 @@ const PUFF_SOURCES: Array<[number, number, number, number, number]> = ([[-9.5, 1
 const FLAME_AT = { ...spreadActivity({ x: -4.42, z: 1.7 }), y: .12 };
 const PUFFS_EACH = 5;
 
-/** Where each crew member spends time at home (the owner's friend spots, by job). */
-const CREW_SPOTS: Partial<Record<CrewId, { x: number; z: number; facing: number }>> = {
-  nana: { ...FRIEND_SPOTS[2] }, pip: { ...spreadActivity({ x: 3.8, z: 5.2 }), facing: -.6 }, mina: { ...spreadActivity({ x: -8.4, z: 2.4 }), facing: -Math.PI / 2 },
-  tam: { ...spreadActivity({ x: 8.4, z: .4 }), facing: Math.PI / 2 }, ria: { ...spreadActivity({ x: 6.5, z: -4.9 }), facing: Math.PI },
+/** Where each crew member spends time at home (the owner's friend spots, by job), and the room it is in. */
+const CREW_SPOTS: Partial<Record<CrewId, { x: number; z: number; facing: number; room?: RoomId }>> = {
+  nana: { ...FRIEND_SPOTS[2] }, pip: { ...spreadActivity({ x: 3.8, z: 5.2 }), facing: -.6 }, mina: { ...spreadActivity({ x: -8.4, z: 2.4 }), facing: -Math.PI / 2, room: 'kitchen' },
+  tam: { ...spreadActivity({ x: 8.4, z: .4 }), facing: Math.PI / 2, room: 'craft' }, ria: { ...spreadActivity({ x: 6.5, z: -4.9 }), facing: Math.PI, room: 'study' },
+  juno: { ...spreadActivity({ x: 8.3, z: 2.7 }), facing: Math.PI / 2, room: 'craft' },
 };
+/** While a crew member's room is still boarded up they wait in the living room. */
+const LIVING_SPOTS = [FRIEND_SPOTS[3], FRIEND_SPOTS[4], FRIEND_SPOTS[5]];
+
+/**
+ * The four rooms that start boarded up (chapter 1): a plank barricade across the doorway from the living room, and
+ * dust sheets over the furniture inside. A repair takes both away. `door` is the doorway's centre, `along` its axis.
+ */
+const S = 1.15;
+export const ROOM_DOORS: Record<RoomId, { door: { x: number; z: number }; along: 'x' | 'z'; width: number; outside: { x: number; z: number }; sheets: string[] }> = {
+  kitchen: { door: { x: -5 * S, z: 4.7 * S }, along: 'z', width: 1.6 * S, outside: { x: -5 * S + .9, z: 4.7 * S }, sheets: ['stove', 'counter', 'fridge', 'round_table'] },
+  craft: { door: { x: 5 * S, z: 4.7 * S }, along: 'z', width: 1.6 * S, outside: { x: 5 * S - .9, z: 4.7 * S }, sheets: ['workbench', 'upgrade_bench', 'easel', 'yarn_basket'] },
+  bath: { door: { x: .5 * S, z: -2 * S }, along: 'x', width: 1.6 * S, outside: { x: .5 * S, z: -2 * S + .9 }, sheets: ['bathtub', 'sink', 'towel_rack'] },
+  study: { door: { x: 4 * S, z: -2 * S }, along: 'x', width: 1.6 * S, outside: { x: 4 * S, z: -2 * S + .9 }, sheets: ['desk', 'globe', 'armchair', 'bookshelf'] },
+};
+const SHEET_H: Record<string, number> = { stove: .95, counter: 1, fridge: 1.95, round_table: .8, workbench: 1, upgrade_bench: 1.05, easel: 1.7, yarn_basket: .55, bathtub: .65, sink: .95, towel_rack: 1.1, desk: .85, globe: 1.05, armchair: .95, bookshelf: 1.9 };
+
+/** The barricade and dust sheets of one room, as one vertex-coloured mesh. */
+function boardedRoom(room: RoomId) {
+  const d = ROOM_DOORS[room], parts: T.BufferGeometry[] = [];
+  const plank = (len: number, angle: number, y: number, hex: string) => {
+    const g = new T.BoxGeometry(len, .16, .06);
+    g.rotateZ(angle); g.translate(0, y, 0);
+    if (d.along === 'z') g.rotateY(Math.PI / 2);
+    g.translate(d.door.x, 0, d.door.z);
+    const out = baked(g, hex); g.dispose(); return out;
+  };
+  const w = d.width + .1;
+  parts.push(plank(w * 1.12, .5, .62, '#a8683f'), plank(w * 1.12, -.5, .62, '#8a4b25'), plank(w, 0, .42, '#c77a3a'), plank(w, 0, 1.0, '#c77a3a'));
+  for (const kit of d.sheets) {
+    const p = FURNITURE.find(f => f.kit === kit && roomAt(f)?.id === room); if (!p) continue;
+    const [bw, bd] = p.block ?? [.6, .6], h = SHEET_H[kit] ?? .9;
+    const cloth = new T.BoxGeometry(bw + .12, h, bd + .12, 2, 2, 2);
+    const pos = cloth.getAttribute('position') as T.BufferAttribute;
+    // A soft, drooping sheet: rounded top, flared hem.
+    for (let i = 0; i < pos.count; i++) { const y = pos.getY(i), k = (y + h / 2) / h; pos.setX(i, pos.getX(i) * (1.06 - k * .1)); pos.setZ(i, pos.getZ(i) * (1.06 - k * .1)); if (k > .99) pos.setY(i, y + .05); }
+    cloth.computeVertexNormals(); cloth.translate(0, h / 2, 0);
+    parts.push(baked(cloth, '#ddd6ea', placementMatrix(p))); cloth.dispose();
+  }
+  const g = mergeGeometries(parts, false); parts.forEach(x => x.dispose());
+  const mesh = new T.Mesh(g ?? new T.BufferGeometry(), makeToon('#ffffff', { vertexColors: true }));
+  mesh.name = `boarded-${room}`; mesh.castShadow = true;
+  return mesh;
+}
+
+/** Three posts of a barricade across a boarded doorway (the Captain cannot squeeze past). */
+function doorBlockers(room: RoomId): Blocker[] {
+  const d = ROOM_DOORS[room];
+  return [-.6, 0, .6].map(k => d.along === 'z' ? { x: d.door.x, z: d.door.z + k * d.width / 1.84, r: .45 } : { x: d.door.x + k * d.width / 1.84, z: d.door.z, r: .45 });
+}
 
 export const placementOf = (kit: string) => FURNITURE.find(p => p.kit === kit) ?? null;
 
 export class CottageView {
   group = new T.Group();
-  blockers: Blocker[] = [];
+  /** Furniture, plus a barricade across every doorway still boarded up. */
+  get blockers(): Blocker[] { return this.fixedBlockers.concat(...[...this.boarded.keys()].filter(r => !this.fixed.has(r)).map(r => doorBlockers(r))); }
   crew = new Map<CrewId, Actor>();
   private flame: T.Mesh; private puffs: T.InstancedMesh;
   private notes: T.Object3D[] = [];
+  private boarded = new Map<RoomId, T.Mesh>();
+  private fixed = new Set<RoomId>();
+  private fixedBlockers: Blocker[] = [];
   private noteSpots: T.Vector3[] = [];
   private last = new T.Vector3(HOUSE.spawn.x, 0, HOUSE.spawn.z);
   private t = 0;
@@ -151,13 +205,14 @@ export class CottageView {
     this.group.add(this.flame, this.puffs);
     // The Notes Bao holds glow above the trophy shelf in the living room.
     const shelf = placementOf('trophy_shelf');
-    for (let i = 0; i < 3; i++) {
-      const at = new T.Vector3((shelf?.x ?? 2.6) + (i - 1) * .5, 1.55, (shelf?.z ?? -2.1) + .15);
+    for (let i = 0; i < NOTE_ISLES.length; i++) {
+      const at = new T.Vector3((shelf?.x ?? 2.6) + (i - 1.5) * .42, 1.55, (shelf?.z ?? -2.1) + .15);
       this.noteSpots.push(at);
       const n = noteView(); n.scale.setScalar(.5); n.position.copy(at); n.visible = false;
       this.group.add(n); this.notes.push(n);
     }
-    for (const p of FURNITURE) for (const c of footprintCircles(p)) this.blockers.push({ x: c.x, z: c.z, r: c.r });
+    for (const p of FURNITURE) for (const c of footprintCircles(p)) this.fixedBlockers.push({ x: c.x, z: c.z, r: c.r });
+    for (const room of Object.keys(ROOM_DOORS) as RoomId[]) { const m = boardedRoom(room); this.boarded.set(room, m); this.group.add(m); }
     for (const id of Object.keys(CREW_SPOTS) as CrewId[]) {
       const a = new Actor('crew', id, CREW[id].color), s = CREW_SPOTS[id]!;
       a.root.position.set(s.x, 0, s.z); a.facing = s.facing; a.root.visible = false;
@@ -166,10 +221,22 @@ export class CottageView {
     this.group.visible = false;
   }
 
-  /** The Notes on the shelf and the crew at home. */
-  sync(notes: NoteIsle[], crew: CrewId[]) {
-    (['clover', 'reef', 'ember'] as NoteIsle[]).forEach((n, i) => { this.notes[i].visible = notes.includes(n); });
-    for (const [id, a] of this.crew) a.root.visible = crew.includes(id);
+  /** The Notes on the shelf, the rooms fixed up so far and the crew at home. */
+  sync(notes: NoteIsle[], crew: CrewId[], rooms: Record<RoomId, boolean>) {
+    NOTE_ISLES.forEach((n, i) => { this.notes[i].visible = notes.includes(n); });
+    for (const [room, mesh] of this.boarded) { mesh.visible = !rooms[room]; if (rooms[room]) this.fixed.add(room); else this.fixed.delete(room); }
+    let spare = 0;
+    for (const [id, a] of this.crew) {
+      a.root.visible = crew.includes(id);
+      const spot = CREW_SPOTS[id]!, open = !spot.room || rooms[spot.room];
+      const at = open ? spot : LIVING_SPOTS[spare++ % LIVING_SPOTS.length];
+      a.root.position.set(at.x, 0, at.z); a.facing = at.facing;
+    }
+  }
+  /** Is the Captain standing at a boarded doorway (for the Repair button)? */
+  boardedNear(p: T.Vector3, reach = 1.7): RoomId | null {
+    for (const [room] of this.boarded) { if (this.fixed.has(room)) continue; const o = ROOM_DOORS[room].outside; if (Math.hypot(p.x - o.x, p.z - o.z) < reach) return room; }
+    return null;
   }
   spawn() { this.last.set(HOUSE.spawn.x, 0, HOUSE.spawn.z); return this.last; }
 

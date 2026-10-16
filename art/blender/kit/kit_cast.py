@@ -536,6 +536,27 @@ def shard(base, direction, length, radius, sides=5, tip=0.4, m=None, seed=0, twi
     return g.xf(R).move(base)
 
 
+def lean_shard(base, direction, length, radius, sides=4, tip=0.45, m=None, seed=0, jitter=0.12):
+    """A cheaper crystal for shards whose base is buried in something: no base cap, so fewer flat-shaded vertices."""
+    rng = random.Random(seed)
+    d = Vector(direction).normalized()
+    R = frame(d, (0.3, 1, 0.2) if abs(d.y) < 0.95 else (1, 0, 0))
+    b = Vector(base)
+    g = Geo()
+    rows = []
+    for zz, sc in ((0.0, 1.0), (length * (1 - tip), 1.0 + 0.08 * rng.uniform(-1, 1))):
+        row = []
+        for j in range(sides):
+            a = TAU * j / sides
+            rr = radius * sc * (1 + jitter * rng.uniform(-1, 1))
+            row.append(g.vert(b + R @ Vector((rr * math.cos(a), rr * math.sin(a), zz))))
+        rows.append(row)
+    tip_v = g.vert(b + R @ Vector((radius * 0.15 * rng.uniform(-1, 1), radius * 0.15 * rng.uniform(-1, 1), length)))
+    grid_faces(g, rows, m, True, False)
+    fan(g, tip_v, rows[-1], m, smooth=False)
+    return g.toward(lambda p: (p - b) - d * (p - b).dot(d) + d * 0.05)
+
+
 def facet_blob(c, r, subdiv=1, jitter=0.12, seed=0, m=None, R=None):
     """A faceted, slightly irregular icosphere (flat shaded)."""
     r = (r, r, r) if isinstance(r, (int, float)) else r

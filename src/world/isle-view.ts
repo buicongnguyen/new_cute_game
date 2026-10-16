@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { ISLE_MAPS, type IsleId } from '../rules/content.ts';
+import { ISLE_MAPS, type LandId } from '../rules/content.ts';
 import { bakedParts, findChild, part, standIn } from './assets.ts';
 import { addGloom, makeToon } from './look.ts';
 import { blobShadow } from './actors.ts';
@@ -12,24 +12,26 @@ import { makeRng, type Rng } from '../core/rng.ts';
  */
 interface Theme { grass: string[]; path: string; cliff: string; under: string; scatter: [string, number, number, number][]; awning: string }
 // scatter: [nature root, count, min scale, max scale]
-const THEMES: Record<IsleId, Theme> = {
+const THEMES: Record<LandId, Theme> = {
   clover: { grass: ['#6fd24a', '#86e05a', '#5fc23e', '#9be36a'], path: '#e8c27a', cliff: '#c98a4a', under: '#8a5a34', awning: '#ffc83a',
     scatter: [['tree_round', 34, .9, 1.5], ['bush_a', 24, .8, 1.3], ['bush_b', 18, .8, 1.3], ['flower_a', 70, .8, 1.3], ['flower_b', 60, .8, 1.3], ['flower_c', 50, .8, 1.2], ['grass_tuft', 160, .8, 1.4], ['rock_a', 14, .7, 1.3], ['fence', 10, 1, 1], ['mushroom', 16, .8, 1.3]] },
   reef: { grass: ['#f6d58c', '#ffe3a3', '#ecc77a', '#7fe0c8'], path: '#fff1c8', cliff: '#ff9f8f', under: '#c25f73', awning: '#2fd0c8',
     scatter: [['palm', 22, .9, 1.4], ['coral_a', 40, .7, 1.4], ['coral_b', 34, .7, 1.4], ['rock_b', 18, .7, 1.3], ['flower_b', 50, .8, 1.2], ['grass_tuft', 80, .8, 1.2], ['bush_a', 12, .8, 1.2]] },
   ember: { grass: ['#d0543a', '#e26a40', '#b8452f', '#f08a4a'], path: '#ffc27a', cliff: '#8a3a2f', under: '#4a1f24', awning: '#ff6a2a',
     scatter: [['lava_rock_a', 34, .8, 1.5], ['lava_rock_b', 30, .8, 1.5], ['tree_pine', 22, .9, 1.4], ['rock_c', 24, .7, 1.4], ['mushroom', 26, .8, 1.3], ['grass_tuft', 70, .8, 1.2], ['flower_c', 30, .8, 1.2]] },
-  star: { grass: ['#2a2f5e', '#343a72', '#23284f', '#3d3480'], path: '#5a63b0', cliff: '#1d2148', under: '#0d0f26', awning: '#7a5cff',
-    scatter: [['rock_c', 40, .8, 1.8], ['rock_a', 30, .8, 1.6], ['mushroom', 30, .8, 1.4], ['grass_tuft', 40, .8, 1.1]] },
+  // Frostfall: white snow and pale blue ice (never violet, so the Gloom still stands out), warm wood and lanterns.
+  frost: { grass: ['#f4f9ff', '#e2effc', '#ffffff', '#cfe4f7'], path: '#b9d6ee', cliff: '#9cc4e4', under: '#5a7fa8', awning: '#e8504a',
+    scatter: [['tree_snow', 36, .9, 1.5], ['rock_snow', 22, .8, 1.4], ['ice_rock', 20, .7, 1.3], ['snowdrift', 40, .8, 1.5], ['snow_flower', 70, .8, 1.3], ['tree_pine', 10, .9, 1.3]] },
 };
-export const awningColor = (isle: IsleId) => THEMES[isle].awning;
+export const awningColor = (isle: LandId) => THEMES[isle].awning;
 
 export interface Blocker { x: number; z: number; r: number }
 
 export class IsleView {
   group = new T.Group();
-  readonly isle: IsleId;
+  readonly isle: LandId;
   readonly radius: number;
+  readonly kind = 'land' as const;
   private seed: number[];
   blockers: Blocker[] = [];
   rope: T.Mesh;
@@ -42,7 +44,7 @@ export class IsleView {
   private small: T.InstancedMesh[] = [];
   private t = 0;
 
-  constructor(isle: IsleId) {
+  constructor(isle: LandId) {
     this.isle = isle;
     const map = ISLE_MAPS[isle];
     this.radius = map.radius;
@@ -199,7 +201,7 @@ export class IsleView {
       o.position.set(d.at[0], this.height(d.at[0], d.at[1]), d.at[1]); o.rotation.y = d.rot ?? 0;
       this.group.add(o);
       if (d.kind === 'windmill') this.windmills.push(o);
-      this.blockers.push({ x: d.at[0], z: d.at[1], r: d.kind === 'lantern' ? .4 : 1.4 });
+      this.blockers.push({ x: d.at[0], z: d.at[1], r: /lantern/.test(d.kind) ? .4 : d.kind === 'ice_hut' ? 1.9 : 1.4 });
     }
     for (const o of map.ore) {
       const rock = part('props', 'ore_rock', { gloom: true, shadows: true }) ?? standIn('box', '#8c95a5', 1.1);

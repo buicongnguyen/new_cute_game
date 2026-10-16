@@ -22,6 +22,10 @@ export const LOOKS: Record<PlaceId | 'voyage', Look> = {
   clover: { skyTop: '#2a7dff', skyHorizon: '#ffe0a0', sun: '#ffe9b8', sunI: 2.6, hemiSky: '#fff4dc', hemiGround: '#86c95a', hemiI: 1.45, fog: '#ffe6b8', fogNear: 60, fogFar: 200, cloud: '#ffffff', cloudShade: '#c7b8ee', night: false },
   reef: { skyTop: '#1690e8', skyHorizon: '#ffc2c8', sun: '#fff0e8', sunI: 2.5, hemiSky: '#e8fbff', hemiGround: '#5fc8c0', hemiI: 1.5, fog: '#ffd0d4', fogNear: 60, fogFar: 200, cloud: '#fff6f8', cloudShade: '#b6aef0', night: false },
   ember: { skyTop: '#3a56d6', skyHorizon: '#ffb070', sun: '#ffd2a0', sunI: 2.5, hemiSky: '#ffe2cc', hemiGround: '#d8664a', hemiI: 1.4, fog: '#ffbf8a', fogNear: 55, fogFar: 180, cloud: '#fff0e2', cloudShade: '#c49ad8', night: false },
+  // Frostfall: icy blue sky, white fog, warm sun; the fleet: a pink-violet dusk that darkens toward the Grey Star.
+  frost: { skyTop: '#2f86ff', skyHorizon: '#e6f6ff', sun: '#fff3e2', sunI: 2.5, hemiSky: '#f4fbff', hemiGround: '#9fcbe8', hemiI: 1.55, fog: '#dff1ff', fogNear: 60, fogFar: 190, cloud: '#ffffff', cloudShade: '#b2c4f2', night: false },
+  sloop: { skyTop: '#2b3fb4', skyHorizon: '#ff9fb8', sun: '#ffd8c4', sunI: 2.4, hemiSky: '#ece4ff', hemiGround: '#7a62b0', hemiI: 1.4, fog: '#eab0cc', fogNear: 55, fogFar: 180, cloud: '#fff2f6', cloudShade: '#a68ad8', night: false },
+  warship: { skyTop: '#1f2c8c', skyHorizon: '#d07ad8', sun: '#ffc8b0', sunI: 2.2, hemiSky: '#d8ccff', hemiGround: '#544690', hemiI: 1.35, fog: '#b07ad0', fogNear: 50, fogFar: 170, cloud: '#f2e6ff', cloudShade: '#7c64bc', night: false },
   star: { skyTop: '#040a20', skyHorizon: '#0d1a44', sun: '#9cb2ff', sunI: 1.3, hemiSky: '#3a4f9a', hemiGround: '#0a0e26', hemiI: 1.2, fog: '#0b1638', fogNear: 45, fogFar: 150, cloud: '#26335e', cloudShade: '#0d1430', night: true },
   voyage: { skyTop: '#1f74ff', skyHorizon: '#b8e4ff', sun: '#fff0d2', sunI: 2.5, hemiSky: '#e6f4ff', hemiGround: '#8fcf6a', hemiI: 1.45, fog: '#b8e4ff', fogNear: 60, fogFar: 190, cloud: '#ffffff', cloudShade: '#a9b8f0', night: false },
 };
@@ -64,9 +68,10 @@ export function toonOf(source: T.Material, gloom = false): T.Material {
   return toon;
 }
 
-export function addGloom<M extends T.Material>(m: M): M {
+/** `uniform`: the shared isle tint by default; a Gloom beast-ship brings its own, so it can be freed on its own. */
+export function addGloom<M extends T.Material>(m: M, uniform: { value: number } = GLOOM): M {
   m.onBeforeCompile = shader => {
-    shader.uniforms.uGloom = GLOOM;
+    shader.uniforms.uGloom = uniform;
     shader.fragmentShader = 'uniform float uGloom;\n' + shader.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
       float gl = dot(gl_FragColor.rgb, vec3(.299, .587, .114));
       gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(gl * .78, gl * .74, gl * .92) + vec3(.03, .015, .07), uGloom * .86);`);

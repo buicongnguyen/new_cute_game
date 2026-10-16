@@ -1,5 +1,5 @@
-import { KEEPER } from './content.ts';
-import type { GameState } from './state.ts';
+import { KEEPER, MINA } from './content.ts';
+import { give, hasCrew, type GameState } from './state.ts';
 import { growGarden, tickGardener } from './garden.ts';
 import { tickWhale } from './whale.ts';
 import { tickVoyage, type VoyageEvent } from './voyage.ts';
@@ -8,7 +8,7 @@ import { nanaGift } from './story.ts';
 import { heal } from './keeper.ts';
 import { tickSchool } from './fishing.ts';
 
-export interface TickEvents { ripened: number[]; picked: ReturnType<typeof tickGardener>; speck: boolean; voyage: VoyageEvent; leftover: string | null; gifts: string[] }
+export interface TickEvents { ripened: number[]; picked: ReturnType<typeof tickGardener>; speck: boolean; voyage: VoyageEvent; leftover: string | null; gifts: string[]; meal: boolean }
 
 /**
  * One step of everything that runs on play time. `onDeck`: the Keeper is on Bao (Pip harvests, specks land, Nana
@@ -29,7 +29,10 @@ export function tickRules(s: GameState, dt: number, onDeck: boolean, nowMs: numb
   s.timers.nana += dt;
   let gifts: string[] = [];
   if (s.timers.nana >= 5) { s.timers.nana = 0; gifts = nanaGift(s); }
-  return { ripened, picked, speck, voyage, leftover, gifts };
+  // Mina leaves a meal in the bag once every day of play.
+  let meal = false;
+  if (hasCrew(s, 'mina')) { s.timers.mina += dt; if (s.timers.mina >= MINA.every) { s.timers.mina = 0; give(s, MINA.meal); meal = true; } }
+  return { ripened, picked, speck, voyage, leftover, gifts, meal };
 }
 
 /** On load: trees grow for the time the game was closed (at most a week). Mood and hunger do not change. */

@@ -5,6 +5,10 @@ Eight chibi people built on the Keeper's body plan (kit_chibi.py), each with its
     olla  mayor sash and medal, round glasses, white bob    kai   yellow sou'wester, white beard, striped sweater
     mina  tall chef hat, apron, wooden spoon                coal  wild white hair, soot apron, grumpy brows
     tam   leather apron, goggles, big gloves                ria   red bandana, ponytail, spyglass
+    juno  engineer: goggles on a beanie, tool belt, orange overalls
+    bram  old snow-isle innkeeper: knitted scarf, big white beard, warm red coat
+    folk_a  anonymous backfolk grown-up: patched sky-blue tunic, straw-yellow kerchief tied under the chin
+    folk_b  anonymous backfolk child (0.75 m): big round head, red cap, green dungarees
 
     blender -b --factory-startup --python art/blender/kit/build_crew.py -- [--render]
 
@@ -22,7 +26,8 @@ from build_keeper import emit  # noqa: E402
 
 FILE = 'crew'
 BUDGET = 2500
-ORDER = ['nana', 'pip', 'olla', 'kai', 'mina', 'coal', 'tam', 'ria']
+ORDER = ['nana', 'pip', 'olla', 'kai', 'mina', 'coal', 'tam', 'ria', 'juno', 'bram', 'folk_a', 'folk_b']
+BUDGETS = dict({n: BUDGET for n in ORDER}, folk_a=2000, folk_b=2000)
 
 
 # ------------------------------------------------------------------ shared dress-up helpers
@@ -325,7 +330,140 @@ def ria():
     return ch
 
 
-BUILDERS = dict(nana=nana, pip=pip, olla=olla, kai=kai, mina=mina, coal=coal, tam=tam, ria=ria)
+def juno():
+    ch = K.Chibi('juno', 1.04)
+    K.head(ch, 'skin', ears=False)
+    K.eyes(ch)
+    K.brows(ch, 'hair', inner=(0.03, 0.09), outer=(0.05, 0.1), thick=0.009, arch=0.008)
+    K.cheeks(ch)
+    K.mouth(ch, 'smile', w=0.04)
+    for az, el, ln, cu in ((-0.3, 0.62, 0.36, -0.25), (0.25, 0.63, 0.36, 0.25), (1.2, 0.2, 0.36, 0.2), (-1.2, 0.2, 0.36, -0.2)):
+        K.lock(ch, 'hair', az, el, ln, 0.034, cu, puff=0.03, sides=5)
+    # knitted beanie with a ribbed cuff and a pompom, goggles pushed up on it
+    teal, white = pal('teal', 0.75), pal('white', 0.6)
+    K.hair_cap(ch, 'teal', front=0.5, side=0.32, back=0.12, fringe=0.0, puff=0.055, lumps=0.25, segs=16, rows=4)
+    ch.add('head', torus(K.HEAD_C + Vector((0, 0.1, -0.01)), 0.258, 0.032, 12, 4, Matrix.Rotation(-0.18, 3, 'X'), teal,
+                         sy=1.2))
+    ch.add('head', ellipsoid(K.HEAD_C + Vector((0, 0.3, -0.03)), 0.07, 8, 6, None, white))
+    for side in (1, -1):
+        p, n = ell_dir(K.HEAD_C, (K.HEAD_R[0] + 0.058, K.HEAD_R[1] + 0.058, K.HEAD_R[2] + 0.058), K.hdir(side * 0.3, 0.62))
+        R = frame(n, UP) @ Matrix.Rotation(math.pi / 2, 3, 'X')
+        ch.add('head', lathe([(0.0, -0.012), (0.046, -0.012), (0.052, 0.0), (0.046, 0.02), (0.0, 0.015)], 8, (0, 0, 0), 1.0,
+                             1.0, R, pal('iron', 0.4)).move(p))
+        ch.add('head', ellipsoid(p + n * 0.016, (0.037, 0.037, 0.011), 6, 3, frame(n, UP), pal('glass', 0.15)))
+    # navy shirt under orange overalls
+    K.torso(ch, K.SHIRT, None, mats=['pumpkin'] * 4 + ['navy'] * 4)
+    bib_c = K.front_point(K.SHIRT, 0.47, 0.0, 0.84, ch.wide) + Vector((0, 0, -0.012))
+    ch.add('body', K.superellipsoid(bib_c, (0.085, 0.072, 0.03), 4.0, 8, 4, None, pal('pumpkin', 0.55)))
+    for sd in (1, -1):
+        strap(ch, K.SHIRT, (sd * 0.07, 0.52), (sd * 0.1, 0.61), 'pumpkin', r=0.02, n=4)
+    # tool belt with pouches and a wrench
+    K.band(ch, K.SHIRT, 0.36, 'wood_dark', h=0.04, out=0.012)
+    for sd, x in ((1, 0.12), (-1, -0.13)):
+        p = K.front_point(K.SHIRT, 0.33, x, 0.84, ch.wide) + Vector((0, 0, 0.02))
+        ch.add('body', K.superellipsoid(p, (0.045, 0.05, 0.03), 3.0, 6, 3, Matrix.Rotation(sd * 0.4, 3, 'Y'), pal('wood', 0.55)))
+    w0 = K.front_point(K.SHIRT, 0.34, 0.03, 0.84, ch.wide) + Vector((0, 0, 0.02))
+    iron = pal('iron', 0.4)
+    ch.add('body', tube([w0, w0 + Vector((0.01, -0.12, 0.02))], 0.012, 5, iron, round_caps=0.5))
+    ch.add('body', torus(w0 + Vector((0.012, -0.135, 0.022)), 0.022, 0.009, 8, 3, Matrix.Rotation(math.pi / 2, 3, 'X'), iron))
+    K.arms(ch, 'navy', 'skin', cuff='pumpkin')
+    K.legs(ch, 'pumpkin', 'boot')
+    return ch
+
+
+def bram():
+    ch = K.Chibi('bram', 1.1, wide=1.2)
+    K.head(ch, 'skin', ears=False, segs=12, rings=9)
+    K.eyes(ch, 'happy', w=0.042)
+    K.brows(ch, 'hair_white', inner=(0.035, 0.085), outer=(0.06, 0.08), thick=0.018, arch=0.016)
+    K.cheeks(ch, w=0.05, h=0.03)
+    K.nose(ch, 'skin', 0.034)
+    K.hair_cap(ch, 'hair_white', front=0.85, side=-0.32, back=-0.7, fringe=0.0, lumps=0.6, segs=14, rows=4,
+               extra_puff=lambda a, t: 0.03 * t ** 2 * (1 - math.cos(a) ** 2))
+    white = pal('hair_white', 0.5)
+    # a big, round white beard and a curly moustache
+    ch.add('head', ellipsoid(K.HEAD_C + Vector((0, -0.2, 0.1)), (0.23, 0.2, 0.17), 10, 7, None, white))
+    for k, (x, y) in enumerate(((0.14, -0.35), (-0.14, -0.35), (0.0, -0.41))):
+        ch.add('head', ellipsoid(K.HEAD_C + Vector((x, y, 0.1)), (0.1, 0.09, 0.09), 7, 4, None, white))
+    for side in (1, -1):
+        p, n = ell_dir(K.HEAD_C, K.HEAD_R, K.hdir(side * 0.18, -0.38))
+        ch.add('head', ellipsoid(p + n * 0.035, (0.07, 0.03, 0.04), 8, 4, Matrix.Rotation(-side * 0.3, 3, 'Z'), white))
+    # warm red coat with gold buttons, a striped knitted scarf
+    K.torso(ch, K.COAT, 'red')
+    K.band(ch, K.COAT, 0.214, 'white', h=0.03)
+    K.buttons(ch, K.COAT, (0.5, 0.42, 0.34), 'gold', r=0.018)
+    sun, cream = pal('sun', 0.75), pal('white', 0.7)
+    ch.add('body', torus(Vector((0, 0.625, 0.0)), 0.12, 0.055, 12, 5, None, sun, sy=0.85))
+    tail = [Vector((-0.07, 0.6, 0.15)), Vector((-0.1, 0.5, 0.18)), Vector((-0.11, 0.4, 0.18)), Vector((-0.11, 0.3, 0.17))]
+    sc = tube(tail, [0.038, 0.036, 0.036, 0.034], 6, sun, flatten=0.45, up=(1, 0, 0))
+    for i, f in enumerate(sc.f):   # knitted stripes
+        if int((sc.centre(f).y - 0.28) / 0.045) % 2 == 0:
+            sc.m[i] = cream
+    ch.add('body', sc)
+    K.arms(ch, 'red', 'skin', cuff='white')
+    K.legs(ch, 'charcoal', 'boot')
+    return ch
+
+
+def folk_a():
+    """A grown-up of the backfolk: a patched sky-blue tunic, a straw-yellow kerchief tied under the chin."""
+    ch = K.Chibi('folk_a', 1.1, wide=1.04)
+    K.head(ch, 'skin', ears=False, segs=12, rings=8)
+    K.eyes(ch, w=0.042, h=0.058)
+    K.cheeks(ch)
+    K.mouth(ch, 'small')
+    K.hair_cap(ch, 'hair', front=0.42, side=-0.3, back=-0.6, fringe=0.08, locks=4, segs=14, rows=3)
+    straw = pal('straw', 0.7)
+    # the kerchief: a cap whose edge frames the face, a knot under the chin with two little tails
+    K.hair_cap(ch, 'straw', front=0.5, side=-0.55, back=-0.78, fringe=0.0, puff=0.05, lumps=0.2, segs=14, rows=3,
+               front_width=0.9)
+    knot = K.HEAD_C + Vector((0, -0.25, 0.1))
+    ch.add('head', ellipsoid(knot, (0.045, 0.035, 0.035), 7, 4, None, straw))
+    for s in (1, -1):
+        ch.add('head', tube([knot, knot + Vector((s * 0.05, -0.06, 0.03)), knot + Vector((s * 0.07, -0.11, 0.035))],
+                            [0.024, 0.02, 0.01], 5, straw, flatten=0.4))
+    tunic = [(0.0, 0.17), (0.17, 0.172), (0.205, 0.19), (0.198, 0.25), (0.178, 0.35), (0.16, 0.45), (0.147, 0.53),
+             (0.125, 0.6), (0.07, 0.642), (0.0, 0.652)]
+    K.torso(ch, tunic, 'sky')
+    K.band(ch, tunic, 0.38, 'wood_dark', h=0.035)
+    for k, (x, y, col) in enumerate(((0.09, 0.27, 'tangerine'), (-0.07, 0.48, 'sun'), (0.04, 0.53, 'blossom_dark'))):
+        p = K.front_point(tunic, y, x, 0.84, ch.wide) + Vector((0, 0, 0.004))
+        ch.add('body', K.superellipsoid(p, (0.032, 0.03, 0.008), 5.0, 6, 3, Matrix.Rotation(0.25 * (k - 1), 3, 'Z'),
+                                        pal(col, 0.7)))
+    K.arms(ch, 'sky', 'skin', cuff='straw')
+    K.legs(ch, 'wood', 'boot')
+    return ch
+
+
+def folk_b():
+    """A small backfolk child (0.75 m): a big round head, a red cap with a short brim, green dungarees."""
+    ch = K.Chibi('folk_b', 0.665)
+    K.head(ch, 'skin', segs=12, rings=8, ears=False)
+    K.eyes(ch, w=0.05, h=0.07)
+    K.cheeks(ch, w=0.05, h=0.03)
+    K.mouth(ch, 'open', w=0.036)
+    K.hair_cap(ch, 'soil_dark', front=0.35, side=-0.2, back=-0.66, fringe=0.12, locks=4, segs=14, rows=3)
+    red = pal('red', 0.6)
+    K.hair_cap(ch, 'red', front=0.62, side=0.28, back=0.05, fringe=0.0, puff=0.05, segs=14, rows=3)
+    brim = lathe([(0.0, -0.008), (0.16, -0.008), (0.17, 0.0), (0.0, 0.008)], 10, (0, 0, 0), 1.0, 0.6, None, red)
+    ch.add('head', brim.xf(Matrix.Rotation(0.32, 3, 'X')).move(K.HEAD_C + Vector((0, 0.17, 0.18))))
+    ch.add('head', ellipsoid(K.HEAD_C + Vector((0, 0.285, -0.01)), 0.03, 6, 4, None, red))
+    K.torso(ch, K.SHIRT, None, mats=['grass'] * 4 + ['tangerine'] * 4)
+    bib_c = K.front_point(K.SHIRT, 0.47, 0.0, 0.84, ch.wide) + Vector((0, 0, -0.012))
+    ch.add('body', K.superellipsoid(bib_c, (0.08, 0.07, 0.03), 4.0, 8, 4, None, pal('grass', 0.6)))
+    for sd in (1, -1):
+        strap(ch, K.SHIRT, (sd * 0.065, 0.52), (sd * 0.09, 0.61), 'grass', r=0.022, n=4)
+        ch.add('body', ellipsoid(bib_c + Vector((sd * 0.055, 0.04, 0.03)), (0.016, 0.016, 0.008), 6, 3, None,
+                                 pal('sun', 0.4)))
+    K.arms(ch, 'tangerine', 'skin')
+    K.legs(ch, 'grass', 'boot')
+    # a child: the head is bigger for the body
+    ch.g['head'].scale(1.18, about=K.NECK)
+    return ch
+
+
+BUILDERS = dict(nana=nana, pip=pip, olla=olla, kai=kai, mina=mina, coal=coal, tam=tam, ria=ria, juno=juno, bram=bram,
+                folk_a=folk_a, folk_b=folk_b)
 
 
 def build():
@@ -338,10 +476,10 @@ def build():
 
 def main():
     cast = build()
-    cast.export({n: BUDGET for n in ORDER})
+    cast.export(BUDGETS)
     if '--render' in args():
-        sheet(cast, 'crew.png', rows=[ORDER], gap=0.32, size=(2000, 760), elev=45, yaw=0, ortho=7.4)
-        sheet(cast, 'crew-front.png', rows=[ORDER], gap=0.32, size=(2000, 640), elev=8, yaw=0, ortho=7.4)
+        sheet(cast, 'crew.png', rows=[ORDER], gap=0.32, size=(2400, 640), elev=45, yaw=0, ortho=10.4)
+        sheet(cast, 'crew-front.png', rows=[ORDER], gap=0.32, size=(2400, 560), elev=8, yaw=0, ortho=10.4)
 
 
 if __name__ == '__main__':

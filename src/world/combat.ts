@@ -11,12 +11,19 @@ import { makeRng } from '../core/rng.ts';
 
 /** What the fight needs from the Keeper (the controller owns mercy frames, knockback and fainting). */
 export interface KeeperLink { pos: T.Vector3; alive(): boolean; hurt(raw: number, from: T.Vector3): void }
-/** `outside`: on Bao's deck in a raid, past the gunwale (a raider pushed there goes overboard). */
-export interface Ground { height(x: number, z: number): number; clamp(p: T.Vector3): void; blockers: Blocker[]; outside?(p: T.Vector3): boolean }
+/**
+ * `outside`: on a deck (Bao's in a raid, a Gloom ship's when boarding), past the rail (a form pushed there goes
+ * overboard). `formClamp` keeps forms on a deck; a knocked one may slide past the edge.
+ */
+export interface Ground { height(x: number, z: number): number; clamp(p: T.Vector3): void; blockers: Blocker[]; outside?(p: T.Vector3): boolean; formClamp?(p: T.Vector3, knocked: boolean): void }
+/** How a ring lands: posts and crew mates ring quietly (no hit-stop) and never ring cages. */
+export interface StrikeOpts { quiet?: boolean; slow?: boolean; push?: number; cages?: boolean }
 export interface CombatEvents {
   freed(form: FormId, at: T.Vector3, group: number, raid: boolean, reward: boolean): void;
   spire(index: number, at: T.Vector3): void;
   cage(index: number, at: T.Vector3): void;
+  /** A family's cage in a Gloom ship's hold rang open. */
+  captive(index: number, at: T.Vector3): void;
   /** A raider stood on the hatch long enough (a tree stored below gets crusted). */
   crust(at: T.Vector3): void;
   /** A raider was knocked off the deck. */
@@ -31,6 +38,10 @@ export class Form {
   hp: number; max: number; damage: number; tier: number;
   state: FormState = 'idle'; t = 0; cd = 1; alert = false;
   group: number; spire: number; raid: boolean;
+  /** On a Gloom ship's deck: rings push hard and the rail gaps send it overboard. */
+  ship = false;
+  /** Shellbacks turn slowly: the way the shield faces. */
+  face = 0;
   view: T.Group; body: T.Object3D; native: T.Object3D | null = null;
   aim = new T.Vector3(); dir = new T.Vector3(); charged = 0; hitDone = false;
   wander = 0; plot = -1; crustT = 0; flash = 0; hover = 0; orbit = 0;
@@ -44,6 +55,8 @@ export class Form {
   chargeLen = 0;
   /** A Flyer's wing nodes, found once. */
   wings?: (T.Object3D | null)[];
+  /** A Puffcap's cap, found once. */
+  cap?: T.Object3D | null;
   private mats: T.MeshToonMaterial[] = [];
   static made = 0;
   constructor(kind: FormId, tier: number, scale: number, group: number, spire: number, raid: boolean) {
@@ -78,6 +91,10 @@ export class Spire {
 
 export class Cage {
   pos: T.Vector3; rings = RESCUE.rings; view: T.Object3D; index: number; open = false; shake = 0;
+  /** A family's cage on a Gloom ship (it calls `captive`, not `cage`). */
+  captive = false;
+  /** Inside a place a Spire guards: rings do nothing until it is unlocked. */
+  locked = false;
   constructor(index: number, at: T.Vector3) {
     this.index = index; this.pos = at.clone();
     this.view = part('gloom', 'cage') ?? (() => { const m = new T.Mesh(new T.CylinderGeometry(.75, .75, 2, 8, 1, true), makeToon('#8c86a8', { transparent: true, opacity: .55 })); m.position.y = 1; const g = new T.Group(); g.add(m); return g; })();
@@ -103,9 +120,11 @@ export class Combat {
     for (let i = 0; i < 24; i++) { const mesh = new T.Mesh(shardGeo, shardMat); mesh.scale.set(1, 1, 2.2); mesh.visible = false; this.group.add(mesh); this.shots.push({ mesh, vel: new T.Vector3(), life: 0, damage: 0, alive: false }); }
   }
 
+  /** Forms spawned from now on stand on a Gloom ship's deck. */
+  onShip = false;
   spawn(kind: FormId, at: T.Vector3, tier: number, opts: { scale?: number; group?: number; spire?: number; raid?: boolean; alert?: boolean; reward?: boolean } = {}) {
     const f = new Form(kind, tier, opts.scale ?? 1, opts.group ?? -1, opts.spire ?? -1, !!opts.raid);
-    f.reward = opts.reward ?? true;
+    f.reward = opts.reward ?? true; f.ship = this.onShip && !opts.raid;
     f.pos.copy(at); f.home.copy(at); f.alert = !!opts.alert; f.cd = .6 + this.rng.next();
     f.pos.y = this.ground.height(at.x, at.z);
     f.view.position.copy(f.pos);
@@ -113,7 +132,7 @@ export class Combat {
     return f;
   }
   addSpire(index: number, at: T.Vector3, tier: number) { const s = new Spire(index, at, tier); s.pos.y = this.ground.height(at.x, at.z); s.view.position.copy(s.pos); this.spires.push(s); this.group.add(s.view); return s; }
-  addCage(index: number, at: T.Vector3) { const c = new Cage(index, at); c.pos.y = this.ground.height(at.x, at.z); c.view.position.copy(c.pos); this.cages.push(c); this.group.add(c.view); return c; }
+  addCage(index: number, at: T.Vector3, captive = false) { const c = new Cage(index, at); c.captive = captive; c.pos.y = this.ground.height(at.x, at.z); c.view.position.copy(c.pos); this.cages.push(c); this.group.add(c.view); return c; }
 
   clear() {
     for (const f of this.forms) this.group.remove(f.view);
@@ -142,8 +161,9 @@ export class Combat {
    * A ring of the bell mallet: every form, Spire and cage within `reach` in front (or all around for a spin)
    * takes `damage`. Returns how many things were hit.
    */
-  strike(origin: T.Vector3, facing: number, reach: number, damage: number, spin = false, post = false) {
+  strike(origin: T.Vector3, facing: number, reach: number, damage: number, spin = false, opts: StrikeOpts = {}) {
     let hits = 0, freedAny = false;
+    const post = !!opts.quiet;
     const fx = Math.sin(facing), fz = Math.cos(facing);
     const inArc = (p: T.Vector3, r: number) => {
       const dx = p.x - origin.x, dz = p.z - origin.z, d = Math.hypot(dx, dz);
@@ -154,15 +174,20 @@ export class Combat {
     for (const f of this.forms) {
       if (f.dead || !inArc(f.pos, f.radius)) continue;
       hits++;
-      const dmg = Math.round(damage * (.92 + this.rng.next() * .16));
+      // A Shellback's crystal shield takes a plain ring from the front: get behind it, or Spin.
+      const shielded = f.kind === 'shellback' && !spin && !post && Math.cos(Math.atan2(origin.x - f.pos.x, origin.z - f.pos.z) - f.face) > .35;
+      const dmg = Math.max(1, Math.round(damage * (.92 + this.rng.next() * .16) * (shielded ? ATTACKS.bash.front : 1)));
       f.hp -= dmg; f.hitFlash(); f.alert = true;
-      if (post) f.slow = POST.slowFor;
+      if (opts.slow) f.slow = POST.slowFor;
+      if (shielded) { this.fx.text(f.pos.clone().setY(f.pos.y + .4), t('Shield!'), 'info'); this.events.sound('glance', f.pos); }
       this.fx.text(f.pos, String(dmg), 'hit');
       this.fx.burst(f.pos.clone().setY(f.pos.y + .6), '#c9b8ff', 6, { speed: 3, up: 3, size: .1, life: .45 });
       // Knockback slides the form away; on Bao's deck in a raid it is strong enough to send raiders overboard.
-      const base = f.raid ? (spin ? RAID.spinPush : RAID.push) : .55, push = base * (f.kind === 'brute' ? (f.raid ? .5 : .27) : 1);
+      const deck = f.raid || f.ship, heavy = f.kind === 'brute' || f.kind === 'shellback';
+      const base = deck ? (spin ? RAID.spinPush : RAID.push) : .55, push = base * (heavy ? (deck ? .5 : .27) : 1) * (shielded ? .3 : 1) * (opts.push ?? 1);
       this.knock(f, origin, push);
-      if (f.state === 'windup' && f.kind !== 'brute') { f.state = 'recover'; f.t = 0; this.fx.text(f.pos, '!', 'info'); }
+      // A ring stops most wind-ups; a Rammer charges anyway, and a Puffcap keeps swelling (lure it, then step away).
+      if (f.state === 'windup' && f.kind !== 'brute' && f.kind !== 'puffcap' && !shielded) { f.state = 'recover'; f.t = 0; this.fx.text(f.pos, '!', 'info'); }
       if (f.hp <= 0) { this.free(f); freedAny = true; }
     }
     for (const s of this.spires) {
@@ -175,12 +200,13 @@ export class Combat {
       if (s.hp <= 0) this.breakSpire(s);
     }
     for (const c of this.cages) {
-      if (post || c.open || !inArc(c.pos, .8)) continue;
+      if (post || opts.cages === false || c.open || !inArc(c.pos, .8)) continue;
       hits++;
+      if (c.locked) { c.shake = .25; this.fx.text(c.pos.clone().setY(2.2), t('Locked: break its Spire first'), 'info'); this.events.sound('glance', c.pos); continue; }
       c.rings--; c.shake = .25;
       this.fx.ring(c.pos, '#ffe28a', .5, 1.8, .35);
       this.events.sound('chime', c.pos);
-      if (c.rings <= 0) { c.open = true; c.view.visible = false; this.fx.burst(c.pos.clone().setY(1), '#c9b8ff', 22, { speed: 5, up: 5, size: .16 }); this.fx.sparkle(c.pos.clone().setY(1.2), '#ffe28a', 14); this.events.cage(c.index, c.pos); }
+      if (c.rings <= 0) { c.open = true; c.view.visible = false; this.fx.burst(c.pos.clone().setY(1), '#c9b8ff', 22, { speed: 5, up: 5, size: .16 }); this.fx.sparkle(c.pos.clone().setY(1.2), '#ffe28a', 14); if (c.captive) this.events.captive(c.index, c.pos); else this.events.cage(c.index, c.pos); }
     }
     if (hits && !post) { this.events.freeze(freedAny ? .12 : .05); this.events.sound(freedAny ? 'free' : 'ring', origin); this.fx.shake(freedAny ? .3 : .14); }
     else if (hits) this.events.sound(freedAny ? 'free' : 'chime', origin);
@@ -271,9 +297,10 @@ export class Combat {
         const dx = a.pos.x - bl.x, dz = a.pos.z - bl.z, d = Math.hypot(dx, dz), min = bl.r + a.radius;
         if (d > 0 && d < min) { a.pos.x = bl.x + dx / d * min; a.pos.z = bl.z + dz / d * min; }
       }
-      // On Bao's deck in a raid, a raider past the gunwale goes overboard; anywhere else the isle's edge holds.
-      if (a.raid && this.ground.outside?.(a.pos)) { this.overboard(a); continue; }
-      this.ground.clamp(a.pos);
+      // On a deck (Bao's in a raid, a Gloom ship's), a form past the rail goes overboard; anywhere else the isle's edge holds.
+      if ((a.raid || a.ship) && this.ground.outside?.(a.pos)) { this.overboard(a); continue; }
+      if (this.ground.formClamp) this.ground.formClamp(a.pos, Math.hypot(a.vel.x, a.vel.z) > .6);
+      else this.ground.clamp(a.pos);
     }
     for (const f of this.forms) this.draw(f, dt);
     for (const s of this.spires) this.tickSpire(s, dt, k, alive);
@@ -324,6 +351,11 @@ export class Combat {
     const toward = (x: number, z: number, speed: number) => { const dx = x - f.pos.x, dz = z - f.pos.z, L = Math.hypot(dx, dz); if (L > .05) { const s = Math.min(L, speed * slowK * dt); f.pos.x += dx / L * s; f.pos.z += dz / L * s; f.dir.set(dx / L, 0, dz / L); } };
     const aggro = f.kind === 'spitter' ? RAID.spitterAggro : RAID.aggro;
     const def = FORMS[f.kind];
+    // The shield turns slowly toward the Captain (or the way it walks), so a quick step round its side gets behind it.
+    if (f.kind === 'shellback') {
+      const want = f.state === 'chase' || f.state === 'windup' ? Math.atan2(k.x - f.pos.x, k.z - f.pos.z) : Math.atan2(f.dir.x, f.dir.z);
+      if (Number.isFinite(want)) { const dd = Math.atan2(Math.sin(want - f.face), Math.cos(want - f.face)); f.face += Math.sign(dd) * Math.min(Math.abs(dd), ATTACKS.bash.turn * dt); }
+    }
     // Waking up: the whole group joins once one of them notices the Keeper.
     if (!f.alert && alive && (d < 8.5 || f.raid && d < aggro)) { f.alert = true; this.alertGroup(f.group); this.fx.text(f.pos, '!', 'info'); this.events.sound('notice', f.pos); }
     if (f.state === 'idle' || f.state === 'return') {
@@ -369,6 +401,23 @@ export class Combat {
         } else if (f.state === 'recover' && f.t >= 1) { f.state = 'chase'; f.t = 0; }
         break;
       }
+      case 'shellback': {
+        const A = ATTACKS.bash;
+        if (f.state === 'chase') { if (d > A.reach) toward(k.x, k.z, def.speed); else if (f.cd <= 0) { f.state = 'windup'; f.t = 0; } }
+        else if (f.state === 'windup' && f.t >= A.windup) { f.state = 'act'; f.t = 0; if (d < A.reach + .5 && Math.cos(Math.atan2(k.x - f.pos.x, k.z - f.pos.z) - f.face) > .2) this.keeper.hurt(f.damage, f.pos); this.events.sound('bump', f.pos); }
+        else if (f.state === 'act' && f.t >= .2) { f.state = 'recover'; f.t = 0; f.cd = A.cooldown; }
+        else if (f.state === 'recover' && f.t >= .5) { f.state = 'chase'; f.t = 0; }
+        break;
+      }
+      case 'puffcap': {
+        const A = ATTACKS.puff;
+        if (f.state === 'chase') {
+          if (d > A.trigger * .8) toward(k.x, k.z, def.speed);
+          if (f.cd <= 0 && d < A.trigger) { f.state = 'windup'; f.t = 0; this.fx.telegraph('disc', f.pos.clone(), { radius: A.radius, seconds: A.windup, color: '#ff9cc8' }); this.events.sound('windup', f.pos); }
+        } else if (f.state === 'windup' && f.t >= A.windup) { this.burst(f); f.state = 'recover'; f.t = 0; f.cd = A.cooldown; }
+        else if (f.state === 'recover' && f.t >= 1.2) { f.state = 'chase'; f.t = 0; }
+        break;
+      }
       case 'flyer': {
         const A = ATTACKS.dive;
         if (f.state === 'chase') {
@@ -385,6 +434,15 @@ export class Combat {
         break;
       }
     }
+  }
+
+  /** A Puffcap bursts: a ring that hurts the Captain and throws every other form back, overboard if it is near a rail. */
+  private burst(f: Form) {
+    const A = ATTACKS.puff, k = this.keeper.pos;
+    if (this.keeper.alive() && flat(f.pos, k) < A.radius) this.keeper.hurt(f.damage, f.pos);
+    for (const o of this.forms) if (o !== f && !o.dead && !o.boarding && flat(o.pos, f.pos) < A.radius + o.radius) { this.knock(o, f.pos, A.push * (o.kind === 'brute' ? .5 : 1)); o.alert = true; }
+    this.fx.ring(f.pos, '#ff9cc8', .4, A.radius, .45); this.fx.burst(f.pos.clone().setY(f.pos.y + .7), '#ffb0d8', 18, { speed: 6, up: 3, size: .14, life: .6 });
+    this.fx.shake(.25); this.events.sound('blast', f.pos);
   }
 
   private raidThink(f: Form, dt: number, k: T.Vector3, d: number, alive: boolean, toward: (x: number, z: number, s: number) => void, aggro: number) {
@@ -412,13 +470,20 @@ export class Combat {
     const y = this.ground.height(f.pos.x, f.pos.z);
     f.view.position.set(f.pos.x, y, f.pos.z);
     if (f.dead) return;
-    const face = f.state === 'chase' || f.state === 'windup' ? Math.atan2(this.keeper.pos.x - f.pos.x, this.keeper.pos.z - f.pos.z) : Math.atan2(f.dir.x, f.dir.z);
+    const face = f.kind === 'shellback' ? f.face : f.state === 'chase' || f.state === 'windup' ? Math.atan2(this.keeper.pos.x - f.pos.x, this.keeper.pos.z - f.pos.z) : Math.atan2(f.dir.x, f.dir.z);
     if (Number.isFinite(face)) f.view.rotation.y = face;
     let sy = 1, lift = 0;
     const hop = Math.abs(Math.sin(f.t * 8));
     if (f.kind === 'gloomling') { lift = f.state === 'chase' ? hop * .25 : 0; sy = f.state === 'windup' ? .75 : 1 + hop * .05; }
     if (f.kind === 'spitter') sy = f.state === 'windup' ? 1 + Math.sin(f.t * 30) * .06 + f.t * .2 : 1;
-    if (f.kind === 'brute') sy = f.state === 'windup' ? .9 : 1;
+    if (f.kind === 'brute' || f.kind === 'shellback') sy = f.state === 'windup' ? .9 : 1;
+    if (f.kind === 'puffcap') {
+      // The cap swells through the wind-up, pops flat on the burst and grows back.
+      const cap = (f.cap ??= findChild(f.body, 'cap'));
+      const k2 = f.state === 'windup' ? 1 + Math.min(1, f.t / ATTACKS.puff.windup) * .8 + Math.sin(f.t * 30) * .04 : f.state === 'recover' ? .45 + Math.min(1, f.t / 1.2) * .55 : 1;
+      if (cap) cap.scale.setScalar(k2); else sy = k2;
+      lift = f.state === 'chase' ? Math.abs(Math.sin(f.t * 6)) * .12 : 0;
+    }
     if (f.kind === 'flyer') { lift = f.hover + Math.sin(f.t * 5) * .15; const wings = f.wings ??= [findChild(f.body, 'wing_l'), findChild(f.body, 'wing_r')], wl = wings[0], wr = wings[1]; const flap = Math.sin(f.t * 16) * .7; if (wl) wl.rotation.z = flap; if (wr) wr.rotation.z = -flap; }
     f.body.position.y = lift;
     f.body.scale.set(1 / Math.sqrt(sy), sy, 1 / Math.sqrt(sy));

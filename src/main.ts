@@ -60,7 +60,7 @@ function title(state: GameState, fresh: boolean) {
     h('div', { class: 'title-card' },
       h('h1', { class: 'logo' }, 'Cloudback'),
       h('p', { class: 'tagline' }, t('A cozy sky adventure on the back of a growing whale')),
-      isStarted ? h('p', { class: 'save-line' }, t('{stage} whale · Level {n} · {notes}/3 Notes', { stage: STAGES[state.whale.stage].name, n: state.hero.level, notes: state.notes.length })) : null,
+      isStarted ? h('p', { class: 'save-line' }, t('{stage} whale · Level {n} · {notes}/4 Notes', { stage: STAGES[state.whale.stage].name, n: state.hero.level, notes: state.notes.length })) : null,
       h('button', { class: 'act primary big', onclick: () => { unlockAudio(); startMusic(); play('arrive'); screen.remove(); begin(); } }, isStarted ? t('Continue') : t('Play')),
       h('div', { class: 'acts' },
         h('button', { class: `act ${language() === 'en' ? 'on' : ''}`, onclick: () => setLanguage('en') }, 'English'),
@@ -72,8 +72,10 @@ function title(state: GameState, fresh: boolean) {
 function begin() {
   const g = game!;
   const show = () => { document.body.classList.remove('hide-ui'); g.cinematic = null; started = true; if (g.state.story.ended && !g.state.story.endingSeen) ending(); };
-  if (!g.state.story.prologueSeen) prologue(() => { show(); g.state.story.prologueSeen = true; g.frozen = false; g.save(); g.scene_('intro'); });
-  else { show(); g.frozen = false; g.scene_('intro'); }
+  // Chapter 1: a new captain wakes up below deck, in the cottage's patchwork bed.
+  const wake = () => { if (!g.state.story.flags.onDeck) g.wakeUp(); else g.scene_('intro'); };
+  if (!g.state.story.prologueSeen) prologue(() => { show(); g.state.story.prologueSeen = true; g.frozen = false; g.save(); wake(); });
+  else { show(); g.frozen = false; wake(); }
 }
 
 /** Five cards over the night sky (very dark blue, black-blue clouds), then dawn on Bao's back. */
@@ -122,11 +124,18 @@ function hooks(g: Game) {
   const enabled = import.meta.env.DEV || new URLSearchParams(location.search).has('test');
   const STATES: Record<string, (s: GameState) => void> = {
     'new-game': () => { Object.assign(g.state, newGame('test', Date.now())); },
-    'rope': s => { s.gear.rope = true; s.story.flags = { planted: true, harvested: true, fed: true, scene_intro: true, scene_rope: true, scene_planted: true, scene_harvested: true, scene_fed: true }; s.story.prologueSeen = true; },
+    // Chapters 1 and 2 done: on deck, Bao met, the kitchen fixed, a tart cooked, a fish caught, the rope made.
+    'rope': s => { s.gear.rope = true; s.rooms.kitchen = true; s.story.flags = { onDeck: true, petted: true, planted: true, harvested: true, fed: true, shipped: true, cooked: true, fished: true, conch: true, scene_intro: true, scene_rope: true, scene_planted: true, scene_harvested: true, scene_fed: true, scene_met_bao: true, scene_deck_first: true, scene_wake: true, scene_shipped: true, scene_cooked: true, scene_fished: true, scene_room_kitchen: true, scene_skiff_first: true, scene_conch: true }; s.story.prologueSeen = true; },
+    // A fresh captain who has just climbed up and met Bao (the start of chapter 2).
+    'deck': s => { s.story.prologueSeen = true; s.story.flags = { onDeck: true, petted: true, scene_wake: true, scene_deck_first: true, scene_met_bao: true, scene_intro: true }; },
     'clover': s => { STATES.rope(s); s.place = 'clover'; },
     'reef': s => { STATES.rope(s); s.whale.stage = 1; s.notes = ['clover']; s.isles.clover.freed = true; s.crew.push('pip'); s.rescued.push('olla', 'pip'); s.place = 'reef'; s.hero.level = 6; s.hero.xp = 450; s.gear.mallet = 2; },
     'ember': s => { STATES.reef(s); s.whale.stage = 2; s.notes.push('reef'); s.isles.reef.freed = true; s.crew.push('mina', 'ria'); s.rescued.push('kai', 'mina', 'ria'); s.place = 'ember'; s.hero.level = 10; s.hero.xp = 1320; },
-    'star': s => { STATES.ember(s); s.whale.stage = 3; s.notes.push('ember'); s.isles.ember.freed = true; s.crew.push('tam'); s.rescued.push('coal', 'tam'); s.place = 'star'; s.hero.level = 14; s.hero.xp = 3300; s.gear.mallet = 3; s.gear.coat = 3; },
+    'frost': s => { STATES.ember(s); s.whale.stage = 3; s.notes.push('ember'); s.isles.ember.freed = true; s.crew.push('tam'); s.rescued.push('coal', 'tam'); s.place = 'frost'; s.hero.level = 14; s.hero.xp = 3300; s.gear.mallet = 3; s.gear.coat = 3; },
+    'sloop': s => { STATES.frost(s); s.notes.push('frost'); s.isles.frost.freed = true; s.crew.push('juno'); s.rescued.push('bram', 'juno'); s.place = 'sloop'; s.hero.level = 16; s.hero.xp = 4900; s.story.flags.scene_fleet = true; s.boarders = ['pip', 'tam']; },
+    'warship': s => { STATES.sloop(s); s.isles.sloop.freed = true; s.place = 'warship'; s.hero.level = 17; s.hero.xp = 6000; },
+    'star': s => { STATES.warship(s); s.isles.warship.freed = true; s.place = 'star'; s.hero.level = 18; s.hero.xp = 7300; },
+    'rooms': s => { s.rooms = { kitchen: true, craft: true, study: true, bath: true }; },
     'rich': s => { s.glimmer = 2000; for (const id of ['puffberry', 'glowplum', 'starfig', 'cloudpear', 'honeybun', 'fibre', 'chimewood', 'ore', 'sun_carp', 'cloud_koi'] as const) s.items[id] = 20; for (const id of ['seed_glowplum', 'seed_starfig', 'seed_cloudpear', 'seed_chimewood', 'seed_honeybun'] as const) s.items[id] = 3; },
     'garden': s => { s.plots.forEach((p, i) => Object.assign(p, { tree: (['puffberry', 'ropevine', 'cloudpear', 'glowplum', 'starfig', 'chimewood'] as const)[i % 6], phase: 'ripe', progress: 999, crust: 0 })); },
   };

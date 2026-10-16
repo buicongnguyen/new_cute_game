@@ -90,6 +90,10 @@ button:disabled { cursor: default; }
 .btn.spin { right: 86px; bottom: 4px; width: 60px; height: 60px; }
 .btn.hop { right: 12px; bottom: 88px; width: 60px; height: 60px; }
 .btn.eat { right: 152px; bottom: 6px; width: 52px; height: 52px; } .btn.eat.empty { opacity: .55; }
+.btn.pull { right: 108px; bottom: 6px; width: 72px; height: 72px; background: radial-gradient(circle at 35% 30%, #ffe2b8, #e3a05a); }
+.btn.pull small { bottom: 5px; font-size: 11px; line-height: 1.05; padding: 0 4px; }
+.btn.pull .ico { margin-bottom: 12px; }
+.btn.conch { right: 160px; bottom: 70px; width: 52px; height: 52px; background: radial-gradient(circle at 35% 30%, #fff1f6, #ffb3c8); }
 .btn.context { right: 80px; bottom: 76px; width: 72px; height: 72px; background: radial-gradient(circle at 35% 30%, #ffb59e, var(--coral)); color: #fff; }
 .btn.context small { bottom: 6px; text-shadow: 0 1px 0 rgba(0,0,0,.3); font-size: 11px; padding: 0 4px; line-height: 1.05; }
 .btn.context .ico { margin-bottom: 12px; }

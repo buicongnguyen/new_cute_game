@@ -17,12 +17,17 @@ EXPECT = {
                       budget=lambda n: 1500),
     'props.glb': dict(roots=['hut', 'workbench', 'kitchen', 'maptable', 'ropepost', 'fishspot', 'pantry', 'chimepost',
                              'postspot', 'market', 'tent', 'lantern', 'windmill', 'coral_arch', 'ore_rock', 'forge', 'rod',
-                             'speck', 'skydew', 'hatch', 'planter', 'gong'],
-                      budget=lambda n: {'hatch': 1500, 'planter': 600, 'gong': 900}.get(n, 2000)),
+                             'speck', 'skydew', 'hatch', 'planter', 'gong', 'lift', 'skiff', 'crate', 'chime_cannon',
+                             'bao_plank', 'snow_lantern', 'ice_hut'],
+                      budget=lambda n: {'hatch': 1500, 'planter': 600, 'gong': 900, 'lift': 1500, 'skiff': 1500,
+                                        'crate': 800, 'chime_cannon': 1200, 'bao_plank': 300, 'snow_lantern': 500,
+                                        'ice_hut': 1500}.get(n, 2000)),
     'nature.glb': dict(roots=['rock_a', 'rock_b', 'rock_c', 'bush_a', 'bush_b', 'flower_a', 'flower_b', 'flower_c',
                               'grass_tuft', 'mushroom', 'tree_round', 'tree_pine', 'palm', 'coral_a', 'coral_b',
-                              'lava_rock_a', 'lava_rock_b', 'fence', 'cloud_puff'],
-                       budget=lambda n: 700 if n in ('tree_round', 'tree_pine', 'palm') else 300 if n == 'cloud_puff' else 400),
+                              'lava_rock_a', 'lava_rock_b', 'fence', 'cloud_puff', 'tree_snow', 'rock_snow', 'ice_rock',
+                              'snowdrift', 'snow_flower'],
+                       budget=lambda n: 700 if n in ('tree_round', 'tree_pine', 'palm', 'tree_snow') else
+                       300 if n in ('cloud_puff', 'snowdrift') else 350 if n == 'snow_flower' else 400),
     'fish.glb': dict(roots=['puff_minnow', 'sun_carp', 'star_ray', 'cloud_koi'], budget=lambda n: 500),
 }
 SIZES = {'cloud_puff': (3.6, 4.4, 'xz'), 'skydew': (1.1, 1.3, 'xz'), 'speck': (0.3, 0.4, 'y'), 'rod': (1.5, 1.7, 'y'),
@@ -183,10 +188,11 @@ def main():
                     errors.append('plot has no glow_moss edge')
             elif fname == 'props.glb':
                 want = {'windmill': ['blades'], 'rod': ['tip'], 'hatch': ['door'], 'planter': ['soil'],
-                        'gong': ['disc']}.get(name, [])
+                        'gong': ['disc'], 'lift': ['platform', 'rope'], 'crate': ['lid'],
+                        'chime_cannon': ['barrel']}.get(name, [])
                 if sorted(kid_names) != want:
                     errors.append(f'{name}: children {kid_names} (want {want})')
-                meshy = {'blades', 'door', 'disc'}
+                meshy = {'blades', 'door', 'disc', 'platform', 'rope', 'lid', 'barrel'}
                 for kd in kids:
                     if (kd['name'] in meshy) != ('mesh' in kd):
                         errors.append(f'{name}/{kd["name"]}: mesh/marker mismatch')
@@ -229,7 +235,7 @@ def main():
                 v = max(dims[0], dims[2]) if axes == 'xz' else hi[1]
                 if not a <= v <= b:
                     errors.append(f'{name}: {axes} size {v:.2f} not in {a}..{b}')
-            if fname != 'fish.glb' and name not in ('skydew', 'hatch') and abs(lo[1]) > 0.01:
+            if fname != 'fish.glb' and name not in ('skydew', 'hatch', 'skiff', 'bao_plank') and abs(lo[1]) > 0.01:
                 errors.append(f'{name}: base y {lo[1]:.3f}')
             extra = ''
             for k in kids:
@@ -242,12 +248,12 @@ def main():
         report += lines
         failures += [f'{fname}: {e}' for e in errors]
     print('\n'.join(report))
-    # The owner's size budget is the whole models folder (< 2.6 MB).
-    print(f'world kit total: {total} bytes ({total / 1e6:.3f} MB)')
+    # Owner's budget (five-chapter batch): the world kit's four files stay under 1.35 MB.
+    print(f'world kit total: {total} bytes ({total / 1e6:.3f} MB, limit 1.35 MB)')
+    if total > 1_350_000:
+        failures.append(f'world kit total {total} bytes > 1.35 MB')
     folder = sum(os.path.getsize(os.path.join(MODELS, f)) for f in os.listdir(MODELS) if f.endswith('.glb'))
-    print(f'models folder now: {folder} bytes (limit 2.6 MB)')
-    if folder > 2_600_000:
-        failures.append(f'models folder {folder} bytes > 2.6 MB')
+    print(f'models folder now: {folder} bytes (for information)')
     if failures:
         print('FAIL\n  ' + '\n  '.join(failures))
         sys.exit(1)

@@ -67,7 +67,8 @@ test('stage gates come in story order: each Note comes from an isle the stage be
     const note = STAGES[stage].note!;
     assert.ok(PLACES[note].needStage < stage, `${STAGES[stage].name} needs the ${note} Note, which needs stage ${PLACES[note].needStage}`);
   }
-  assert.equal(PLACES.star.needNotes, 3);
+  assert.equal(PLACES.star.needNotes, 4);
+  assert.equal(PLACES.frost.needStage, 3, 'Frostfall needs a Great whale, which needs the Note of Ember');
 });
 
 test('recipes only need materials that exist before the recipe is needed', () => {

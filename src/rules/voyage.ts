@@ -1,5 +1,5 @@
 import type { Rng } from '../core/rng.ts';
-import { ISLE_IDS, PLACES, VOYAGE, WHALE, type IsleId, type PlaceId } from './content.ts';
+import { HOME, ISLE_IDS, PLACES, VOYAGE, WHALE, isLand, type IsleId, type PlaceId } from './content.ts';
 import { hasCrew, type GameState } from './state.ts';
 import type { Result } from './garden.ts';
 
@@ -9,8 +9,14 @@ const no = (why: string) => ({ ok: false as const, why });
 export const GATE_WHY: Record<number, string> = {
   1: 'Bao must be a Young whale to pass the Wind Wall',
   2: 'Bao must be an Adult whale to pass the Storm Belt',
-  3: 'Bao must be a Great whale to dive through the Deep Mist',
+  3: 'Bao must be a Great whale to cross the Frost Veil',
 };
+/** Why a ship of the Gloom fleet cannot be reached yet. */
+export const FLEET_WHY = {
+  hidden: 'The Gloom fleet has not shown itself yet',
+  sloop: 'Beat the Scout Sloop first',
+  warship: 'Beat the Warship first',
+} as const;
 
 export function distance(a: PlaceId, b: PlaceId) {
   const [ax, ay] = PLACES[a].pos, [bx, by] = PLACES[b].pos;
@@ -24,18 +30,22 @@ export function canSail(s: GameState, to: PlaceId): Result {
   if (to === 'dawnreach') return no('There is nothing left at Dawnreach');
   const place = PLACES[to];
   if (s.whale.stage < place.needStage) return no(GATE_WHY[place.needStage] ?? 'Bao must grow first');
-  if (s.notes.length < place.needNotes) return no('Bao needs all three Notes to sing the Deep Song');
+  if (s.notes.length < place.needNotes) return no(FLEET_WHY.hidden);
+  if (place.after && !s.isles[place.after].freed) return no(FLEET_WHY[place.after as 'sloop' | 'warship']);
   return { ok: true };
 }
 
 export function voyagePlan(s: GameState, to: PlaceId) {
-  const d = distance(s.place, to), cost = Math.round(d * VOYAGE.costPerLeague);
+  // The Study's charts find shorter winds (15% less fullness).
+  const d = distance(s.place, to), cost = Math.round(d * VOYAGE.costPerLeague * (s.rooms.study ? HOME.studyVoyage : 1));
   const hungry = s.whale.hunger < cost;
   const duration = Math.min(VOYAGE.max, VOYAGE.base + VOYAGE.perLeague * d) * (hungry ? VOYAGE.hungrySlow : 1);
   return { distance: d, cost, hungry, duration };
 }
 
 export const freedIsles = (s: GameState) => ISLE_IDS.filter(id => s.isles[id].freed);
+/** Freed lands (raids come from them). */
+export const freedLands = (s: GameState) => freedIsles(s).filter(isLand);
 export const anyGrey = (s: GameState) => ISLE_IDS.some(id => !s.isles[id].freed);
 
 export function startVoyage(s: GameState, to: PlaceId, rng: Rng): Result<{ hungry: boolean; duration: number }> {
@@ -46,7 +56,7 @@ export function startVoyage(s: GameState, to: PlaceId, rng: Rng): Result<{ hungr
   else s.whale.hunger -= plan.cost;
   const scripted = s.raidsOwed.length > 0;
   // Small random raids only after the Gloom has heard a song, while something is still grey, and never on the Deep Song dive.
-  const random = !scripted && to !== 'star' && freedIsles(s).length > 0 && anyGrey(s) && rng.chance(VOYAGE.randomRaid);
+  const random = !scripted && to !== 'star' && freedLands(s).length > 0 && anyGrey(s) && rng.chance(VOYAGE.randomRaid);
   s.voyage = {
     from: s.place, to, elapsed: 0, duration: plan.duration, hungry: plan.hungry,
     raidAt: scripted || random ? plan.duration * VOYAGE.raidAt : null,

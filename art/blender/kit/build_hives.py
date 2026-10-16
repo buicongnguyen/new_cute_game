@@ -7,6 +7,15 @@
     forgehive  5 m crusted lava-rock golem; body, head (with its glowing eye), arm_l, arm_r (pivots at shoulders)
     greyheart  6 m faceted crystal heart; shell, core (glow), shard_0..shard_5 floating around it
     note       0.6 m golden glowing crystal music note (glow_gold)
+    hushbell   the Frostfall boss: a cracked bronze bell (3.5 m) frozen in Gloom crystal and frost under a crystal
+               arch; arch, ice (the frozen block, so the code can shatter it), bell (pivot at its top) with its
+               child clapper (pivot at the clapper's top)
+    echo_bell  a small bronze bell on a short frosty post (1.6 m); post, bell (pivot at its top)
+    captain_barnacle  a crusted crab pirate captain (about 3 m): body, eye, hat (crystal tricorn), claw_l, claw_r
+               (pivots at the shoulders), anchor (child of claw_r, pivot at the claw's grip)
+    coilwyrm   a crystal serpent lying coiled on the deck (two low loops, 1.3 m high, 4.5 m across, an empty
+               middle) with its neck and head rearing to about 3.5 m: coil, head (pivot at the neck base, so it can
+               rear and strike), knot_0..knot_2 (glowing crystal knots on the loops, low enough to ring from the deck)
 
     blender -b --factory-startup --python art/blender/kit/build_hives.py -- [--render]
 """
@@ -16,13 +25,20 @@ import random
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from kit_cast import FWD, lathe, lean_shard, smoothstep, torus  # noqa: E402
 from kit_cast import (UP, Cast, Geo, Matrix, Vector, args, ellipsoid, facet_blob, frame, gem, glow, gloom_crystal,  # noqa: E402
                       loft, pal, sheet, shard, style, tube)
-from build_gloom import gloom_eye, plate, socket, spikes  # noqa: E402
+from build_gloom import chain, gloom_eye, plate, socket, spikes  # noqa: E402
 
 FILE = 'hives'
 BUDGET = 6000
 ORDER = ['note', 'thornhive', 'clamhive', 'forgehive', 'greyheart']
+def spikes_lean(g, m, specs, seed=0):
+    return spikes(g, m, specs, seed, lean=True)
+
+
+LATE = ['hushbell', 'echo_bell', 'captain_barnacle', 'coilwyrm']
+BUDGETS = dict({n: BUDGET for n in ORDER}, hushbell=5000, echo_bell=600, captain_barnacle=5000, coilwyrm=5000)
 
 
 def materials():
@@ -269,23 +285,263 @@ def note(cast, m):
     cast.part(root, 'body', g, (0, 0, 0))
 
 
+# ------------------------------------------------------------------ Frostfall bells
+def bronze():
+    return pal('straw_dark', 0.35, 0.35), pal('gold', 0.3, 0.35)
+
+
+def bell_shell(h, rmouth, segs, m_body, m_band):
+    """A bell (mouth at y = 0, crown at y = h) as one thick lathe, inside and out, with raised bands."""
+    k = h / 3.5
+    r = rmouth / 1.6
+    prof = [(0.0, 3.15), (0.65, 3.0), (0.88, 2.6), (0.95, 1.8), (1.05, 1.0), (1.3, 0.45), (1.48, 0.12), (1.58, 0.0),
+            (1.66, 0.06), (1.64, 0.16), (1.5, 0.38), (1.22, 0.95), (1.1, 1.7), (1.04, 2.4), (1.08, 2.5), (1.04, 2.62),
+            (0.96, 2.9), (0.75, 3.25), (0.42, 3.45), (0.0, 3.5)]
+    mats = []
+    for i in range(len(prof) - 1):
+        mats.append(m_band if i in (7, 8, 13, 14) else m_body)
+    return lathe([(x * r, y * k) for x, y in prof], segs, (0, 0, 0), 1.0, 1.0, None, None, mats)
+
+
+def hushbell(cast, m):
+    root = cast.root('hushbell')
+    br, band = bronze()
+    snow, icy = pal('snow', 0.5), pal('sky_light', 0.25)
+    cr, clear = m['crystal'], gloom_crystal(alpha=0.55)
+    # the crystal arch with frost on top
+    arch = Geo()
+    for s in (1, -1):
+        rings = [ring((s * x, y, 0.0), r, 6, 0.2) for x, y, r in ((2.75, 0.0, 0.5), (2.6, 2.8, 0.42), (2.35, 5.4, 0.36))]
+        arch.add(loft(rings, cr, smooth=False))
+        arch.add(facet_blob((s * 2.8, 0.25, 0.0), (0.85, 0.4, 0.8), 1, 0.12, 50 + s, m['dark']))
+    top = [Vector((x, 5.25 + 1.1 * (1 - (x / 2.4) ** 2), 0.0)) for x in (-2.4, -1.6, -0.8, 0.0, 0.8, 1.6, 2.4)]
+    arch.add(tube(top, 0.36, 6, cr, smooth=False, round_caps=0.6))
+    arch.add(tube([p + Vector((0, 0.28, 0)) for p in top], 0.22, 6, snow, flatten=0.55, up=(0, 1, 0), round_caps=0.8))
+    spikes_lean(arch, cr, [((-2.2, 5.9, 0.1), (-0.6, 1, 0.2), 0.9, 0.18), ((2.2, 5.9, -0.1), (0.6, 1, -0.2), 0.9, 0.18),
+                      ((-1.0, 6.25, 0.0), (-0.3, 1, 0.3), 0.7, 0.15), ((1.0, 6.25, 0.0), (0.3, 1, -0.3), 0.7, 0.15),
+                      ((2.9, 3.0, 0.3), (1, 0.5, 0.3), 0.7, 0.16), ((-2.9, 2.2, -0.3), (-1, 0.5, -0.3), 0.7, 0.16)], 31)
+    rng = random.Random(33)
+    for k in range(7):   # icicles hanging from the arch
+        x = -2.0 + 4.0 * k / 6
+        y = 5.25 + 1.1 * (1 - (x / 2.4) ** 2) - 0.3
+        arch.add(lean_shard(Vector((x, y, rng.uniform(-0.15, 0.15))), Vector((0, -1, 0)), rng.uniform(0.35, 0.7), 0.07, 4, 0.75,
+                       icy, 40 + k))
+    arch.add(chain(Vector((0, 6.2, 0)), 0.85, cr, 60, links=3, major=0.14, minor=0.045, smooth=True))
+    cast.part(root, 'arch', arch, (0, 0, 0))
+    # the bell, hanging from a short crystal chain; a glowing crack runs up from the lip
+    top_y = 5.15
+    b = bell_shell(3.5, 1.6, 16, br, band).move((0, top_y - 3.5, 0))
+    b.add(torus(Vector((0, top_y + 0.1, 0)), 0.22, 0.08, 12, 5, Matrix.Rotation(math.pi / 2, 3, 'X'), br))
+    crack = []
+    a0 = 0.35
+    for i, (t, da) in enumerate(((0.0, 0.0), (0.12, 0.08), (0.24, -0.05), (0.36, 0.1), (0.5, -0.02), (0.62, 0.09))):
+        y = top_y - 3.5 + 0.06 + t * 3.0
+        rr = 1.62 - 0.55 * min(1.0, t * 1.7) + 0.02
+        crack.append(Vector((rr * math.sin(a0 + da), y, rr * math.cos(a0 + da))))
+    b.add(tube(crack, [0.07, 0.06, 0.055, 0.05, 0.04, 0.02], 4, m['eye'], round_caps=0.5))
+    bell = cast.part(root, 'bell', b, (0, top_y, 0))
+    cl = Geo()
+    cl.add(tube([Vector((0, top_y - 0.35, 0)), Vector((0, top_y - 2.9, 0))], 0.09, 6, pal('iron', 0.45), round_caps=0.5))
+    cl.add(ellipsoid(Vector((0, top_y - 3.05, 0)), 0.3, 12, 8, None, pal('iron', 0.45)))
+    cast.part(bell, 'clapper', cl, (0, top_y - 0.35, 0))
+    # frozen in a translucent block of Gloom crystal, with frost drifts and opaque spikes
+    ice = Geo()
+    ice.add(facet_blob((0, 2.15, 0), (2.25, 1.75, 2.0), 2, 0.1, 70, clear))
+    for k, (x, y, z, d, ln) in enumerate(((1.7, 2.8, 0.8, (1, 0.8, 0.5), 1.2), (-1.8, 2.5, 0.6, (-1, 0.7, 0.4), 1.1),
+                                           (0.5, 3.6, 1.3, (0.3, 1, 0.6), 1.0), (-0.9, 3.4, -1.2, (-0.4, 1, -0.6), 1.1),
+                                           (1.4, 1.2, -1.3, (0.8, 0.3, -0.8), 0.9), (-0.4, 1.0, 1.7, (-0.2, 0.2, 1), 0.8))):
+        ice.add(lean_shard(Vector((x, y, z)), Vector(d), ln, 0.24, 5, 0.45, cr, 80 + k))
+    for k, (x, z, r) in enumerate(((0.6, 0.5, 0.75), (-0.8, -0.4, 0.65), (0.2, -0.8, 0.5))):
+        ice.add(facet_blob((x, 3.85, z), (r, 0.2, r * 0.9), 1, 0.15, 90 + k, snow))
+    ice.add(facet_blob((0, 0.12, 0), (2.4, 0.3, 2.1), 1, 0.12, 95, snow))
+    for k in range(5):
+        a = math.tau * k / 5 + 0.3
+        ice.add(lean_shard(Vector((math.cos(a) * 1.9, 1.0, math.sin(a) * 1.7)), Vector((0, -1, 0)), rng.uniform(0.3, 0.6), 0.08, 4,
+                      0.75, icy, 100 + k))
+    cast.part(root, 'ice', ice, (0, 0, 0))
+
+
+def echo_bell(cast, m):
+    root = cast.root('echo_bell')
+    br, band = bronze()
+    wood, snow = pal('wood', 0.6), pal('snow', 0.5)
+    post = Geo()
+    post.add(loft([ring((0, y, 0), r, 6, 0.3) for y, r in ((0.0, 0.11), (1.5, 0.09))], wood, smooth=False))
+    post.add(tube([Vector((0, 1.42, 0)), Vector((0, 1.47, 0.22)), Vector((0, 1.44, 0.42))], 0.05, 5, wood, round_caps=0.5))
+    post.add(facet_blob((0, 1.53, 0), (0.13, 0.07, 0.13), 1, 0.12, 5, snow))
+    post.add(tube([Vector((0, 1.5, 0.05)), Vector((0, 1.52, 0.38))], 0.05, 5, snow, flatten=0.6, up=(0, 1, 0), round_caps=0.8))
+    post.add(facet_blob((0, 0.05, 0), (0.4, 0.12, 0.38), 1, 0.15, 6, snow))
+    cast.part(root, 'post', post, (0, 0, 0))
+    top = Vector((0, 1.38, 0.42))
+    b = bell_shell(0.45, 0.22, 10, br, band).move(top - Vector((0, 0.45, 0)))
+    b.add(ellipsoid(top - Vector((0, 0.47, 0)), 0.05, 6, 4, None, pal('iron', 0.45)))
+    b.add(torus(top + Vector((0, 0.02, 0)), 0.04, 0.014, 8, 4, Matrix.Rotation(math.pi / 2, 3, 'X'), br))
+    cast.part(root, 'bell', b, top + Vector((0, 0.04, 0)))
+
+
+# ------------------------------------------------------------------ Captain Barnacle
+def captain_barnacle(cast, m):
+    root = cast.root('captain_barnacle')
+    shell_m, under_m, barn = pal('coral', 0.5), pal('cherry', 0.5), pal('stone_light', 0.7)
+    cr = m['crystal']
+    rng = random.Random(77)
+    body = Geo()
+    bc = Vector((0, 1.62, 0))
+    body.add(ellipsoid(bc, (1.2, 0.52, 0.95), 14, 8, None, shell_m))
+    body.add(ellipsoid(bc + Vector((0, -0.2, 0.02)), (1.1, 0.36, 0.86), 10, 5, None, under_m))
+    for k in range(5):   # barnacles
+        a = rng.uniform(0.5, math.pi - 0.5)
+        az = rng.uniform(0, math.tau)
+        d = Vector((math.cos(az) * math.sin(a) * 1.0, math.cos(a), math.sin(az) * math.sin(a)))
+        p = bc + Vector((d.x * 1.15, abs(d.y) * 0.5, d.z * 0.9))
+        body.add(lathe([(0.0, 0.0), (0.11, 0.0), (0.09, 0.08), (0.05, 0.11), (0.0, 0.07)], 6, (0, 0, 0), 1.0, 1.0,
+                       frame(Vector((d.x, 1.6, d.z)).normalized()) @ Matrix.Rotation(math.pi / 2, 3, 'X'), barn).move(p))
+    for k in range(7):   # the Gloom crust on its back
+        az = rng.uniform(math.pi * 0.9, math.pi * 2.1)
+        p = bc + Vector((math.cos(az) * rng.uniform(0.3, 0.95), 0.38, math.sin(az) * rng.uniform(0.2, 0.7)))
+        body.add(lean_shard(p, Vector((math.cos(az) * 0.5, 1.0, math.sin(az) * 0.5)), rng.uniform(0.35, 0.6), 0.11, 5, 0.45, cr,
+                       150 + k))
+    for s in (1, -1):   # three legs a side
+        for k, z in enumerate((-0.55, -0.05, 0.42)):
+            hip = bc + Vector((s * 0.9, -0.2, z))
+            knee = Vector((s * 1.5, 1.55, z * 1.2))
+            foot = Vector((s * 1.75, 0.08, z * 1.3))
+            body.add(tube([hip, knee, foot], [0.22, 0.18, 0.09], 5, shell_m, round_caps=0.5))
+            body.add(lean_shard(foot + Vector((0, 0.12, 0)), Vector((s * 0.2, -1, 0)), 0.18, 0.06, 4, 0.7, cr, 170 + k + 3 * s))
+    stalk_base = bc + Vector((0, 0.38, 0.6))
+    ec, ef = bc + Vector((0, 0.78, 0.82)), Vector((0, 0.12, 1))
+    body.add(tube([stalk_base, ec - ef * 0.2], [0.12, 0.09], 6, shell_m, round_caps=0.3))
+    body.add(lean_shard(bc + Vector((-0.32, 0.4, 0.62)), Vector((-0.3, 1, 0.4)), 0.4, 0.09, 5, 0.45, cr, 180))   # the other eye, crusted over
+    for s in (1, -1):   # crystal moustache
+        body.add(tube([bc + Vector((s * 0.06, 0.1, 0.92)), bc + Vector((s * 0.28, 0.02, 0.98)), bc + Vector((s * 0.4, 0.12, 0.92))],
+                      [0.06, 0.05, 0.02], 5, cr))
+    body.add(socket(ec, ef, 0.27, m, 21, lean=True))
+    cast.part(root, 'body', body, bc)
+    cast.part(root, 'eye', gloom_eye(ec, ef, 0.27, m, lean=True), ec)
+    # crystal tricorn hat with a glowing badge
+    hc = bc + Vector((0, 0.46, -0.22))
+    hat = lathe([(0.0, 0.0), (0.58, 0.0), (0.6, 0.3), (0.5, 0.58), (0.0, 0.66)], 8, (0, 0, 0), 1.0, 1.0, None, cr,
+                smooth=False)
+    brim = lathe([(0.0, -0.03), (1.15, -0.03), (1.18, 0.05), (0.0, 0.08)], 15, (0, 0, 0), 1.0, 1.0, None, m['dark'],
+                 smooth=False)
+    for i, v in enumerate(brim.v):   # three corners turned up: a tricorn
+        rr = math.hypot(v.x, v.z)
+        if rr > 0.62:
+            a = math.atan2(v.x, v.z) + math.pi
+            k = max(0.0, math.cos(3 * a)) ** 0.7
+            brim.v[i] = Vector((v.x * (0.78 + 0.22 * k), v.y + 0.55 * k, v.z * (0.78 + 0.22 * k)))
+    hat.add(brim)
+    hat.add(gem(Vector((0, 0.3, 0.6)), 0.12, 0.26, 6, m['eye'], frame(FWD) @ Matrix.Rotation(math.pi / 2, 3, 'X')))
+    cast.part(root, 'hat', hat.xf(Matrix.Rotation(-0.12, 3, 'X')).move(hc), hc)
+    # claws (pivots at the shoulders); the right claw grips the anchor's chain
+    for s, name in ((1, 'claw_l'), (-1, 'claw_r')):
+        sh = bc + Vector((s * 0.95, -0.05, 0.62))
+        el = sh + Vector((s * 0.55, -0.15, 0.55))
+        wr = el + Vector((-s * 0.05, -0.1, 0.55))
+        cl = Geo()
+        cl.add(tube([sh, el, wr], [0.18, 0.16, 0.15], 7, shell_m, round_caps=0.5))
+        pc = wr + Vector((0, 0.0, 0.45))
+        cl.add(ellipsoid(pc, (0.42, 0.34, 0.55), 10, 7, None, shell_m))
+        cl.add(ellipsoid(pc + Vector((0, -0.15, 0.05)), (0.36, 0.2, 0.46), 8, 4, None, under_m))
+        for up, mm in ((1, shell_m), (-1, under_m)):   # the two fingers
+            base = pc + Vector((0, up * 0.12, 0.42))
+            cl.add(tube([base, base + Vector((s * 0.05, up * 0.12, 0.35)), base + Vector((s * 0.02, -up * 0.02, 0.62))],
+                        [0.16, 0.11, 0.03], 6, mm, round_caps=0.3))
+        spikes_lean(cl, cr, [(pc + Vector((s * 0.2, 0.3, -0.1)), (s * 0.4, 1, -0.2), 0.42, 0.1),
+                        (pc + Vector((-s * 0.1, 0.32, 0.15)), (0, 1, 0.3), 0.32, 0.08),
+                        (el + Vector((0, 0.16, 0)), (s * 0.3, 1, 0), 0.3, 0.08)], 190 + s)
+        claw = cast.part(root, name, cl, sh)
+        if s < 0:
+            grip = pc + Vector((0, 0.0, 0.85))
+            an = Geo()
+            an.add(chain(grip, 0.5, cr, 210, links=3, major=0.09, minor=0.03, smooth=True))
+            ring_c = grip - Vector((0, 0.62, 0))
+            stone = pal('stone_dark', 0.8)
+            an.add(torus(ring_c, 0.14, 0.04, 10, 4, Matrix.Rotation(math.pi / 2, 3, 'Z'), pal('iron', 0.45)))
+            bot = Vector((grip.x, 0.18, grip.z))
+            an.add(loft([ring((grip.x, y, grip.z), r, 6, 0.25) for y, r in ((ring_c.y - 0.12, 0.09), (bot.y + 0.1, 0.12))],
+                        stone, smooth=False))
+            an.add(tube([Vector((grip.x - 0.45, ring_c.y - 0.25, grip.z)), Vector((grip.x + 0.45, ring_c.y - 0.25, grip.z))],
+                        0.08, 6, stone, smooth=False, round_caps=0.5))
+            arc = [Vector((grip.x + 0.55 * math.sin(a), 0.42 - 0.3 * math.cos(a), grip.z)) for a in
+                   (-1.25, -0.7, 0.0, 0.7, 1.25)]
+            an.add(tube(arc, 0.1, 5, stone, smooth=False, round_caps=0.5))
+            for sd in (1, -1):
+                an.add(lean_shard(arc[0 if sd < 0 else -1], Vector((sd * 0.6, 1.0, 0.0)), 0.42, 0.13, 5, 0.6, cr, 220 + sd))
+            an.add(lean_shard(Vector((grip.x, 0.1, grip.z)), Vector((0, -1, 0)), 0.18, 0.1, 5, 0.7, cr, 223))
+            cast.part(claw, 'anchor', an, grip)
+
+
+# ------------------------------------------------------------------ the coil wyrm
+def coilwyrm(cast, m):
+    """A crystal serpent lying coiled on the deck: two low loops around an empty middle, neck and head rearing."""
+    root = cast.root('coilwyrm')
+    cr = m['crystal']
+    turns, N = 2.0, 44
+    pts, radii, outs = [], [], []
+    for i in range(N):
+        t = i / (N - 1)
+        a = turns * math.tau * t
+        rr = 1.9 - 0.62 * t
+        rt = 0.37 * min(1.0, 0.2 + 5.0 * t)
+        y = max(rt * 0.92, 0.34 + 0.55 * smoothstep(0.08, 0.95, t))
+        pts.append(Vector((rr * math.cos(a), y, rr * math.sin(a))))
+        radii.append(rt)
+        outs.append(Vector((math.cos(a), 0.0, math.sin(a))))
+    coil = tube(pts, radii, 7, cr, smooth=True, round_caps=0.6)
+    for i in range(3, N - 2, 4):   # crystal spines along its back
+        coil.add(lean_shard(pts[i] + outs[i] * radii[i] * 0.3 + Vector((0, radii[i] * 0.75, 0)),
+                            outs[i] * 0.5 + Vector((0, 1, 0)), radii[i] * 0.9, 0.07, 4, 0.6, cr, 300 + i))
+    cast.part(root, 'coil', coil, (0, 0, 0), sharp=80)
+    for k, t in enumerate((0.2, 0.52, 0.84)):   # spread around the loops, at ringing height
+        i = int(round(t * (N - 1)))
+        c = pts[i] + outs[i] * radii[i] * 0.95
+        cast.part(root, f'knot_{k}', gem(c, 0.2, 0.5, 6, m['eye'], frame(outs[i]) @ Matrix.Rotation(math.pi / 2, 3, 'X')), c)
+    # the neck rises from the inner end of the coil; the head faces +Z
+    base = pts[-1]
+    head = Geo()
+    neck = [base, base + Vector((0.0, 0.6, 0.05)), base + Vector((-0.2, 1.25, 0.25)), base + Vector((-0.4, 1.85, 0.5))]
+    head.add(tube(neck, [0.37, 0.34, 0.31, 0.29], 7, cr, round_caps=0.3))
+    hc = neck[-1] + Vector((0.0, 0.32, 0.35))
+    Rh = frame(FWD, UP)
+    head.add(facet_blob(hc, (0.4, 0.32, 0.58), 2, 0.07, 340, cr, Rh))
+    head.add(facet_blob(hc + Vector((0, -0.22, 0.25)), (0.28, 0.11, 0.38), 1, 0.06, 341, m['dark'], Rh))   # jaw
+    for s in (1, -1):
+        head.add(lean_shard(hc + Vector((s * 0.22, 0.2, -0.15)), Vector((s * 0.4, 1, -0.6)), 0.6, 0.09, 4, 0.5, cr, 350 + s))
+    for k in range(4):   # a crest down the neck
+        p = neck[1] + (neck[3] - neck[1]) * (k / 3)
+        head.add(lean_shard(p + Vector((0, 0.05, -0.28)), Vector((0, 0.4, -1)), 0.32, 0.07, 4, 0.6, cr, 360 + k))
+    ec = hc + Vector((0, 0.1, 0.52))
+    ef = Vector((0, 0.12, 1)).normalized()
+    head.add(gloom_eye(ec, ef, 0.17, m, lean=True))
+    head.add(socket(ec, ef, 0.17, m, 23, lean=True))
+    cast.part(root, 'head', head, base)
+
+
+def late_preview(cast):
+    objs = {r.name: r for r in cast.roots}
+    sheet(cast, 'hives-batch.png', rows=[LATE], gap=1.2, size=(2200, 1000), elev=35, yaw=10, ortho=21.5,
+          hide=[n for n in objs if n not in LATE])
+
+
 def build():
     style.reset_scene()
     cast = Cast(FILE)
     m = materials()
-    for fn in (note, thornhive, clamhive, forgehive, greyheart):
+    for fn in (note, thornhive, clamhive, forgehive, greyheart, hushbell, echo_bell, captain_barnacle, coilwyrm):
         fn(cast, m)
     return cast
 
 
 def main():
     cast = build()
-    cast.export({n: BUDGET for n in ORDER})
+    cast.export(BUDGETS)
     if '--render' in args():
-        sheet(cast, 'hives.png', rows=[ORDER], gap=1.4, size=(2200, 900), elev=40, yaw=0, ortho=30)
-        sheet(cast, 'hives-front.png', rows=[ORDER], gap=1.4, size=(2200, 800), elev=10, yaw=0, ortho=30)
+        sheet(cast, 'hives.png', rows=[ORDER], gap=1.4, size=(2200, 900), elev=40, yaw=0, ortho=30, hide=LATE)
+        sheet(cast, 'hives-front.png', rows=[ORDER], gap=1.4, size=(2200, 800), elev=10, yaw=0, ortho=30, hide=LATE)
         sheet(cast, 'hives-note.png', rows=[['note']], size=(600, 600), elev=20, yaw=0, ortho=1.0,
-              hide=[n for n in ORDER if n != 'note'])
+              hide=[n for n in ORDER + LATE if n != 'note'])
+        late_preview(cast)
 
 
 if __name__ == '__main__':

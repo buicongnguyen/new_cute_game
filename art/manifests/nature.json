@@ -1,6 +1,6 @@
 {
   "file": "nature.glb",
-  "bytes": 146372,
+  "bytes": 181368,
   "roots": {
     "rock_a": {
       "tris": 139,
@@ -246,6 +246,71 @@
       "materials": [
         "pal_cloud",
         "pal_cloud_shade"
+      ],
+      "children": []
+    },
+    "tree_snow": {
+      "tris": 420,
+      "size": [
+        2.16,
+        3.25,
+        1.871
+      ],
+      "materials": [
+        "pal_leaf_dark",
+        "pal_snow"
+      ],
+      "children": []
+    },
+    "rock_snow": {
+      "tris": 139,
+      "size": [
+        1.424,
+        0.804,
+        1.105
+      ],
+      "materials": [
+        "pal_snow",
+        "pal_stone"
+      ],
+      "children": []
+    },
+    "ice_rock": {
+      "tris": 148,
+      "size": [
+        1.561,
+        0.801,
+        1.025
+      ],
+      "materials": [
+        "pal_glass",
+        "pal_snow"
+      ],
+      "children": []
+    },
+    "snowdrift": {
+      "tris": 127,
+      "size": [
+        2.488,
+        0.43,
+        1.244
+      ],
+      "materials": [
+        "pal_sky_light",
+        "pal_snow"
+      ],
+      "children": []
+    },
+    "snow_flower": {
+      "tris": 160,
+      "size": [
+        0.588,
+        0.259,
+        0.511
+      ],
+      "materials": [
+        "pal_sky",
+        "pal_snow"
       ],
       "children": []
     }

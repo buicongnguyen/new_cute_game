@@ -5,17 +5,18 @@
  * the economy, the gates and the pacing hold together. Used by tests/progression.test.ts.
  */
 import { makeRng } from '../src/core/rng.ts';
-import { ATTACKS, FISH, FORMS, HEART, HIVES, RECIPES, HIVE_MOVES, HIVE_OF, HIVE_PACE, HIVE_PATTERNS, ISLE_MAPS, KEEPER, MARKETS, PLACES, RECIPE_IDS, SPIRE, TIERS, type FormId, type IsleId, type ItemId, type TreeId } from '../src/rules/content.ts';
+import { ATTACKS, FISH, FORMS, HEART, HELPER, HELPERS, HIVES, RECIPES, HIVE_MOVES, HIVE_OF, HIVE_PACE, HIVE_PATTERNS, ISLE_MAPS, KEEPER, MARKETS, PLACES, RECIPE_IDS, ROOMS, ROOM_IDS, SPIRE, TIERS, isShip, type FormId, type IsleId, type ItemId, type LandId, type TreeId } from '../src/rules/content.ts';
 import { count, newGame, type GameState } from '../src/rules/state.ts';
 import { tickRules } from '../src/rules/tick.ts';
 import { harvestAll, plant, plantedCount, uproot } from '../src/rules/garden.ts';
 import { brush, canGrow, feed, feedAll, grow, pet } from '../src/rules/whale.ts';
 import { startVoyage, endRaid } from '../src/rules/voyage.ts';
 import { maxHp, quickEat, ringDamage, hurt } from '../src/rules/keeper.ts';
-import { faint, formFreed, formStats, groupCleared, hiveBroken, hiveMaxHp, mineOre, pickWild, rescue, spireBroken, spireStats } from '../src/rules/isle.ts';
+import { faint, formFreed, formStats, freeCaptive, groupCleared, hiveBroken, hiveMaxHp, mineOre, pickWild, rescue, spireBroken, spireStats } from '../src/rules/isle.ts';
+import { repairRoom, repairState, shipCrate } from '../src/rules/home.ts';
 import { buy, cook, craft, marketOpen, recipeState, sell } from '../src/rules/trade.ts';
 import { goal, raidPlan, storyIsle } from '../src/rules/story.ts';
-import { biteWait, landFish, rollFish, takeBite } from '../src/rules/fishing.ts';
+import { biteWait, castFor, landFish, rollFish, takeBite } from '../src/rules/fishing.ts';
 
 export interface SimReport {
   ended: boolean; minutes: number; faints: number; nanaGifts: number; raids: number;
@@ -41,6 +42,8 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
   const HIT_RATE = P.hitRate, UPTIME = P.uptime;
   let choreTimer = 0;
   const s = newGame(seed, 0), rng = makeRng(seed);
+  // Chapter 1: wake up in the cottage, climb to the deck (the pat comes with the first chores).
+  s.story.flags.onDeck = true;
   const report: SimReport = { ended: false, minutes: 0, faints: 0, nanaGifts: 0, raids: 0, arrivals: [], freedAt: {}, growWaits: [], log: [] };
   let now = 0, fishTimer = 0, noteAt = -1;
   const minute = () => Math.round(s.playSeconds / 6) / 10;
@@ -58,14 +61,14 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
   function eatIfLow() { while (s.hero.hp < maxHp(s) * .45) { const r = quickEat(s); if (!r.ok) break; } }
 
   /** Fight `forms` at `tier` (×`scale`); returns false when the Keeper faints. */
-  function fight(forms: FormId[], tier: number, scale = 1, extraHp = 0) {
+  function fight(forms: FormId[], tier: number, scale = 1, extraHp = 0, help = 1) {
     const hp = forms.reduce((n, f) => n + formStats(f, tier, scale).hp, 0) + extraHp;
     const aoe = Math.min(2, 1 + .25 * (forms.length - 1));
-    const seconds = P.isleSlow * hp / (ringDamage(s) / KEEPER.ringEvery * UPTIME * aoe);
+    const seconds = P.isleSlow * hp / (ringDamage(s) / KEEPER.ringEvery * UPTIME * aoe * help);
     const incomingRate = forms.reduce((n, f) => n + formStats(f, tier, scale).damage / cooldownOf(f), 0) * HIT_RATE / 2;
     return endure(seconds, incomingRate);
   }
-  function cooldownOf(f: FormId) { return f === 'gloomling' ? ATTACKS.bump.cooldown : f === 'spitter' ? ATTACKS.shard.cooldown : f === 'brute' ? ATTACKS.charge.cooldown : ATTACKS.dive.cooldown; }
+  function cooldownOf(f: FormId) { return f === 'gloomling' ? ATTACKS.bump.cooldown : f === 'spitter' ? ATTACKS.shard.cooldown : f === 'brute' ? ATTACKS.charge.cooldown : f === 'shellback' ? ATTACKS.bash.cooldown : f === 'puffcap' ? ATTACKS.puff.cooldown : ATTACKS.dive.cooldown; }
   /** Spend `seconds` in a fight taking `rate` damage per second; eat when low. */
   function endure(seconds: number, rate: number) {
     for (let t = 0; t < seconds; t++) {
@@ -119,9 +122,22 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
       if (spare >= 0) { uproot(s, spare); plant(s, spare, better); }
     }
   }
+  /** Glimmer kept back for the next gear piece (rooms and seeds wait for it). */
+  function gearReserve() {
+    const nextGear = (['mallet2', 'coat2', 'mallet3', 'coat3'] as const).find(id => recipeState(s, id) !== 'owned' && recipeState(s, id) !== 'locked');
+    return nextGear ? RECIPES[nextGear].glimmer : 0;
+  }
   function chores() {
     harvestAll(s);
     garden();
+    // Chapter 2: the crate, the kitchen, the first Pear Tart and the first fish.
+    if (s.story.flags.fed && !s.story.flags.shipped) shipCrate(s, count(s, 'puffberry') ? 'puffberry' : 'cloudpear');
+    if (!s.rooms.kitchen && count(s, 'fibre') >= 3 && s.glimmer < ROOMS.kitchen.glimmer && count(s, 'cloudpear') > 2) shipCrate(s, 'cloudpear');
+    if (!s.rooms.kitchen) repairRoom(s, 'kitchen');
+    if (s.rooms.kitchen && !s.story.flags.cooked && count(s, 'cloudpear') >= 2) cook(s, 'pear_tart');
+    if (s.story.flags.shipped && !s.story.flags.fished && s.rooms.kitchen) { if (takeBite(s)) landFish(s, rollFish(rng, s.place, false)); }
+    // Later rooms when there is glimmer to spare beyond the next gear piece.
+    for (const room of ROOM_IDS) if (s.gear.rope && s.gear.mallet >= 2 && repairState(s, room) === 'ready' && s.glimmer - ROOMS[room].glimmer >= gearReserve()) repairRoom(s, room);
     feedAll(s);
     while (s.whale.specks > 0) brush(s);
     pet(s);
@@ -130,12 +146,13 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
       if (grow(s).ok) log(`Bao grew to stage ${s.whale.stage} (whale xp ${s.whale.xp})`);
     }
     for (const id of RECIPE_IDS) if (recipeState(s, id) === 'ready' && (id !== 'post' || s.posts.length < 2)) craft(s, id);
-    if (s.crew.includes('mina')) { while (count(s, 'fish_bun') < 3 && cook(s, 'fish_bun').ok); while (count(s, 'pear_tart') < 3 && cook(s, 'pear_tart').ok); }
+    if (s.rooms.kitchen) { while (s.crew.includes('mina') && count(s, 'fish_bun') < 3 && cook(s, 'fish_bun').ok); while (count(s, 'pear_tart') < 3 && cook(s, 'pear_tart').ok); }
     // Fish while waiting: a cast every few seconds, most bites landed.
     fishTimer -= P.choreEvery;
-    if (P.fishes && fishTimer <= 0) {
-      fishTimer = biteWait(rng) + 3;
-      if (rng.chance(.75) && takeBite(s)) { const f = rollFish(rng, s.place, s.gear.line); landFish(s, f); if (s.whale.mood < 80) feed(s, f); }
+    if (P.fishes && fishTimer <= 0 && s.story.flags.fished) {
+      const c = castFor(s);
+      fishTimer = biteWait(rng, c.bait) + 3;
+      if (rng.chance(.75) && takeBite(s)) { const f = rollFish(rng, s.place, c.line, c.rare); landFish(s, f); if (s.whale.mood < 80) feed(s, f); }
     }
   }
   function shop(isle: IsleId) {
@@ -146,12 +163,11 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
     const wants: [ItemId, number][] = isle === 'clover' ? [['seed_chimewood', 1], ['seed_glowplum', 2], ['seed_cloudpear', 1]]
       : isle === 'reef' ? [['seed_starfig', 3], ['seed_honeybun', 1]] : [];
     // Gear first: keep enough glimmer for the next mallet or coat; sell spare whale food when short (Nana's faint tip).
-    const nextGear = (['mallet2', 'coat2', 'mallet3', 'coat3'] as const).find(id => recipeState(s, id) !== 'owned' && recipeState(s, id) !== 'locked');
-    const reserve = nextGear ? RECIPES[nextGear].glimmer : 0;
+    const reserve = gearReserve();
     if (s.glimmer < reserve) for (const food of ['starfig', 'glowplum', 'puffberry'] as ItemId[]) { const spare = count(s, food) - 4; if (spare > 0) sell(s, isle, food, spare); }
     for (const [item, n] of wants) {
       const tree = item.slice(5) as TreeId;
-      while (count(s, item) + plantedCount(s, tree) < n && s.glimmer - (MARKETS[isle]!.sells[item] ?? 0) >= reserve && buy(s, isle, item).ok);
+      while (count(s, item) + plantedCount(s, tree) < n && s.glimmer - (MARKETS[isle as LandId]!.sells[item] ?? 0) >= reserve && buy(s, isle, item).ok);
     }
     if (isle === 'ember') {
       const oreWant = (recipeState(s, 'mallet3') !== 'owned' ? 6 : 0) + (recipeState(s, 'coat3') !== 'owned' ? 6 : 0);
@@ -163,6 +179,8 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
   /** Plays an isle in the order of the goal card; false when the Keeper fainted. */
   function playIsle(isle: IsleId) {
     const map = ISLE_MAPS[isle], progress = s.isles[isle], tier = PLACES[isle].tier;
+    // On a ship two crew mates fight beside the Captain (and knock raiders overboard).
+    const boarders = Object.values(HELPERS).slice(0, 2), help = isShip(isle) ? 1 + boarders.reduce((n, h) => n + h.damage * KEEPER.ringEvery / HELPER.every, 0) : 1;
     const walk = () => step(P.walk, false);
     if (!report.arrivals.some(a => a.isle === isle)) log(`arrive ${isle}: hero xp ${s.hero.xp} level ${s.hero.level}`), report.arrivals.push({ isle, minute: minute(), level: s.hero.level, recommended: TIERS[tier].level, mallet: s.gear.mallet, coat: s.gear.coat });
     map.ore.forEach((_, i) => mineOre(s, isle, i));
@@ -177,19 +195,22 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
         const sp = spireStats(tier), spireSeconds = sp.hp / (ringDamage(s) / KEEPER.ringEvery * UPTIME);
         extra = sp.hp + Math.min(SPIRE.maxAwake, Math.floor(spireSeconds / SPIRE.wakeEvery)) * formStats('gloomling', tier).hp;
       }
-      if (!fight(group.forms, tier, 1, extra)) { onFaint(`${isle} group ${g}`); return false; }
+      if (!fight(group.forms, tier, 1, extra, help)) { onFaint(`${isle} group ${g}`); return false; }
       for (const f of group.forms) formFreed(s, f, tier);
       groupCleared(s, isle, g);
       if (group.spire !== undefined) spireBroken(s, isle, group.spire);
       map.cages.forEach((c, i) => { if (!progress.cages[i]) { step(3, false); const r = rescue(s, isle, i); if (r.ok) log(`rescued ${c.who}`); } });
+      map.captives.forEach((_, i) => { if (!progress.captives[i] && progress.groups.every(Boolean)) { step(3, false); freeCaptive(s, isle, i); } });
       shop(isle);
     }
     progress.spires.forEach((b, i) => { if (!b) spireBroken(s, isle, i); });
     walk();
     const hive = HIVES[HIVE_OF[isle]];
     // Clamhive: open 1.9 s of a ~4.3 s cycle (×1) and shut the rest (×0.15); the Heart: 5 s at ×1.4, 15 s at ×0.4.
-    const factor = isle === 'reef' ? .53 : isle === 'star' ? .65 : 1;
-    const seconds = P.isleSlow * hiveMaxHp(s, isle) / (ringDamage(s) / KEEPER.ringEvery * UPTIME * factor);
+    // The Hush Bell: ~10 s ringing echo bells, then 8 s at ×1.25; Barnacle: stuck 3.5 s of ~13 s at ×1.5, else ×0.4;
+    // the Coilwyrm: ~6 s ringing knots, then 7 s dizzy at ×1.4.
+    const factor = ({ reef: .53, frost: .55, sloop: .7, warship: .75, star: .65 } as Partial<Record<IsleId, number>>)[isle] ?? 1;
+    const seconds = P.isleSlow * hiveMaxHp(s, isle) / (ringDamage(s) / KEEPER.ringEvery * UPTIME * factor * help);
     const moves = HIVE_PATTERNS[HIVE_OF[isle]].map(m => (HIVE_MOVES[m] as { damage?: number }).damage ?? 0).filter(d => d > 0);
     const pattern = HIVE_PATTERNS[HIVE_OF[isle]];
     // Hives that wake Gloomlings or call Flyers fight with a helper or two beside them.
@@ -200,7 +221,7 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
     if (!endure(seconds, Math.max(0, rate - songHeal))) { onFaint(`${isle} ${hive.name}`, isle); return false; }
     hiveBroken(s, isle);
     report.freedAt[isle] = minute();
-    if (isle !== 'star') noteAt = s.playSeconds;
+    if (!isShip(isle)) noteAt = s.playSeconds;
     log(`freed ${isle} (level ${s.hero.level}, hero xp ${s.hero.xp}, whale xp ${s.whale.xp}, mallet ${s.gear.mallet}, coat ${s.gear.coat}, glimmer ${s.glimmer})`);
     shop(isle);
     return true;
@@ -217,7 +238,7 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
       if (r.ok) log(`sail to ${to}${r.hungry ? ' (hungry)' : ''}`); else { log(`cannot sail: ${r.why}`); step(5, true); }
       continue;
     }
-    if (g.target === 'ropepost') {
+    if (g.target === 'ropepost' || g.target === 'plank') {
       const isle = s.place as IsleId;
       const ok = playIsle(isle);
       step(5, true);

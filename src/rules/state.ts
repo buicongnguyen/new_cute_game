@@ -1,6 +1,6 @@
-import { CREW, FISHING, ISLE_IDS, ISLE_MAPS, STAGES, WHALE, type CrewId, type IsleId, type ItemId, type NoteIsle, type PlaceId, type RecipeId, type Stage, type TreeId } from './content.ts';
+import { CREW, FISHING, ISLE_IDS, ISLE_MAPS, PLACE_IDS, ROOM_IDS, SKILL_IDS, STAGES, WHALE, type CrewId, type HelperId, type IsleId, type ItemId, type NoteIsle, type PlaceId, type RecipeId, type RoomId, type SkillId, type Stage, type TreeId } from './content.ts';
 
-/** One moss patch on Bao's back. `progress` counts seconds of growth toward `need`. */
+/** One planter box on Bao's deck. `progress` counts seconds of growth toward `need`. */
 export interface Plot {
   tree: TreeId | null;
   /** 'growing' until the first fruit, then 'ripe' (fruit waiting) or 'regrow' (after a harvest). */
@@ -15,14 +15,16 @@ export interface IsleProgress {
   cages: boolean[];
   /** Groups cleared (every form in them freed). */
   groups: boolean[];
+  /** Ships: families freed from the hold. */
+  captives: boolean[];
   freed: boolean;
   /** Play-seconds at which each ore rock / wild plant is back. */
   oreAt: number[];
   wildAt: number[];
   visited: boolean;
-  /** A leftover-Gloom group waiting on this freed isle (after the ending). */
+  /** A leftover-Gloom group waiting on this freed land (after the ending). */
   leftover: boolean;
-  /** Times the Keeper fainted at this isle's Hive (each makes it 10% weaker, up to 3). */
+  /** Times the Captain fainted at this isle's boss (each makes it 10% weaker, up to 3). */
   cracks: number;
 }
 
@@ -53,8 +55,15 @@ export interface GameState {
   plots: Plot[];
   items: Partial<Record<ItemId, number>>;
   glimmer: number;
-  hero: { level: number; xp: number; hp: number; buff: 'power' | 'guard' | null; buffUntil: number };
-  gear: { mallet: number; coat: number; rope: boolean; line: boolean };
+  /** `freshUntil`: the bath's buff (separate from meal buffs, so both can be on). */
+  hero: { level: number; xp: number; hp: number; buff: 'power' | 'guard' | null; buffUntil: number; freshUntil: number };
+  gear: { mallet: number; coat: number; rope: boolean; line: boolean; bait: boolean };
+  /** Rooms of Nana's cottage that have been repaired (chapter 2). */
+  rooms: Record<RoomId, boolean>;
+  /** Life-skill XP. */
+  skills: Record<SkillId, number>;
+  /** Fractions toward the next bonus fruit and second portion (skill perks pay out exactly, without dice). */
+  bank: { fruit: number; portion: number };
   /** Chime Post spot indices that hold a post. */
   posts: number[];
   /** Keepsakes made at the Workbench (they only decorate). */
@@ -65,26 +74,29 @@ export interface GameState {
   rescued: CrewId[];
   /** Crew living on Bao (Nana from the start). */
   crew: CrewId[];
+  /** The two crew mates picked for boarding missions. */
+  boarders: HelperId[];
   isles: Record<IsleId, IsleProgress>;
-  /** Isles whose scripted raid (the first voyage after freeing them) has not happened yet. */
+  /** Lands whose scripted raid (the first voyage after freeing them) has not happened yet. */
   raidsOwed: IsleId[];
   story: { prologueSeen: boolean; ended: boolean; endingSeen: boolean; flags: Record<string, boolean>; nanaGifts: number };
   /** Play-time timers (seconds). */
-  timers: { gardener: number; leftover: number; nana: number };
-  stats: { freed: number; fish: number; harvested: number; voyages: number; raidsWon: number; faints: number };
+  timers: { gardener: number; leftover: number; nana: number; mina: number };
+  stats: { freed: number; fish: number; harvested: number; voyages: number; raidsWon: number; faints: number; shipped: number; cooked: number; families: number };
 }
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export function newIsle(isle: IsleId): IsleProgress {
   const map = ISLE_MAPS[isle];
   return {
-    spires: map.spires.map(() => false), cages: map.cages.map(() => false), groups: map.groups.map(() => false),
+    spires: map.spires.map(() => false), cages: map.cages.map(() => false), groups: map.groups.map(() => false), captives: map.captives.map(() => false),
     freed: false, oreAt: map.ore.map(() => 0), wildAt: map.wild.map(() => 0), visited: false, leftover: false, cracks: 0,
   };
 }
 
 export const emptyPlot = (): Plot => ({ tree: null, phase: 'empty', progress: 0, crust: 0 });
+const all = <K extends string, V>(keys: readonly K[], v: V) => Object.fromEntries(keys.map(k => [k, v])) as Record<K, V>;
 
 export function newGame(seed = 'cloudback', now = Date.now()): GameState {
   const isles = Object.fromEntries(ISLE_IDS.map(id => [id, newIsle(id)])) as Record<IsleId, IsleProgress>;
@@ -93,21 +105,25 @@ export function newGame(seed = 'cloudback', now = Date.now()): GameState {
     whale: { hunger: WHALE.start.hunger, mood: WHALE.start.mood, xp: 0, stage: 0, petAt: 0, specks: 0, speckTimer: 0, moodTimer: 0, songs: 0 },
     notes: [],
     plots: Array.from({ length: STAGES[0].plots }, emptyPlot),
-    // Two of each seed for the four moss patches, and Nana's packed lunch: three Cloudpears for the first trip down.
+    // Two of each seed for the four planter boxes, and Nana's packed lunch: three Cloudpears (two make the first Pear Tart).
     items: { seed_puffberry: 2, seed_ropevine: 2, cloudpear: 3 },
     glimmer: 20,
-    hero: { level: 1, xp: 0, hp: 100, buff: null, buffUntil: 0 },
-    gear: { mallet: 1, coat: 1, rope: false, line: false },
+    hero: { level: 1, xp: 0, hp: 100, buff: null, buffUntil: 0, freshUntil: 0 },
+    gear: { mallet: 1, coat: 1, rope: false, line: false, bait: false },
+    rooms: all(ROOM_IDS, false),
+    skills: all(SKILL_IDS, 0),
+    bank: { fruit: 0, portion: 0 },
     posts: [],
     keepsakes: [],
-    schools: Object.fromEntries((['dawnreach', 'clover', 'reef', 'ember', 'star'] as PlaceId[]).map(p => [p, { left: FISHING.school, t: 0 }])) as Record<PlaceId, { left: number; t: number }>,
+    schools: Object.fromEntries(PLACE_IDS.map(p => [p, { left: FISHING.school, t: 0 }])) as Record<PlaceId, { left: number; t: number }>,
     rescued: [],
     crew: ['nana'],
+    boarders: [],
     isles,
     raidsOwed: [],
     story: { prologueSeen: false, ended: false, endingSeen: false, flags: {}, nanaGifts: 0 },
-    timers: { gardener: 0, leftover: 0, nana: 0 },
-    stats: { freed: 0, fish: 0, harvested: 0, voyages: 0, raidsWon: 0, faints: 0 },
+    timers: { gardener: 0, leftover: 0, nana: 0, mina: 0 },
+    stats: { freed: 0, fish: 0, harvested: 0, voyages: 0, raidsWon: 0, faints: 0, shipped: 0, cooked: 0, families: 0 },
   };
 }
 
@@ -125,13 +141,32 @@ export const isRescued = (s: GameState, who: CrewId) => s.rescued.includes(who) 
 export const crewOf = (isle: IsleId) => (Object.keys(CREW) as CrewId[]).filter(id => CREW[id].isle === isle);
 export type { RecipeId };
 
+/**
+ * Version 1 → 2 (story v2, 2026-10-16): the cottage rooms, life skills, a fourth land and the Gloom fleet. A run that
+ * had already made the rope is past chapters 1 and 2, so it keeps a working kitchen; the old Grey Star isle is now the
+ * flagship of the fleet, so an unfinished one starts fresh (a finished story stays finished).
+ */
+export function fromV1(data: unknown): unknown {
+  const s = data as Partial<GameState> & { story?: GameState['story'] };
+  if (s.gear?.rope) {
+    s.rooms = { kitchen: true, craft: false, study: false, bath: false };
+    s.story = { ...(s.story as GameState['story']), flags: { ...(s.story?.flags ?? {}), onDeck: true, petted: true, shipped: true, cooked: true, fished: true } };
+  }
+  if (s.isles && !s.isles.star?.freed) delete (s.isles as Partial<Record<IsleId, IsleProgress>>).star;
+  return s;
+}
+
 /** Basic checks a loaded save must pass; anything else is repaired to defaults. */
 export function repair(s: GameState): GameState {
   const fresh = newGame(s.seed ?? 'cloudback', s.clock ?? Date.now());
   const out = { ...fresh, ...s } as GameState;
+  out.version = SAVE_VERSION;
   out.whale = { ...fresh.whale, ...(s.whale ?? {}) };
   out.hero = { ...fresh.hero, ...(s.hero ?? {}) };
   out.gear = { ...fresh.gear, ...(s.gear ?? {}) };
+  out.rooms = { ...fresh.rooms, ...(s.rooms ?? {}) };
+  out.skills = { ...fresh.skills, ...(s.skills ?? {}) };
+  out.bank = { ...fresh.bank, ...(s.bank ?? {}) };
   out.story = { ...fresh.story, ...(s.story ?? {}), flags: { ...(s.story?.flags ?? {}) } };
   out.stats = { ...fresh.stats, ...(s.stats ?? {}) };
   out.timers = { ...fresh.timers, ...(s.timers ?? {}) };
@@ -141,12 +176,19 @@ export function repair(s: GameState): GameState {
   delete (out as unknown as { school?: unknown }).school;
   // A save made mid-raid: the raid lives only in the scene, so it starts again on load (logic review 2).
   if (out.voyage?.raidState === 'active') out.voyage = { ...out.voyage, raidState: 'pending', raidAt: out.voyage.elapsed };
+  if (out.voyage && !(out.voyage.to in out.schools)) out.voyage = null;
+  if (!(out.place in out.schools)) out.place = 'dawnreach';
   out.keepsakes = [...(s.keepsakes ?? [])];
-  out.gear.mallet = Math.min(3, out.gear.mallet); out.gear.coat = Math.min(3, out.gear.coat);
+  out.boarders = [...(s.boarders ?? [])].filter(id => ['pip', 'mina', 'tam', 'ria'].includes(id)).slice(0, 2) as HelperId[];
   out.items = { ...(s.items ?? {}) };
+  out.isles = { ...fresh.isles };
   for (const id of ISLE_IDS) {
     const base = newIsle(id), have = s.isles?.[id];
-    out.isles[id] = have ? { ...base, ...have, spires: base.spires.map((_, i) => !!have.spires?.[i]), cages: base.cages.map((_, i) => !!have.cages?.[i]), groups: base.groups.map((_, i) => !!have.groups?.[i]), oreAt: base.oreAt.map((_, i) => have.oreAt?.[i] ?? 0), wildAt: base.wildAt.map((_, i) => have.wildAt?.[i] ?? 0) } : base;
+    out.isles[id] = have ? {
+      ...base, ...have,
+      spires: base.spires.map((_, i) => !!have.spires?.[i]), cages: base.cages.map((_, i) => !!have.cages?.[i]), groups: base.groups.map((_, i) => !!have.groups?.[i]),
+      captives: base.captives.map((_, i) => !!have.captives?.[i]), oreAt: base.oreAt.map((_, i) => have.oreAt?.[i] ?? 0), wildAt: base.wildAt.map((_, i) => have.wildAt?.[i] ?? 0),
+    } : base;
   }
   const plots = STAGES[out.whale.stage]?.plots ?? 4;
   out.plots = Array.from({ length: plots }, (_, i) => ({ ...emptyPlot(), ...(s.plots?.[i] ?? {}) }));
@@ -157,5 +199,6 @@ export function repair(s: GameState): GameState {
   out.whale.stage = Math.max(0, Math.min(3, Math.round(out.whale.stage) || 0)) as Stage;
   out.whale.specks = Math.max(0, Math.min(WHALE.specksCrusted[1], Math.round(out.whale.specks) || 0));
   out.hero.level = Math.max(1, Math.round(out.hero.level) || 1);
+  for (const k of SKILL_IDS) out.skills[k] = Math.max(0, Number(out.skills[k]) || 0);
   return out;
 }

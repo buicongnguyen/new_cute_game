@@ -39,7 +39,7 @@ export async function loadModels(onProgress?: (done: number, all: number) => voi
 const KEEP_MATERIALS = new Set(['cloud_puff', 'market']);
 const BAKED_MATERIAL = new T.MeshStandardMaterial({ name: 'baked', color: '#ffffff', vertexColors: true });
 /** Nodes the code moves, toggles or finds by name: they keep their own mesh (code review 7). */
-const KEEP_NODE = /^(fruits|wing_[lr]|shard_\d+|core|shell|shell_top|shell_bottom|pearl|arm_[lr]|leg_[lr]|head|body|tail|tailtip|fin_[lr]|eye_[lr]|eye|blades|door|disc|mallet|soil|note_\d|sail|balloon|crown_\d|tip|mouth|blowhole)$/;
+const KEEP_NODE = /^(fruits|wing_[lr]|shard_\d+|core|shell|shell_top|shell_bottom|pearl|arm_[lr]|leg_[lr]|head|body|tail|tailtip|fin_[lr]|eye_[lr]|eye|blades|door|disc|mallet|soil|note_\d|sail|balloon|crown_\d|tip|mouth|blowhole|hat|claw_[lr]|anchor|knot_\d|coil|bell|clapper|ice|arch|post|cap|platform|rope|lid|barrel|crust)$/;
 const keepNode = (o: T.Object3D) => KEEP_NODE.test(String(o.userData?.name ?? o.name));
 const plain = (m: T.Material) => {
   const s = m as T.MeshStandardMaterial;

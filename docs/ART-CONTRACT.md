@@ -132,8 +132,23 @@ The game code depends on everything in this file. Generators live in `art/blende
 | `hatch` | Round hole in the deck with a raised brass rim, a dark shaft and the top rungs of a ladder; a little lantern post beside it | Child `door`: the planked lid with iron straps, pivot on the hinge at the back edge (−Z). The code opens it by rotating `door.rotation.x` negative, to about −1.9 rad (the lid then stands up behind the hole). | Hole 1.6 m across, rim 0.12 m high; origin at the hole centre, deck surface y = 0 (the shaft goes down to y −0.75) |
 | `planter` | Rounded square planter of wooden planks, filled with moss soil, with a thin `glow_moss` rim line | Empty marker `soil` at the centre of the soil top (y 0.27); trees are placed there | 1.5 m wide, 0.3 m tall |
 | `gong` | Raid gong. During a Gloom raid everything else on the deck sinks below and only battle tools stay up. A golden gong (`pal_gold` face, bronze `pal_tangerine` rim, a thin `glow_gold` ring) hangs on red cords in a chunky `pal_wood_dark` frame with feet; a red-headed striker mallet hangs on a side peg | Child `disc`: the gong with its cords, pivot at the top hanging point (0, 1.7, 0), just under the crossbar. The code wobbles it with `disc.rotation.x` when it is rung. At rest the face leans about 12° up toward the camera; the lean is in the mesh, so the node rests at identity. | 1.9 m tall, 2.25 m wide; origin at the frame's foot centre, deck y = 0 |
+| `lift` | Little wooden crane on Bao's side for fishing trips: post on cross feet, jib arm, iron pulley, winch with a crank | Child `platform`: a small plank platform on rope bridles, pivot at its top centre where the rope hooks on (1.6, 0.95, 0); lower it by moving it down in y. Child `rope`: pivot where it leaves the pulley (1.6, 2.01, 0); it hangs 1.0 m down to the platform, so stretch it with `rope.scale.y = drop / 1.0`. | Origin at the post foot; jib along +X, about 1.6 m out; 2.4 m tall |
+| `skiff` | Small cute fishing boat for the cloud sea: warm wood hull with a red stripe, red-and-white striped awning at the stern, bench, bucket, bow lantern (`glow_lantern`), rope coil, rod in a holder | — | 3.2 m long (bow toward +Z), 1.4 m wide; flat inner floor at y = 0, origin at the floor centre (the hull reaches y −0.29) |
+| `crate` | Bao's shipping crate: sturdy wooden box with a slot lid, and a perch with a postbird nest on the right side | Child `lid`: pivot at the back hinge (0, 0.56, −0.36); open it with `lid.rotation.x` negative | 0.9 × 0.7 m box, 1.1 m to the nest |
+| `chime_cannon` | The engineer's cannon that fires ringing bells: brass bell-mouthed barrel on a wooden carriage with two wheels; two spare bells on the trail | Child `barrel`: pivot at the trunnions (0, 0.62, 0.02); aim it with `barrel.rotation.x`. It points forward (+Z) and about 20° up at rest | 1.5 m long, 1.1 m tall |
+| `bao_plank` | Bao's boarding plank: three warm planks on battens, with rope rails on posts | — | 3.5 m along +Z, top at y = 0, origin at the near end |
 
-- **Budget:** ≤ 2,000 triangles each. Exceptions: `hatch` ≤ 1,500, `planter` ≤ 600 and `gong` ≤ 900.
+**Frostfall landmarks** (the snowy fourth land: white snow, pale ice blue and warm wood, never Gloom violet):
+
+| Root | What it is | Size |
+|---|---|---|
+| `snow_lantern` | Carved snow lantern: snow pillars round a warm `glow_lantern` core, under a soft snow cap | 1.1 m |
+| `ice_hut` | Cozy round ice-brick hut: brick dome, a walk-through entrance vault with a wooden door, a warm round window, a chimney with smoke puffs, and firewood | About 3.6 m across, 2.5 m tall |
+
+- **Budget:** ≤ 2,000 triangles each. Exceptions:
+  - `hatch` ≤ 1,500, `planter` ≤ 600, `gong` ≤ 900;
+  - `lift` ≤ 1,500, `skiff` ≤ 1,500, `crate` ≤ 800, `chime_cannon` ≤ 1,200, `bao_plank` ≤ 300;
+  - `snow_lantern` ≤ 500, `ice_hut` ≤ 1,500.
 
 ### `nature.glb` (isle scenery, drawn instanced)
 
@@ -145,10 +160,17 @@ The game code depends on everything in this file. Generators live in `art/blende
   - `tree_round`, `tree_pine`, `palm`;
   - `coral_a`, `coral_b`;
   - `lava_rock_a`, `lava_rock_b`;
-  - `fence`, `cloud_puff`.
+  - `fence`, `cloud_puff`;
+  - Frostfall (snowy isle): `tree_snow`, `rock_snow`, `ice_rock`, `snowdrift`, `snow_flower`.
 - `cloud_puff`: a soft low-poly white cloud lump about 4 m across, with warm white on top and a cool blue-lilac underside. The underside colour is a second material, `pal_cloud_shade`.
+- Frostfall scenery uses white `pal_snow`, pale cyan `pal_glass` ice and `pal_sky_light` shade, so it never reads as the violet Gloom crystal:
+  - `tree_snow`: a snow-laden pine, dark green tiers under wavy snow caps;
+  - `rock_snow`: a grey rock with a snow cap;
+  - `ice_rock`: a chunky, broad-faceted ice block with snow on top;
+  - `snowdrift`: a soft mound;
+  - `snow_flower`: blue and white flowers poking through a small snow mound.
 - Each root should be a single mesh with one or two materials. They are drawn thousands of times.
-- **Budget:** ≤ 400 triangles each (trees ≤ 700, `cloud_puff` ≤ 300).
+- **Budget:** ≤ 400 triangles each (trees and `tree_snow` ≤ 700, `cloud_puff` and `snowdrift` ≤ 300, `snow_flower` ≤ 350).
 
 ### `fish.glb` (sky fish)
 
