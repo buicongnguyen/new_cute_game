@@ -26,7 +26,7 @@ export class EventBus<Events extends object = GameEvents> {
     let set = this.listeners.get(name);
     if (!set) this.listeners.set(name, set = new Set());
     set.add(fn);
-    return () => { set.delete(fn); if (!set.size) this.listeners.delete(name); };
+    return () => { set.delete(fn); if (!set.size && this.listeners.get(name) === set) this.listeners.delete(name); };
   }
   emit<K extends keyof Events>(name: K, payload: Events[K]): void {
     const set = this.listeners.get(name);

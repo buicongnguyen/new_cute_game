@@ -1,3 +1,4 @@
+import { probeBudgets } from './budget.mjs';
 // Browser checks for chapters 3–5's new mechanics (the owner's story v2): Juno's locked workshop, the conch, the Hush
 // Bell's silence and echo bells, Shellback shields, Puffcap bursts, boarding with crew mates, Captain Barnacle's
 // anchor, the Coilwyrm's knots, the Grey Star's list and the ending. Usage: node scripts/fleet-playtest.mjs
@@ -127,6 +128,9 @@ ok(ended && (s.items.seed_golden ?? 0) >= 1, 'the Grey Heart shatters: the story
 await page.waitForSelector('.screen.ending', { timeout: 12000 }).catch(() => {});
 ok(await page.isVisible('.screen.ending'), 'the ending card shows');
 await shot('ending');
+
+await page.close();
+try { await probeBudgets(browser, URL); } catch (error) { failures++; console.error(error); }
 
 console.log(`\n${failures ? `${failures} FAILED` : 'ALL PASSED'}; page errors: ${errors.length ? errors.join(' | ') : 'none'}`);
 await browser.close();

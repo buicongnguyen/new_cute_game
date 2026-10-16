@@ -1,3 +1,4 @@
+import { probeBudgets } from './budget.mjs';
 // End-to-end playtest through the real game: chapter 1 (wake in the cottage, climb up, pat Bao) → chapter 2 (garden,
 // shipping crate, kitchen repair, Pear Tart, the lift and the skiff, the rope) → sail → Clover Rise (cage, groups,
 // Spires, Hive) → back up → grow → raid on the way to the reef → the cottage. Uses the test hooks (window.__game,
@@ -274,6 +275,9 @@ await goto(ladder[0], ladder[1] - .4); await press('KeyF');
 await page.waitForTimeout(700); await quiet();
 s = await st();
 ok(s.mode === 'deck', 'climbed the ladder back up on deck');
+
+await page.close();
+try { await probeBudgets(browser, URL); } catch (error) { failures++; console.error(error); }
 
 console.log(`\n${failures ? `${failures} FAILED` : 'ALL PASSED'}; page errors: ${errors.length ? errors.join(' | ') : 'none'}`);
 await browser.close();

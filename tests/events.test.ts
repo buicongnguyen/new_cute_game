@@ -31,3 +31,10 @@ test('successful rules emit once, failed actions emit nothing, and saves contain
   assert.deepEqual(seen, [{ plot: 0, tree: 'puffberry' }, { plot: 0, item: 'puffberry', count: 3 }]);
   assert.ok(!JSON.stringify(s).includes('listeners'));
 });
+
+test('repeated unsubscribe cannot remove a newer subscription', () => {
+  const bus = new EventBus(); let calls = 0;
+  const off = bus.on('chapter', () => {}); off();
+  bus.on('chapter', () => calls++); off();
+  bus.emit('chapter', { chapter: 1 }); assert.equal(calls, 1);
+});
