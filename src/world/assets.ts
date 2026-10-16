@@ -223,3 +223,38 @@ export function standIn(kind: 'person' | 'blob' | 'tree' | 'box' | 'pillar', col
   }
   return g;
 }
+
+/** Same GLTF/meshopt pipeline as the core models, with lazy, deduplicated requests. */
+const borrowedScenes = new Map<string, Promise<T.Object3D>>();
+export async function loadBorrowedModel(asset: import('./borrowed.ts').BorrowedAsset): Promise<T.Object3D> {
+  if (!/^[a-zA-Z0-9_-]+\.glb$/.test(asset.file)) throw new Error('Invalid borrowed model filename: ' + asset.file);
+  let pending = borrowedScenes.get(asset.file);
+  if (!pending) {
+    pending = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
+      .loadAsync(base + 'assets/models/borrowed/' + asset.file)
+      .then(gltf => { bakeColors(gltf.scene); return gltf.scene; });
+    borrowedScenes.set(asset.file, pending);
+    pending.catch(() => borrowedScenes.delete(asset.file));
+  }
+  const scene = await pending;
+  const source = findChild(scene, asset.node);
+  if (!source) throw new Error('Missing borrowed node: ' + asset.file + '/' + asset.node);
+  const copy = source.clone(true);
+  copy.position.set(0, 0, 0); copy.rotation.set(0, 0, 0); copy.scale.set(1, 1, 1);
+  const materials = new Map<T.Material, T.Material>();
+  const convert = (source: T.Material) => {
+    let material = materials.get(source);
+    if (!material) {
+      material = toonOf(source);
+      if (asset.tint) { material = material.clone(); (material as T.MeshToonMaterial).color.multiply(new T.Color(asset.tint)); }
+      materials.set(source, material);
+    }
+    return material;
+  };
+  copy.traverse(o => {
+    const mesh = o as T.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(convert) : convert(mesh.material);
+  });
+  return copy;
+}

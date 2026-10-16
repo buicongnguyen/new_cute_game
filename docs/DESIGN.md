@@ -469,3 +469,7 @@ Far below the clouds lies a green forest (Clover, Ember), the sea (Reef, Frostfa
 
 - **Save:** key `cloudback:save:main`, a versioned envelope (version 2) with chained migrations. Settings → Save code exports and imports a text code.
 - **Settings:** English or Tiếng Việt, sound and music volume, screen shake, graphics, replay the prologue, start over.
+
+## 18. Phase 0 foundations
+
+- T00: new borrowed art uses the role registry in `src/world/borrowed.ts`, lazy loading through `assets.ts`, and the matching inventory in `docs/BORROWED-ASSETS.md`. The build packs nested model folders. No new art or saved fields are introduced.

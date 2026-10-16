@@ -11,7 +11,13 @@ import { join } from 'node:path';
 const dir = process.argv[2] ?? 'dist/assets/models';
 const cli = createRequire(import.meta.url).resolve('gltfpack/cli.js');
 let before = 0, after = 0;
-for (const file of readdirSync(dir).filter(f => f.endsWith('.glb'))) {
+// Include the borrowed/ subtree; each relative filename remains intact.
+function modelFiles(folder, prefix = '') {
+  return readdirSync(folder, { withFileTypes: true }).flatMap(entry => entry.isDirectory()
+    ? modelFiles(join(folder, entry.name), join(prefix, entry.name))
+    : entry.name.endsWith('.glb') ? [join(prefix, entry.name)] : []);
+}
+for (const file of modelFiles(dir)) {
   const path = join(dir, file), size = statSync(path).size;
   before += size;
   // Already meshopt-compressed (the owner's Zoo Garden house kit): leave it.
