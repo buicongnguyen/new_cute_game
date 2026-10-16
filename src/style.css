@@ -39,7 +39,7 @@ button:disabled { cursor: default; }
 #hud > * { pointer-events: auto; }
 .hud-top { position: absolute; top: calc(8px + var(--safe-t)); left: calc(8px + var(--safe-l)); right: calc(8px + var(--safe-r)); display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none !important; }
 .hud-top > * { pointer-events: auto; }
-.hero-card { display: flex; align-items: center; gap: 8px; background: var(--cream); border-radius: var(--radius); padding: 6px 10px 6px 6px; box-shadow: var(--shadow); min-width: 150px; }
+.hero-card { flex: 1 1 auto; max-width: 230px; display: flex; align-items: center; gap: 8px; background: var(--cream); border-radius: var(--radius); padding: 6px 10px 6px 6px; box-shadow: var(--shadow); min-width: 130px; }
 .lvl { width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5fd6cf, var(--teal)); color: #fff; font-weight: 900; font-size: 18px; display: grid; place-items: center; box-shadow: inset 0 -3px 0 rgba(0,0,0,.18); }
 .bars { display: flex; flex-direction: column; gap: 4px; flex: 1; }
 .bar { position: relative; height: 12px; border-radius: 99px; background: #e9dcc4; overflow: hidden; }
@@ -179,13 +179,13 @@ button:disabled { cursor: default; }
 .prologue-card .hint, .prologue-card .credits { color: #c6d0ff; }
 
 /* --------------------------------------------------------- small screens */
-@media (max-width: 420px) {
-  .hero-card { min-width: 0; padding-right: 8px; }
+@media (max-width: 520px) {
+  .hero-card { min-width: 120px; padding-right: 8px; }
   .bao-bars { width: 84px; }
-  .goal { font-size: 13px; max-width: calc(100vw - 24px); top: calc(116px + var(--safe-t)); }
-  .boss { top: calc(170px + var(--safe-t)); }
-  .raid-banner { top: calc(160px + var(--safe-t)); }
-  .toasts { top: calc(210px + var(--safe-t)); }
+  .goal { font-size: 13px; max-width: calc(100vw - 24px); top: calc(156px + var(--safe-t)); }
+  .boss { top: calc(206px + var(--safe-t)); }
+  .raid-banner { top: calc(200px + var(--safe-t)); }
+  .toasts { top: calc(244px + var(--safe-t)); }
   .icon-btn { width: 44px; height: 44px; font-size: 18px; }
 }
 @media (max-height: 500px) and (orientation: landscape) {

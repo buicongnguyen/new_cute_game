@@ -80,6 +80,9 @@ export class Fx {
     return t;
   }
 
+  /** Telegraphs run on game time (hit-stop and pauses hold them), so a wind-up never ends early on screen. */
+  stepGame(dt: number) { for (const t of this.teles) t.update(dt); }
+
   shake(amount: number) { if (this.shakeScale > 0) this.trauma.add(amount * this.shakeScale); }
 
   update(dt: number, camera: T.Camera, width: number, height: number) {
@@ -106,7 +109,6 @@ export class Fx {
       r.mesh.scale.setScalar(r.from + (r.to - r.from) * e);
       r.mesh.material.opacity = (r.mesh.userData.opacity as number) * (1 - k);
     }
-    for (const t of this.teles) t.update(dt);
     const v = new T.Vector3();
     for (const t of this.texts) {
       if (!t.alive) continue;

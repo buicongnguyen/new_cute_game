@@ -26,7 +26,7 @@ import { Actor, walkTo } from './world/actors.ts';
 import { Combat, flat, type Ground } from './world/combat.ts';
 import { HiveFight, noteView } from './world/hive.ts';
 import { Keeper } from './world/keeper.ts';
-import { part } from './world/assets.ts';
+import { part, whole } from './world/assets.ts';
 import { makeToon } from './world/look.ts';
 import { Hud, type HudView } from './ui/hud.ts';
 import { Panels, type GameApi, type PanelKind } from './ui/panels.ts';
@@ -39,7 +39,8 @@ type Mode = 'deck' | 'isle' | 'cut';
 interface Interactable { id: string; pos: T.Vector3; radius: number; label: string; icon: string; act: () => void; auto?: boolean }
 interface Follower { who: CrewId; actor: Actor; boarding: boolean; t: number }
 
-const CAMERA = { fov: 40, pitch: 47, deck: 19, isle: 22, portrait: 1.28 };
+/** Portrait screens use a wider lens and a little more distance (as Zoo Garden does), never the full horizontal-FOV rule, which went past 100°. */
+const CAMERA = { fov: 40, portraitFov: 47, pitch: 47, deck: 19, isle: 22, portrait: 1.22 };
 /** Where an isle floats while Bao hovers over it: below and off to the side, so it shows past the whale. */
 const ISLE_BELOW = new T.Vector3(30, -28, -18);
 
@@ -219,6 +220,8 @@ export class Game {
 
   private clearIsle() {
     this.combat.clear();
+    for (const w of this.pod) this.scene.remove(w);
+    this.pod = [];
     if (this.hive) { this.combat.group.remove(this.hive.view); this.hive = null; }
     for (const f of this.followers) this.scene.remove(f.actor.root);
     this.followers = [];
@@ -254,6 +257,7 @@ export class Game {
       }
       map.cages.forEach((c, i) => { if (!prog.cages[i]) { this.combat.addCage(i, new T.Vector3(c.at[0], 0, c.at[1])); this.caged(c.who, c.at); } });
       this.showCamp();
+      if (id === 'star') this.sleepingPod(prog.freed);
       this.keeper.place(map.landing[0], map.landing[1] - 1.5);
       this.keeper.fainted = false;
       this.bao.root.position.set(map.landing[0] + 4, 30, map.landing[1] - 14);
@@ -827,6 +831,7 @@ export class Game {
     GLOOM.value = damp(GLOOM.value, this.gloomTarget, 1.4, dt);
     if (Math.abs(GLOOM.value - this.gloomTarget) < .002) GLOOM.value = this.gloomTarget;
     this.keeper.update(dt, stick);
+    this.fx.stepGame(dt);
     this.combat.update(dt);
     if (combatOn) this.hive?.update(dt);
     this.updateRaid(dt);
@@ -874,7 +879,7 @@ export class Game {
       this.fx.sparkle(n.position, '#ffe28a', 1, .6);
       if (this.note.t > 2.2) { this.scene.remove(n); this.note = null; }
     }
-    for (const p of this.pod) { p.position.y = Math.min(p.userData.toY, p.position.y + realDt * 2.4); p.rotation.y += realDt * .05; }
+    for (const p of this.pod) if (p.userData.rising) { p.position.y = Math.min(p.userData.toY, p.position.y + realDt * 1.8); p.rotation.y += realDt * .04; }
     if (this.mode === 'deck' || this.mode === 'isle') this.buildInteractables();
     // Camera: follow the Keeper.
     const aspect = this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight);
@@ -944,28 +949,33 @@ export class Game {
     this.renderer.setSize(w, h, false);
     this.canvas.style.width = `${w}px`; this.canvas.style.height = `${h}px`;
     this.camera.aspect = w / h;
-    this.camera.fov = verticalFovForAspect(CAMERA.fov, w / h, 16 / 10) * (w / h < .8 ? .92 : 1);
+    this.camera.fov = w / h < .8 ? CAMERA.portraitFov : verticalFovForAspect(CAMERA.fov, w / h, 16 / 10);
     this.camera.updateProjectionMatrix();
   }
 
   save() { saveGame(this.state); }
 
   // ----------------------------------------------------------------- ending
+  /**
+   * The pod asleep in the Grey Star's crystal: Grand Hana behind the Heart and two more whales half-buried at the
+   * sides. They wear the shared Gloom tint, so when the Heart breaks the colour pours back into them too.
+   */
+  private sleepingPod(freed: boolean) {
+    for (const w of this.pod) this.scene.remove(w);
+    this.pod = [];
+    const spots: [number, number, number, number, number][] = [[0, -4.5, -36, 0, 2.1], [-27, -3.5, -12, 1.25, 1.35], [27, -3.5, -15, -1.3, 1.35]];
+    for (const [x, y, z, rot, scale] of spots) {
+      const w = whole('whale', { gloom: true }) ?? new T.Group();
+      w.position.set(x, freed ? 8 + scale * 3 : y, z); w.rotation.y = rot; w.scale.setScalar(scale);
+      w.userData.toY = 8 + scale * 3;
+      this.scene.add(w); this.pod.push(w);
+    }
+  }
+
   private ending() {
     const s = this.state;
-    // The pod rises out of the crystal around the isle.
-    const tints = ['#2f8be8', '#4fb6ff', '#2a6fd0', '#7fc8ff'];
-    for (let i = 0; i < 4; i++) {
-      const w = new Bao();
-      w.deck.visible = false;
-      const big = i === 0 ? 2.4 : 1.5 + i * .15;
-      w.root.scale.setScalar(big);
-      w.whale.traverse(o => { const m = o as T.Mesh; if (m.isMesh && /whale|body/.test(m.name + (m.material as T.Material).name)) { m.material = (m.material as T.MeshToonMaterial).clone(); (m.material as T.MeshToonMaterial).color.set(tints[i]); } });
-      const a = i / 4 * Math.PI * 2 + .6;
-      w.root.position.set(Math.cos(a) * 30, -40, Math.sin(a) * 30 - 10);
-      w.root.userData.toY = 6 + i * 3; w.root.rotation.y = -a;
-      this.scene.add(w.root); this.pod.push(w.root);
-    }
+    // The pod wakes: the crust's colour is already fading (the shared Gloom tint), and the whales rise.
+    for (const w of this.pod) w.userData.rising = true;
     play('song'); setTimeout(() => play('grow'), 1200);
     this.scene_('ending');
     if (!s.items.seed_golden) { s.items.seed_golden = 1; }
