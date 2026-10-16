@@ -473,3 +473,5 @@ Far below the clouds lies a green forest (Clover, Ember), the sea (Reef, Frostfa
 ## 18. Phase 0 foundations
 
 - T00: new borrowed art uses the role registry in `src/world/borrowed.ts`, lazy loading through `assets.ts`, and the matching inventory in `docs/BORROWED-ASSETS.md`. The build packs nested model folders. No new art or saved fields are introduced.
+
+- T01: each game owns a typed synchronous event bus outside serialized state. Successful rules publish outcomes once; story chapter/goal notifications are deduplicated. The opening simulation now performs the same ladder and Bao-pat sequence as chapter 1. Future islet/pet systems use the reserved typed events.

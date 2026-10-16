@@ -1,3 +1,4 @@
+import { syncStoryEvents } from '../src/rules/story.ts';
 /**
  * A scripted player that plays the whole story with the real rules (logic check 3, design §13).
  * Fights are not animated: their length and the damage taken are estimated from the real numbers
@@ -43,7 +44,7 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
   let choreTimer = 0;
   const s = newGame(seed, 0), rng = makeRng(seed);
   // Chapter 1: wake up in the cottage, climb to the deck (the pat comes with the first chores).
-  s.story.flags.onDeck = true;
+  simulateOpening(s);
   const report: SimReport = { ended: false, minutes: 0, faints: 0, nanaGifts: 0, raids: 0, arrivals: [], freedAt: {}, growWaits: [], log: [] };
   let now = 0, fishTimer = 0, noteAt = -1;
   const minute = () => Math.round(s.playSeconds / 6) / 10;
@@ -55,6 +56,7 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
       const ev = tickRules(s, 1, onDeck, now);
       if (ev.voyage === 'raid') resolveRaid(!s.voyage?.scripted);
       if (onDeck && ++choreTimer >= P.choreEvery) { choreTimer = 0; chores(); }
+      syncStoryEvents(s, onDeck ? 'deck' : 'isle');
     }
   }
 
@@ -257,4 +259,13 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
   report.nanaGifts = s.story.nanaGifts;
   void FORMS;
   return report;
+}
+
+/** The same chapter-one actions as the browser player, using the real rules. */
+export function simulateOpening(s: GameState) {
+  syncStoryEvents(s, 'house');
+  s.story.flags.onDeck = true;
+  syncStoryEvents(s, 'deck');
+  pet(s);
+  syncStoryEvents(s, 'deck');
 }

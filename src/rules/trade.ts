@@ -1,3 +1,4 @@
+import { emitState } from '../core/events.ts';
 import { FISH, HOME, ITEMS, plotCount, LIKED_BONUS, MARKETS, MEALS, POST, RECIPES, SKILL_GAIN, UPGRADES, type FishId, type IsleId, type ItemId, type LandId, type MarketDef, type MealId, type RecipeId, type UpgradeId } from './content.ts';
 import { count, emptyPlot, give, hasCrew, isRescued, take, type GameState } from './state.ts';
 import { payout, perks, train } from './home.ts';
@@ -22,6 +23,7 @@ export function sell(s: GameState, isle: IsleId, item: ItemId, n = 1): Result<{ 
   if (k <= 0) return no('You have none');
   take(s, item, k);
   s.glimmer += price * k;
+  emitState(s, 'sold', { item, count: k, glimmer: price * k, via: 'market' });
   return { ok: true, glimmer: price * k };
 }
 export function buy(s: GameState, isle: IsleId, item: ItemId, n = 1): Result {
@@ -42,6 +44,7 @@ export function buyUpgrade(s: GameState, isle: IsleId, id: UpgradeId): Result {
   if (hasUpgrade(s, id)) return no('Already made');
   if (s.glimmer < price) return no('Not enough glimmer');
   s.glimmer -= price; s.gear[id] = true;
+  emitState(s, 'built', { kind: 'upgrade', id });
   void UPGRADES;
   return { ok: true };
 }
@@ -87,7 +90,9 @@ export function craft(s: GameState, id: RecipeId, spot?: number): Result<{ skill
     const free = [...Array(POST.spots).keys()].filter(i => !s.posts.includes(i));
     s.posts.push(spot !== undefined && free.includes(spot) ? spot : free[0]);
   }
-  return { ok: true, skill: train(s, 'craft', SKILL_GAIN.craft) };
+  const skill = train(s, 'craft', SKILL_GAIN.craft);
+  emitState(s, 'built', { kind: 'recipe', id });
+  return { ok: true, skill };
 }
 
 export function lockReason(s: GameState, id: RecipeId) {
@@ -123,5 +128,7 @@ export function cook(s: GameState, meal: MealId): Result<{ portions: number; ski
   give(s, meal, portions);
   s.stats.cooked++;
   s.story.flags.cooked = true;
-  return { ok: true, portions, skill: train(s, 'cook', SKILL_GAIN.cook) };
+  const skill = train(s, 'cook', SKILL_GAIN.cook);
+  emitState(s, 'cooked', { meal, count: portions });
+  return { ok: true, portions, skill };
 }

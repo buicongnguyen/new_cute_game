@@ -1,3 +1,4 @@
+import { emitState } from '../core/events.ts';
 import { CRUST_RINGS, DRONE, GARDENER_EVERY, GARDENER_SPEED, ITEMS, TREES, moodFactor, seedOf, type ProduceId, type TreeId } from './content.ts';
 import { count, emptyPlot, give, hasCrew, take, type GameState, type Plot } from './state.ts';
 import { payout, perks, train, SKILL_GAIN } from './home.ts';
@@ -36,6 +37,7 @@ export function plant(s: GameState, index: number, tree: TreeId): Result {
   if (!take(s, seedOf(tree))) return no('You have no seed for that');
   Object.assign(plot, { tree, phase: 'growing', progress: 0, crust: 0 });
   s.story.flags.planted = true;
+  emitState(s, 'planted', { plot: index, tree });
   return { ok: true };
 }
 
@@ -66,7 +68,9 @@ export function harvest(s: GameState, index: number): Result<{ item: ProduceId; 
   s.stats.harvested += n;
   s.story.flags.harvested = true;
   if (ITEMS[item].kind === 'craft') s.story.flags.craftHarvest = true;
-  return { ok: true, item, n, sparks, skill: train(s, 'garden', SKILL_GAIN.harvest) };
+  const skill = train(s, 'garden', SKILL_GAIN.harvest);
+  emitState(s, 'harvested', { plot: index, item, count: n });
+  return { ok: true, item, n, sparks, skill };
 }
 
 /** Harvests every ripe tree; returns what was picked. */

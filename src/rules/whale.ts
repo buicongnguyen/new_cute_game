@@ -1,3 +1,4 @@
+import { emitState } from '../core/events.ts';
 import { ITEMS, STAGES, WHALE, plotCount, type ItemId, type Stage } from './content.ts';
 import { count, emptyPlot, take, type GameState } from './state.ts';
 import type { Result } from './garden.ts';
@@ -34,6 +35,7 @@ export function pet(s: GameState): Result<{ mood: number }> {
   s.whale.petAt = s.playSeconds + WHALE.petCooldown;
   s.whale.mood = clamp(s.whale.mood + WHALE.petMood, 0, WHALE.maxMood);
   s.story.flags.petted = true;
+  emitState(s, 'pet', { id: 'bao', action: 'petted' });
   return { ok: true, mood: WHALE.petMood };
 }
 

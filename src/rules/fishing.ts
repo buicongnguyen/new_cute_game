@@ -1,3 +1,4 @@
+import { emitState } from '../core/events.ts';
 import type { Rng } from '../core/rng.ts';
 import { BAIT, FISH, FISHING, SKILL_GAIN, fishWaters, type FishId, type PlaceId } from './content.ts';
 import { give, type GameState } from './state.ts';
@@ -33,5 +34,7 @@ export function landFish(s: GameState, fish: FishId) {
   give(s, fish);
   s.stats.fish++;
   s.story.flags.fished = true;
-  return train(s, 'fish', SKILL_GAIN.catch);
+  const level = train(s, 'fish', SKILL_GAIN.catch);
+  emitState(s, 'caught', { fish, place: s.place });
+  return level;
 }

@@ -1,3 +1,4 @@
+import { emitState } from '../core/events.ts';
 import { CREW, HIVES, HIVE_OF, ISLE_IDS, ISLE_MAPS, ITEMS, LANDS, PLACES, RAID, RECIPES, ROOMS, STAGES, TIERS, TREES, isShip, seedOf, type FormId, type IsleId, type LandId, type NoteIsle } from './content.ts';
 import { count, give, type GameState } from './state.ts';
 import { growNeeds } from './whale.ts';
@@ -133,3 +134,16 @@ export const noteName = (n: NoteIsle) => NOTE_NAMES[n];
 export const stageName = (s: GameState) => STAGES[s.whale.stage].name;
 export const recommendedLevel = (isle: IsleId) => TIERS[PLACES[isle].tier].level;
 export const itemName = (id: keyof typeof ITEMS) => ITEMS[id].name;
+
+const progressSnapshots = new WeakMap<GameState, { chapter: number; goal: string }>();
+/** Observe progression after a state transition; repeated HUD/simulation ticks produce no duplicates. */
+export function syncStoryEvents(s: GameState, where: Where) {
+  const current = goal(s, where);
+  const chapter = !s.story.flags.petted ? 1 : !s.gear.rope ? 2 : s.notes.length < 4 ? (s.crew.length > 1 ? 4 : 3) : 5;
+  const key = JSON.stringify([current.text, current.target, current.index]);
+  const previous = progressSnapshots.get(s);
+  progressSnapshots.set(s, { chapter, goal: key });
+  if (previous?.chapter !== chapter) emitState(s, 'chapter', { chapter });
+  if (previous?.goal !== key) emitState(s, 'goal', { text: current.text, target: current.target, index: current.index });
+  return current;
+}

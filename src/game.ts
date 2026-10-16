@@ -1,3 +1,5 @@
+import { eventsFor, type EventBus } from './core/events.ts';
+import { syncStoryEvents } from './rules/story.ts';
 import * as T from 'three';
 import { GameLoop } from './core/loop.ts';
 import { ActionMap } from './core/input.ts';
@@ -66,6 +68,7 @@ export class Game {
   loop: GameLoop;
   keys = new ActionMap({ up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], ring: ['Space'], spin: ['KeyQ'], hop: ['KeyE', 'ShiftLeft', 'ShiftRight'], interact: ['KeyF', 'Enter'], eat: ['KeyR'], conch: ['KeyC'] });
   state: GameState;
+  events: EventBus;
   rng: RngStreams;
   hud: Hud; panels: Panels;
   keeper: Keeper;
@@ -109,6 +112,7 @@ export class Game {
 
   constructor(private canvas: HTMLCanvasElement, private uiRoot: HTMLElement, state: GameState) {
     this.state = state;
+    this.events = eventsFor(state);
     this.rng = new RngStreams(state.seed + ':' + state.stats.voyages);
     this.renderer = new T.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = T.SRGBColorSpace;
@@ -1661,7 +1665,7 @@ export class Game {
   cinematic: { dist: number; pitch: number; spin: number } | null = null;
 
   private updateHud() {
-    const s = this.state, where = this.where(), g = goal(s, where);
+    const s = this.state, where = this.where(), g = syncStoryEvents(s, where);
     const hive = this.mode === 'isle' && this.hive && !this.hive.broken && (this.hive.awake || flat(this.keeper.pos, this.hive.pos) < 18) ? this.hive : null;
     const view: HudView = {
       mode: where, combat: this.mode === 'isle' || !!this.raid,

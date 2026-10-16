@@ -1,3 +1,4 @@
+import { emitState } from '../core/events.ts';
 import { CRATE, ITEMS, ROOMS, SKILL_GAIN, SKILL_IDS, SKILL_MAX, SKILL_PERK, SKILL_XP, type ItemId, type RoomId, type SkillId } from './content.ts';
 import { count, take, type GameState } from './state.ts';
 import type { Result } from './garden.ts';
@@ -53,6 +54,7 @@ export function shipCrate(s: GameState, item: ItemId, n = 1): Result<{ glimmer: 
   s.glimmer += price * k;
   s.stats.shipped += k;
   s.story.flags.shipped = true;
+  emitState(s, 'sold', { item, count: k, glimmer: price * k, via: 'crate' });
   return { ok: true, glimmer: price * k };
 }
 
@@ -73,5 +75,7 @@ export function repairRoom(s: GameState, room: RoomId): Result<{ level: number }
   s.glimmer -= r.glimmer;
   s.rooms[room] = true;
   s.story.flags[`room_${room}`] = true;
-  return { ok: true, level: train(s, 'craft', SKILL_GAIN.repair) };
+  const level = train(s, 'craft', SKILL_GAIN.repair);
+  emitState(s, 'built', { kind: 'room', id: room });
+  return { ok: true, level };
 }

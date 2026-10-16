@@ -1,3 +1,4 @@
+import { emitState } from '../core/events.ts';
 import type { Rng } from '../core/rng.ts';
 import { HOME, ISLE_IDS, PLACES, VOYAGE, WHALE, isLand, type IsleId, type PlaceId } from './content.ts';
 import { hasCrew, type GameState } from './state.ts';
@@ -63,6 +64,7 @@ export function startVoyage(s: GameState, to: PlaceId, rng: Rng): Result<{ hungr
     raidState: scripted || random ? 'pending' : 'none', scripted,
     treasure: hasCrew(s, 'ria'), dewTimer: 0,
   };
+  emitState(s, 'departed', { from: s.place, to });
   return { ok: true, hungry: plan.hungry, duration: plan.duration };
 }
 
@@ -80,6 +82,7 @@ export function tickVoyage(s: GameState, dt: number): VoyageEvent {
   if (v.elapsed >= v.duration) {
     s.place = v.to; s.voyage = null; s.stats.voyages++;
     if (s.place !== 'dawnreach') s.isles[s.place as IsleId].visited = true;
+    emitState(s, 'landed', { from: v.from, to: s.place });
     return 'arrive';
   }
   v.dewTimer += dt;
@@ -104,6 +107,6 @@ export function endRaid(s: GameState, won: boolean, waves: number) {
   // The scripted raid is paid off only when it is over (a raid cut off by a reload comes back).
   if (s.voyage?.scripted && s.voyage.raidState === 'active') s.raidsOwed.shift();
   if (s.voyage) s.voyage.raidState = 'done';
-  if (won) { s.glimmer += waves * 25; s.stats.raidsWon++; }
+  if (won) { s.glimmer += waves * 25; s.stats.raidsWon++; emitState(s, 'raidWon', { waves }); }
   else s.whale.mood = Math.max(0, s.whale.mood + WHALE.lostRaidMood);
 }

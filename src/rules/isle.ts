@@ -1,3 +1,4 @@
+import { emitState } from '../core/events.ts';
 import { CANNON, CREW, FAMILY, FORMS, HIVE_CRACK, HIVES, HIVE_OF, ISLE_MAPS, LANDS, LEFTOVER, ORE, PLACES, RESCUE, SPIRE, TIERS, WHALE, WILD, isLand, isShip, type CrewId, type FormId, type IsleId, type ItemId, type LandId, type NoteIsle, type ProduceId } from './content.ts';
 import { give, type GameState } from './state.ts';
 import { addXp } from './keeper.ts';
@@ -16,6 +17,7 @@ export const hiveOf = (isle: IsleId) => HIVES[HIVE_OF[isle]];
 
 /** A Gloom form was freed: XP and glimmer (none for Gloomlings a Spire or Hive woke: they were only napping). */
 export function formFreed(s: GameState, form: FormId, tier: number, reward = true) {
+  emitState(s, 'freed', { kind: 'form', id: form, place: s.place });
   if (!reward) return { levels: 0, xp: 0, glimmer: 0 };
   const st = formStats(form, tier);
   s.glimmer += st.glimmer;
@@ -50,6 +52,7 @@ export function rescue(s: GameState, isle: IsleId, index: number): Result<{ who:
   const tier = TIERS[tierOf(isle)];
   s.glimmer += Math.round(RESCUE.glimmer * tier.reward);
   const levels = addXp(s, RESCUE.xp * tier.reward);
+  emitState(s, 'freed', { kind: 'crew', id: cage.who, place: isle });
   return { ok: true, who: cage.who, joins, levels };
 }
 
@@ -62,7 +65,9 @@ export function freeCaptive(s: GameState, isle: IsleId, index: number): Result<{
   const tier = TIERS[tierOf(isle)], glimmer = Math.round(FAMILY.glimmer * tier.reward);
   s.glimmer += glimmer; give(s, c.gift[0], c.gift[1]);
   s.stats.families++;
-  return { ok: true, gift: c.gift, glimmer, levels: addXp(s, FAMILY.xp * tier.reward) };
+  const levels = addXp(s, FAMILY.xp * tier.reward);
+  emitState(s, 'freed', { kind: 'family', id: String(index), place: isle });
+  return { ok: true, gift: c.gift, glimmer, levels };
 }
 
 /** The Hive broke: the isle is free. Returns the Note (if any) and rewards. */
@@ -99,6 +104,8 @@ export function hiveBroken(s: GameState, isle: IsleId) {
   s.whale.songs++;
   s.stats.freed++;
   if (s.place === isle) s.whale.specks = 0;
+  for (const id of opened) emitState(s, 'freed', { kind: 'crew', id, place: isle });
+  emitState(s, 'bossFreed', { place: isle, boss: HIVE_OF[isle] });
   return { note, levels, xp: hive.xp, glimmer: hive.glimmer, opened, families };
 }
 
