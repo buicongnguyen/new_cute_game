@@ -1,3 +1,5 @@
+import { Panel } from './panel.ts';
+import { groupedItems } from './item-groups.ts';
 import { h } from './dom.ts';
 import { language, setLanguage, t } from '../i18n.ts';
 import { CREW, FISH, HELPERS, HELPER_IDS, ITEMS, MALLET, COAT, MARKETS, MEALS, MEAL_IDS, NOTE_ISLES, PLACES, PLACE_IDS, RECIPES, RECIPE_IDS, ROOMS, SKILL_IDS, SKILL_NAMES, STAGES, TREES, TREE_IDS, UPGRADES, moodFactor, moodLabel, seedOf,
@@ -42,6 +44,7 @@ const costLine = (s: GameState, cost: Partial<Record<string, number>>, glimmer =
 export class Panels {
   root: HTMLElement;
   private sheet: HTMLElement;
+  private shell: Panel;
   kind: PanelKind | null = null;
   private arg: unknown = null;
   private mapPick: PlaceId | null = null;
@@ -49,21 +52,19 @@ export class Panels {
   private picked: HelperId[] = [];
   onClose: (() => void) | null = null;
   constructor(parent: HTMLElement, private api: GameApi) {
-    this.sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' });
-    this.root = h('div', { class: 'panel-backdrop', hidden: true, onclick: (e: Event) => { if (e.target === this.root) this.close(); } }, this.sheet);
-    parent.append(this.root);
+    this.shell = new Panel(parent, () => this.close());
+    this.root = this.shell.root; this.sheet = this.shell.sheet;
     this.sheet.addEventListener('pointerdown', () => { this.pointerDown = true; });
     for (const ev of ['pointerup', 'pointercancel'] as const) window.addEventListener(ev, () => { this.pointerDown = false; });
-    window.addEventListener('keydown', e => { if (e.key === 'Escape' && this.kind) { e.preventDefault(); this.close(); } });
   }
   get open() { return this.kind !== null; }
   show(kind: PanelKind, arg: unknown = null) {
     this.kind = kind; this.arg = arg;
     if (kind === 'map') this.mapPick = null;
     if (kind === 'board') { const s = this.api.state(); this.picked = s.boarders.filter(id => s.crew.includes(id)); if (this.picked.length < 2) for (const id of HELPER_IDS) if (s.crew.includes(id) && !this.picked.includes(id) && this.picked.length < 2) this.picked.push(id); }
-    this.root.hidden = false; this.render();
+    this.shell.open(); this.render();
   }
-  close() { if (!this.kind) return; this.kind = null; this.root.hidden = true; this.sheet.replaceChildren(); this.onClose?.(); }
+  close() { if (!this.kind) return; this.kind = null; this.shell.close(); this.onClose?.(); }
   /**
    * Called every HUD tick: re-renders only when the panel's numbers changed, never while a finger or the mouse is
    * down on it or a field has focus, and never for Settings (both reviews: a rebuild every 50 ms ate clicks, reset
@@ -93,12 +94,7 @@ export class Panels {
   }
 
   private frame(title: string, ...body: (Node | null)[]) {
-    // Keep the scroll position when the same panel is re-rendered.
-    const old = this.sheet.querySelector('.body') as HTMLElement | null, keep = old && this.sheet.dataset.kind === this.kind ? old.scrollTop : 0;
-    const fresh = h('div', { class: 'body' }, ...body);
-    this.sheet.replaceChildren(h('header', {}, h('h2', {}, title), h('button', { class: 'x', 'aria-label': t('Close'), onclick: () => this.close() }, '✕')), fresh);
-    this.sheet.dataset.kind = this.kind ?? '';
-    fresh.scrollTop = keep;
+    this.shell.render(this.kind ?? '', title, body);
     this.lastKey = this.signature();
   }
   private button(label: string, onClick: () => void, opts: { disabled?: boolean; kind?: string } = {}) {
@@ -320,18 +316,14 @@ export class Panels {
   }
 
   private bag(s: GameState) {
-    const kinds: ItemKind[] = ['whale', 'people', 'meal', 'fish', 'craft', 'seed'];
     const deck = this.api.onDeck();
+    const ids = (Object.keys(s.items) as ItemId[]).filter(id => count(s, id) > 0);
     return this.frame(t('Bag'),
       h('p', { class: 'hint' }, `✦ ${s.glimmer} ${t('glimmer')} · HP ${Math.ceil(s.hero.hp)}/${maxHp(s)}`),
-      ...kinds.map(kind => {
-        const ids = (Object.keys(s.items) as ItemId[]).filter(id => ITEMS[id].kind === kind && count(s, id) > 0);
-        if (!ids.length) return null;
-        return h('section', {}, h('h3', {}, t(KIND_LABEL[kind])), h('div', { class: 'grid' }, ...ids.map(id => h('div', { class: 'cell', title: t(ITEMS[id].name) },
-          h('span', { class: 'big' }, itemIcon(id)), h('small', {}, t(ITEMS[id].name)), h('b', {}, `×${count(s, id)}`),
-          ITEMS[id].eat ? this.button(t('Eat'), () => this.api.eat(id)) : null,
-          canFeed(id) && deck ? this.button(t('Feed'), () => this.api.feed(id)) : null))));
-      }));
+      ...groupedItems('bag', ids, id => h('div', { class: 'cell', title: t(ITEMS[id].name) },
+        h('span', { class: 'big' }, itemIcon(id)), h('small', {}, t(ITEMS[id].name)), h('b', {}, `×${count(s, id)}`),
+        ITEMS[id].eat ? this.button(t('Eat'), () => this.api.eat(id)) : null,
+        canFeed(id) && deck ? this.button(t('Feed'), () => this.api.feed(id)) : null)));
   }
 
   private journal(s: GameState) {

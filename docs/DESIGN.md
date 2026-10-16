@@ -481,3 +481,5 @@ Far below the clouds lies a green forest (Clover, Ember), the sea (Reef, Frostfa
 - T03: the context action scores all reachable targets by distance and facing. Facing a hatch or ladder gives it a small preference over an adjacent plot; wandering crew retain a small penalty. Explicit pointer picks still select the object tapped.
 
 - T04: saves migrate through the permanent v1 → v2 → v3 registry. V3 makes state normalization explicit, preserves prior progress, and restarts interrupted raids safely. Fixture saves cover each earlier version; missing migrations, malformed envelopes and newer versions are refused without overwriting storage.
+
+- T05: all panels share a 180 ms sheet lifecycle (instant with reduced motion), trapped keyboard focus, Escape/browser-back closing, arrow-key and gamepad navigation. Panels dock right above 1100 px. Tab strips show overflow cues; inventory categories fold and remember their state per device. Panel audits cover both languages at 360×740 and 1440×900. Preview hosting metadata and environment files stay outside Git.

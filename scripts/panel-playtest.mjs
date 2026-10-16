@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ args: ['--use-angle=d3d11'] });
+try {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await page.addInitScript(() => { localStorage.clear(); window.testPad = { connected: true, axes: [0, 0], buttons: Array.from({ length: 16 }, () => ({ pressed: false })) }; Object.defineProperty(navigator, 'getGamepads', { value: () => [window.testPad] }); });
+  await page.goto(process.env.CLOUD_URL ?? 'http://127.0.0.1:5361/'); await page.waitForSelector('.screen.title');
+  await page.evaluate(() => window.__cloud.setState('sloop+rich'));
+  for (let i = 0; i < 20 && await page.isVisible('#speech'); i++) await page.click('#speech');
+  const open = k => page.evaluate(k => window.__game.openPanel(k), k);
+  const closed = () => page.waitForFunction(() => !window.__game.panels.open);
+  await open('settings');
+  assert.equal(await page.evaluate(() => document.activeElement.className), 'x');
+  assert.ok(await page.locator('.sheet').evaluate(e => e.getBoundingClientRect().left > innerWidth / 2));
+  await page.keyboard.press('Shift+Tab');
+  assert.ok(await page.evaluate(() => document.activeElement.textContent.includes('Start over')));
+  await page.keyboard.press('Tab'); assert.equal(await page.evaluate(() => document.activeElement.className), 'x');
+  await page.keyboard.press('ArrowDown'); assert.notEqual(await page.evaluate(() => document.activeElement.className), 'x');
+  await page.keyboard.press('Escape'); await closed(); await page.waitForTimeout(220);
+  await page.evaluate(() => window.__game.openPanel('market', 'reef'));
+  await page.locator('.tabs').evaluate(el => { el.style.width = '90px'; }); await page.waitForTimeout(80);
+  assert.ok(await page.locator('.tabs').evaluate(el => el.classList.contains('more-r')));
+  await page.locator('.tabs').evaluate(el => { el.scrollLeft = el.scrollWidth; }); await page.waitForTimeout(80);
+  assert.ok(await page.locator('.tabs').evaluate(el => el.classList.contains('more-l')));
+  await page.keyboard.press('Escape'); await closed(); await page.waitForTimeout(220);
+  await open('bag'); await page.goBack(); await closed(); await page.waitForTimeout(220);
+  await open('bag');
+  const press = async i => { await page.evaluate(i => { window.testPad.buttons[i].pressed = true; }, i); await page.waitForTimeout(70); await page.evaluate(i => { window.testPad.buttons[i].pressed = false; }, i); await page.waitForTimeout(70); };
+  await press(13); assert.ok(await page.evaluate(() => document.activeElement.classList.contains('group-toggle')));
+  await press(0); assert.equal(await page.evaluate(() => document.activeElement.getAttribute('aria-expanded')), 'false');
+  await press(1); await closed(); await page.waitForTimeout(220);
+  await open('bag'); assert.equal(await page.locator('.group-toggle').first().getAttribute('aria-expanded'), 'false');
+  await page.keyboard.press('Escape'); await closed(); await page.waitForTimeout(220);
+  await page.emulateMedia({ reducedMotion: 'reduce' }); await open('settings');
+  assert.equal(await page.locator('.sheet').evaluate(e => e.getAnimations().length), 0);
+  await page.keyboard.press('Escape'); assert.equal(await page.locator('.panel-exit-sheet').count(), 0);
+  console.log('PASS panel focus, keyboard, history, gamepad, group persistence, reduced motion and desktop docking');
+} finally { await browser.close(); }

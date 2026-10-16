@@ -119,12 +119,12 @@ button:disabled { cursor: default; }
 
 /* ---------------------------------------------------------------- panels */
 .panel-backdrop { position: absolute; inset: 0; background: rgba(20, 30, 70, .38); display: grid; place-items: center; z-index: 10; padding: calc(10px + var(--safe-t)) 10px calc(10px + var(--safe-b)); }
-.sheet { width: min(520px, 100%); max-height: 100%; display: flex; flex-direction: column; background: var(--cream); border-radius: 22px; box-shadow: 0 8px 0 rgba(34,48,90,.25), 0 16px 40px rgba(0,0,0,.25); overflow: hidden; }
-.sheet header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 10px 18px; background: var(--cream-2); border-bottom: 2px solid var(--line); }
-.sheet h2 { margin: 0; font-size: 20px; font-weight: 900; }
-.sheet h3 { margin: 14px 0 6px; font-size: 15px; font-weight: 900; color: var(--ink-soft); }
-.sheet .x { width: 44px; height: 44px; border: 0; border-radius: 14px; background: #fff; font-size: 18px; font-weight: 900; box-shadow: var(--shadow); }
-.sheet .body { padding: 12px 16px 18px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+:is(.sheet, .panel-exit-sheet) { width: min(520px, 100%); max-height: 100%; display: flex; flex-direction: column; background: var(--cream); border-radius: 22px; box-shadow: 0 8px 0 rgba(34,48,90,.25), 0 16px 40px rgba(0,0,0,.25); overflow: hidden; }
+:is(.sheet, .panel-exit-sheet) header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 10px 18px; background: var(--cream-2); border-bottom: 2px solid var(--line); }
+:is(.sheet, .panel-exit-sheet) h2 { margin: 0; font-size: 20px; font-weight: 900; }
+:is(.sheet, .panel-exit-sheet) h3 { margin: 14px 0 6px; font-size: 15px; font-weight: 900; color: var(--ink-soft); }
+:is(.sheet, .panel-exit-sheet) .x { width: 44px; height: 44px; border: 0; border-radius: 14px; background: #fff; font-size: 18px; font-weight: 900; box-shadow: var(--shadow); }
+:is(.sheet, .panel-exit-sheet) .body { padding: 12px 16px 18px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 .hint { color: var(--ink-soft); font-size: 13px; font-weight: 700; margin: 6px 0; }
 .warn { color: var(--coral-d); font-weight: 800; font-size: 13px; }
 .list { display: flex; flex-direction: column; gap: 8px; }
@@ -203,3 +203,17 @@ button:disabled { cursor: default; }
   .buttons { transform: scale(.9); transform-origin: bottom right; }
   .speech { width: min(620px, calc(100vw - 260px)); left: calc(50% - 60px); }
 }
+
+/* Panel shell. Docking adapted from cute_game/src/dialog-dock.ts. */
+@media (min-width: 1101px) { .panel-backdrop { justify-items: end; background: transparent; padding-right: max(24px, env(safe-area-inset-right)); } }
+:is(.sheet, .panel-exit-sheet) header { flex-shrink: 0; gap: 8px; }
+:is(.sheet, .panel-exit-sheet) .x { flex: 0 0 44px; }
+:is(.sheet, .panel-exit-sheet) :focus-visible { outline: 3px solid var(--teal); outline-offset: -3px; }
+.tabs { overflow-x: auto; position: relative; flex-shrink: 0; padding: 3px; }
+.tabs > button { flex-shrink: 0; }
+.tabs.more-l { box-shadow: inset 12px 0 9px -9px var(--ink); }
+.tabs.more-r { box-shadow: inset -12px 0 9px -9px var(--ink); }
+.tabs.more-l.more-r { box-shadow: inset 12px 0 9px -9px var(--ink), inset -12px 0 9px -9px var(--ink); }
+.group-toggle { width: 100%; text-align: left; background: var(--cream-2); }
+.group-toggle::before { content: '▾ '; }
+.group-toggle[aria-expanded="false"]::before { content: '▸ '; }
