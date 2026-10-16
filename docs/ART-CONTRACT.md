@@ -125,7 +125,14 @@ The game code depends on everything in this file. Generators live in `art/blende
 | `speck` | Small Gloom crystal cluster | 0.35 m |
 | `skydew` | Small puffy cloud with a sparkle | 1.2 m |
 
-- **Budget:** ≤ 2,000 triangles each.
+**Ship deck.** Bao's back is a wooden ship deck. Nana's hut is replaced by a hatch that leads down into the cabin. The cabin interior reuses the owner's house kit from Zoo Garden (`house.glb` and its house plan), so it is not part of this file.
+
+| Root | What it is | Nodes and markers | Size |
+|---|---|---|---|
+| `hatch` | Round hole in the deck with a raised brass rim, a dark shaft and the top rungs of a ladder; a little lantern post beside it | Child `door`: the planked lid with iron straps, pivot on the hinge at the back edge (−Z). The code opens it by rotating `door.rotation.x` negative, to about −1.9 rad (the lid then stands up behind the hole). | Hole 1.6 m across, rim 0.12 m high; origin at the hole centre, deck surface y = 0 (the shaft goes down to y −0.75) |
+| `planter` | Rounded square planter of wooden planks, filled with moss soil, with a thin `glow_moss` rim line | Empty marker `soil` at the centre of the soil top (y 0.27); trees are placed there | 1.5 m wide, 0.3 m tall |
+
+- **Budget:** ≤ 2,000 triangles each. Exceptions: `hatch` ≤ 1,500 and `planter` ≤ 600.
 
 ### `nature.glb` (isle scenery, drawn instanced)
 
@@ -155,4 +162,4 @@ The game code depends on everything in this file. Generators live in `art/blende
 
 - Each generator writes a preview PNG to `art/previews/<file>.png`: every root, labelled, in a contact sheet under game-like light.
 - `art/asset-manifest.json` lists each GLB with its roots, triangle count per root and file size.
-- The whole model folder must stay under 2.5 MB.
+- The whole model folder must stay under 2.8 MB (it includes the owner's Zoo Garden house kit, `house.glb`, 0.19 MB).

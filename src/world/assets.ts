@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeToon, toonOf } from './look.ts';
 
@@ -8,7 +9,8 @@ import { makeToon, toonOf } from './look.ts';
  * When a file or a root is missing, callers get null and draw their own simple shape, so a missing model never
  * breaks the game.
  */
-export const MODEL_FILES = ['whale', 'keeper', 'crew', 'gloom', 'hives', 'trees', 'props', 'nature', 'fish'] as const;
+/** `house` is Zoo Garden's furniture kit (the same owner's), meshopt-compressed. */
+export const MODEL_FILES = ['whale', 'keeper', 'crew', 'gloom', 'hives', 'trees', 'props', 'nature', 'fish', 'house'] as const;
 export type ModelFile = typeof MODEL_FILES[number];
 
 const roots = new Map<ModelFile, Map<string, T.Object3D>>();
@@ -16,7 +18,7 @@ const scenes = new Map<ModelFile, T.Object3D>();
 const base = import.meta.env?.BASE_URL ?? '/';
 
 export async function loadModels(onProgress?: (done: number, all: number) => void) {
-  const loader = new GLTFLoader();
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   let done = 0;
   await Promise.all(MODEL_FILES.map(async file => {
     try {
@@ -126,6 +128,20 @@ export function whole(file: ModelFile, opts: { gloom?: boolean; shadows?: boolea
     mesh.castShadow = !!opts.shadows;
   });
   return copy;
+}
+
+/** Every mesh of a root with its matrix relative to the root (to merge pieces into one batch). */
+export function kitParts(file: ModelFile, name: string) {
+  const src = roots.get(file)?.get(name);
+  if (!src) return null;
+  src.updateMatrixWorld(true);
+  const inv = new T.Matrix4().copy(src.matrixWorld).invert(), out: { geometry: T.BufferGeometry; matrix: T.Matrix4; material: T.Material }[] = [];
+  src.traverse(o => {
+    const mesh = o as T.Mesh;
+    if (!mesh.isMesh) return;
+    out.push({ geometry: mesh.geometry, matrix: new T.Matrix4().multiplyMatrices(inv, mesh.matrixWorld), material: Array.isArray(mesh.material) ? mesh.material[0] : mesh.material });
+  });
+  return out;
 }
 
 export function findChild(root: T.Object3D, name: string): T.Object3D | null {

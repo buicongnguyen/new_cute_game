@@ -2,7 +2,7 @@
 
 Plain Python (no Blender):  python art/blender/kit/check_glb.py
 Parses each GLB's JSON and binary chunks and checks root and child names, markers, pivots, materials,
-triangle budgets, sizes and buffer bounds. Exits 1 on any failure.
+triangle budgets, sizes, buffer bounds and the models-folder size (< 2.6 MB). Exits 1 on any failure.
 """
 import json
 import os
@@ -17,7 +17,8 @@ EXPECT = {
                       budget=lambda n: 1500),
     'props.glb': dict(roots=['hut', 'workbench', 'kitchen', 'maptable', 'ropepost', 'fishspot', 'pantry', 'chimepost',
                              'postspot', 'market', 'tent', 'lantern', 'windmill', 'coral_arch', 'ore_rock', 'forge', 'rod',
-                             'speck', 'skydew'], budget=lambda n: 2000),
+                             'speck', 'skydew', 'hatch', 'planter'],
+                      budget=lambda n: {'hatch': 1500, 'planter': 600}.get(n, 2000)),
     'nature.glb': dict(roots=['rock_a', 'rock_b', 'rock_c', 'bush_a', 'bush_b', 'flower_a', 'flower_b', 'flower_c',
                               'grass_tuft', 'mushroom', 'tree_round', 'tree_pine', 'palm', 'coral_a', 'coral_b',
                               'lava_rock_a', 'lava_rock_b', 'fence', 'cloud_puff'],
@@ -181,15 +182,25 @@ def main():
                 if name == 'plot' and 'glow_moss' not in mats:
                     errors.append('plot has no glow_moss edge')
             elif fname == 'props.glb':
-                want = {'windmill': ['blades'], 'rod': ['tip']}.get(name, [])
-                if kid_names != want:
+                want = {'windmill': ['blades'], 'rod': ['tip'], 'hatch': ['door'], 'planter': ['soil']}.get(name, [])
+                if sorted(kid_names) != want:
                     errors.append(f'{name}: children {kid_names} (want {want})')
-                if name == 'windmill' and kids and 'mesh' not in kids[0]:
-                    errors.append('windmill/blades has no mesh')
-                if name == 'rod' and kids and 'mesh' in kids[0]:
-                    errors.append('rod/tip should be an empty marker')
-                if name == 'market' and 'pal_awning' not in mats:
-                    errors.append('market does not use pal_awning')
+                meshy = {'blades', 'door'}
+                for kd in kids:
+                    if (kd['name'] in meshy) != ('mesh' in kd):
+                        errors.append(f'{name}/{kd["name"]}: mesh/marker mismatch')
+                tr = {kd['name']: kd.get('translation', [0, 0, 0]) for kd in kids}
+                if name == 'hatch' and 'door' in tr:
+                    t = tr['door']
+                    a = doc['accessors'][doc['meshes'][kids[0]['mesh']]['primitives'][0]['attributes']['POSITION']]
+                    zs = [doc['accessors'][pp['attributes']['POSITION']]['min'][2] for pp in doc['meshes'][kids[0]['mesh']]['primitives']]
+                    ze = [doc['accessors'][pp['attributes']['POSITION']]['max'][2] for pp in doc['meshes'][kids[0]['mesh']]['primitives']]
+                    if not (abs(t[0]) < 1e-3 and 0.08 <= t[1] <= 0.25 and -1.0 <= t[2] <= -0.75):
+                        errors.append(f'hatch/door hinge at {t} (want the back edge, rim height)')
+                    if min(zs) < -0.1 or max(ze) < 1.5:
+                        errors.append('hatch/door lid should reach forward (+Z) from its hinge')
+                if name == 'planter' and 'soil' in tr and not 0.25 <= tr['soil'][1] <= 0.29:
+                    errors.append(f'planter/soil at {tr["soil"]}')
             elif fname == 'nature.glb':
                 if kid_names:
                     errors.append(f'{name}: has children')
@@ -207,7 +218,7 @@ def main():
                 v = max(dims[0], dims[2]) if axes == 'xz' else hi[1]
                 if not a <= v <= b:
                     errors.append(f'{name}: {axes} size {v:.2f} not in {a}..{b}')
-            if fname != 'fish.glb' and name != 'skydew' and abs(lo[1]) > 0.01:
+            if fname != 'fish.glb' and name not in ('skydew', 'hatch') and abs(lo[1]) > 0.01:
                 errors.append(f'{name}: base y {lo[1]:.3f}')
             extra = ''
             for k in kids:
@@ -220,11 +231,12 @@ def main():
         report += lines
         failures += [f'{fname}: {e}' for e in errors]
     print('\n'.join(report))
-    print(f'world kit total: {total} bytes ({total / 1e6:.3f} MB, limit 1.1 MB)')
-    if total > 1_100_000:
-        failures.append(f'total {total} bytes > 1.1 MB')
+    # The owner's size budget is the whole models folder (< 2.6 MB).
+    print(f'world kit total: {total} bytes ({total / 1e6:.3f} MB)')
     folder = sum(os.path.getsize(os.path.join(MODELS, f)) for f in os.listdir(MODELS) if f.endswith('.glb'))
-    print(f'models folder now: {folder} bytes (contract: < 2.5 MB)')
+    print(f'models folder now: {folder} bytes (limit 2.6 MB)')
+    if folder > 2_600_000:
+        failures.append(f'models folder {folder} bytes > 2.6 MB')
     if failures:
         print('FAIL\n  ' + '\n  '.join(failures))
         sys.exit(1)

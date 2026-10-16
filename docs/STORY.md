@@ -59,7 +59,7 @@ The Gloom has no body of its own. It grows **crystal shells** around the native 
 
 The backfolk do not live on bare moss. Long ago they built a **wooden ship deck** on the backs of their whales, like the basket of a hot-air balloon or the deck of a little submarine: honey-coloured planks, a rounded gunwale, and green weed and moss growing over the edges where Bao's skin shows. The garden grows in **wooden planter boxes** full of Bao's moss.
 
-Nana's home is below deck. A small round **hatch with a wooden gate** leads down a ladder into her **cabin**: a cozy round room with a patchwork bed, a stove, a table, a chest and a shelf where the Notes glow. The cabin's big round windows look out on open blue sky and drifting clouds, so even inside, you never forget you are flying. Rest in the bed to get your strength back (the game saves while you nap).
+Nana's home is below deck. A small round **hatch with a wooden gate** leads down a ladder into her **cottage**, which hangs under the deck like the gondola of an airship. It has six rooms: a living room with a fireplace and a trophy shelf where the Notes glow, a kitchen, a craft room, a bedroom, a bathroom and a study with a globe. All around it is open blue sky and drifting clouds, so even at home you never forget you are flying. The crew spend time here too. Rest in the bed to get your strength back (the game saves while you nap).
 
 ## 5. Prologue: "The night the star fell"
 

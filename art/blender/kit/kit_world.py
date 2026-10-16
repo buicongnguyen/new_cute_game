@@ -889,7 +889,7 @@ def contact_sheet(cells, path, cols, pitch=(3.0, 3.0), width_px=2400, label_size
         obj, text, depth = item[:3]
         gap = item[3] if len(item) > 3 else 0.6
         y = y_edge - depth / 2 - gap
-        obj.location = (0, y, 0)
+        obj.location = (0, y, 0.015)  # lifted off the preview ground so a floor at y = 0 does not z-fight
         placed += [o for o in subtree(obj)]
         placed.append(label(text, (0, y - depth / 2 - 0.5, label_size * 0.9), label_size))
         y_edge = y - depth / 2 - 1.4

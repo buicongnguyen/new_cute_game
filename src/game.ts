@@ -25,7 +25,8 @@ import { IsleView, type Blocker } from './world/isle-view.ts';
 import { Actor, walkTo } from './world/actors.ts';
 import { Combat, flat, type Ground } from './world/combat.ts';
 import { HiveFight, noteView } from './world/hive.ts';
-import { CabinView, CABIN } from './world/cabin.ts';
+import { CottageView, placementOf } from './world/cottage.ts';
+import { HOUSE } from './world/house-plan.ts';
 import { Keeper } from './world/keeper.ts';
 import { part, whole } from './world/assets.ts';
 import { makeToon } from './world/look.ts';
@@ -41,7 +42,7 @@ interface Interactable { id: string; pos: T.Vector3; radius: number; label: stri
 interface Follower { who: CrewId; actor: Actor; boarding: boolean; t: number }
 
 /** Portrait screens use a wider lens and a little more distance (as Zoo Garden does), never the full horizontal-FOV rule, which went past 100°. */
-const CAMERA = { fov: 40, portraitFov: 47, pitch: 47, deck: 19, isle: 22, house: 14, portrait: 1.22 };
+const CAMERA = { fov: 40, portraitFov: 47, pitch: 47, deck: 19, isle: 22, house: 19, portrait: 1.22 };
 /** Where an isle floats while Bao hovers over it: below and off to the side, so it shows past the whale. */
 const ISLE_BELOW = new T.Vector3(30, -28, -18);
 
@@ -182,7 +183,7 @@ export class Game {
   }
 
   // -------------------------------------------------------------- scenes
-  /** Down the hatch into Nana's cabin, which floats in the open sky (the owner's wish: no black void). */
+  /** Down the hatch into Nana's cottage (Zoo Garden's house), which floats in the open sky (the owner's wish: no black void). */
   enterHouse() {
     if (this.raid) { this.hud.toast(t('Not now: the Gloom is aboard!'), 'warn'); return; }
     this.bao.openHatch();
@@ -192,11 +193,11 @@ export class Game {
       this.bao.root.visible = false;
       for (const [, v] of this.isles) v.group.visible = false;
       this.sky.hole = null;
-      this.cabin.sync(this.state.notes);
+      this.cabin.sync(this.state.notes, this.state.crew);
       this.cabin.group.visible = true;
       const g = this.cabinGround();
       this.keeper.bounds = g; this.combat.ground = g;
-      this.keeper.place(CABIN.ladder[0], CABIN.ladder[1] + 1);
+      const spawn = this.cabin.spawn(); this.keeper.place(spawn.x, spawn.z);
       this.snapCamera();
       this.scene_('cabin');
     });
@@ -690,12 +691,18 @@ export class Game {
       for (const [id, a] of this.bao.crew) if (s.crew.includes(id) && a.root.visible) add(`crew-${id}`, a.root.position, 1.4, 'Talk', '💬', () => this.talk(id));
       for (const d of this.dews) if (d.alive) add('dew', d.o.position, 0, 'Catch', '✨', () => this.catchDew(d));
     } else if (this.mode === 'house') {
-      const at = (p: readonly [number, number], y = 0) => new T.Vector3(p[0], y, p[1]);
-      add('ladder', at(CABIN.ladder), 1.5, 'Climb up', '🪜', () => this.leaveHouse());
-      add('bed', at(CABIN.bed), 1.7, 'Rest', '🛏️', () => this.doRest());
-      add('shelf', at(CABIN.shelf), 1.6, 'The Notes', '🎵', () => this.openPanel('bao'));
-      add('stove', at(CABIN.stove), 1.5, hasCrew(s, 'mina') ? 'Kitchen' : 'Stove', '🍳', () => hasCrew(s, 'mina') ? this.openPanel('kitchen') : this.hud.toast(t('A cook would love this stove.'), 'info'));
-      add('chest', at(CABIN.chest), 1.5, 'Bag', '🎒', () => this.openPanel('bag'));
+      // The owner's cottage furniture, each with a Cloudback job.
+      const at = (kit: string) => { const p = placementOf(kit); return p ? new T.Vector3(p.x, 0, p.z) : null; };
+      const use = (id: string, kit: string, radius: number, label: string, icon: string, act: () => void) => { const p = at(kit); if (p) add(id, p, radius, label, icon, act); };
+      add('ladder', new T.Vector3(0, 0, HOUSE.bounds.z1 - .7), 1.6, 'Climb up', '🪜', () => this.leaveHouse());
+      use('bed', 'bed', 2.0, 'Rest', '🛏️', () => this.doRest());
+      use('shelf', 'trophy_shelf', 1.8, 'The Notes', '🎵', () => this.openPanel('bao'));
+      use('stove', 'stove', 1.6, hasCrew(s, 'mina') ? 'Kitchen' : 'Stove', '🍳', () => hasCrew(s, 'mina') ? this.openPanel('kitchen') : this.hud.toast(t('A cook would love this stove.'), 'info'));
+      use('bench', 'workbench', 1.9, 'Workbench', '🔨', () => this.openPanel('workbench'));
+      use('globe', 'globe', 1.5, 'Sky map', '🗺️', () => this.openPanel('map'));
+      use('desk', 'desk', 1.6, 'Journal', '📖', () => this.openPanel('journal'));
+      use('wardrobe', 'wardrobe', 1.7, 'Bag', '🎒', () => this.openPanel('bag'));
+      for (const [id, a] of this.cabin.crew) if (a.root.visible) add(`crew-${id}`, a.root.position, 1.4, 'Talk', '💬', () => this.talk(id));
     } else if (this.mode === 'isle' && this.isle) {
       const id = s.place as IsleId, map = ISLE_MAPS[id], v = this.isle;
       const rope = new T.Vector3(map.landing[0] + 1.2, v.height(map.landing[0], map.landing[1]), map.landing[1] - .6);
@@ -954,7 +961,7 @@ export class Game {
     }
     for (const p of this.pod) if (p.userData.rising) { p.position.y = Math.min(p.userData.toY, p.position.y + realDt * 1.8); p.rotation.y += realDt * .04; }
     if (this.mode === 'deck' || this.mode === 'isle' || this.mode === 'house') this.buildInteractables();
-    if (this.mode === 'house') this.cabin.update(realDt);
+    if (this.mode === 'house') this.cabin.update(realDt, this.keeper.pos);
     // Camera: follow the Keeper.
     const aspect = this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight);
     const dist = (this.mode === 'isle' ? CAMERA.isle : this.mode === 'house' ? CAMERA.house : CAMERA.deck) * this.zoom * (aspect < .8 ? CAMERA.portrait : 1);
@@ -1022,7 +1029,7 @@ export class Game {
       this.keeper.actor.mallet.traverse(o => { const m = o as T.Mesh; if (!m.isMesh) return; m.userData.plain ??= m.material; m.material = gold ? GOLD : m.userData.plain; });
     } if (this.mode === 'deck' && !this.crewPlaced) { this.placeCrew(); this.crewPlaced = true; } }
   private crewPlaced = false;
-  cabin = new CabinView();
+  cabin = new CottageView();
   /** The grey raiding cloud that drifts beside Bao while the Gloom comes aboard. */
   private gloomCloud = makeGloomCloud();
 

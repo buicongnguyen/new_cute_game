@@ -274,12 +274,16 @@ The Good Line makes Ray and Koi 1.5 times as likely.
 ## 12b. Bao's deck and Nana's cabin
 
 - **The deck** is a wooden ship deck on Bao's back, with green weed only at the edges. Garden trees grow in wooden planter boxes; their number is the stage's patch count (4, 6, 8, 10).
-- **The hatch** (a round hole with a wooden gate) leads down to Nana's cabin. In the cabin:
+- **The hatch** (a round hole with a wooden gate) leads down to Nana's cottage. It reuses the owner's house from Zoo Garden: six rooms, the same plan and furniture kit. It hangs under Bao like an airship gondola: a wooden hull, and green weed on the walls. In the cottage:
   - **the bed:** rest to full health, and the game saves;
-  - **the shelf:** shows the Notes Bao holds, and opens Bao's card;
+  - **the trophy shelf:** the Notes Bao holds glow above it, and it opens Bao's card;
   - **the stove:** the Kitchen once Mina is aboard;
-  - **the chest:** the bag;
-  - **the ladder:** back up on deck.
+  - **the craft-room workbench:** the Workbench;
+  - **the study globe:** the sky map;
+  - **the study desk:** the journal;
+  - **the wardrobe:** the bag;
+  - **the ladder at the front door:** back up on deck;
+  - **the crew:** they spend time at home here (Nana by the fire, Mina in the kitchen, Tam at the workbench, Pip with the plants, Ria in the study) and you can talk to them.
 - **Around the cabin** the game always shows a clear blue day sky with clouds, never a black void.
 - **What still runs:** the cabin counts as being on Bao (Pip harvests, health comes back, you can sail from the map).
 
