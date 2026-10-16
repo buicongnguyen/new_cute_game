@@ -866,7 +866,7 @@ def preview_light(ground='#5FCB45', res=(2000, 1200), exposure=-0.55, world=0.6)
 
 
 def contact_sheet(cells, path, cols, pitch=(3.0, 3.0), width_px=2400, label_size=0.24, label_dy=None,
-                  ground='#5FCB45'):
+                  ground='#5FCB45', below=None):
     """Lay roots out on a grid (row 0 at the back / top of the image) with a label in front of each,
     render through the game camera under style.studio() light. Returns the placed objects."""
     rows = math.ceil(len(cells) / cols)
@@ -883,6 +883,14 @@ def contact_sheet(cells, path, cols, pitch=(3.0, 3.0), width_px=2400, label_size
         obj.location = (x, y, 0)
         placed += [o for o in subtree(obj)]
         placed.append(label(text, (x, y - ldy, label_size * 0.9), label_size))
+    # Big roots (below=[(obj, text, depth)]) go in their own rows under the grid, centred.
+    y_edge = ((rows - 1) / 2 - (rows - 1)) * py - py * 0.5
+    for obj, text, depth in (below or []):
+        y = y_edge - depth / 2 - 0.6
+        obj.location = (0, y, 0)
+        placed += [o for o in subtree(obj)]
+        placed.append(label(text, (0, y - depth / 2 - 0.5, label_size * 0.9), label_size))
+        y_edge = y - depth / 2 - 1.4
     preview_light(ground)
     frame(placed, width_px, margin=0.6)
     style.render(path)

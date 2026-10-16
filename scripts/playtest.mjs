@@ -167,6 +167,24 @@ for (let t = 0; t < 400 && caught < 1; t++) {
 ok(caught >= 1, 'caught a sky fish');
 await shot('fishing');
 
+// 11. Down the hatch into Nana's cabin, nap in the bed, climb back up.
+const ht = await ev(() => { const p = window.__game.bao.props.hatch.position; return [p.x, p.z]; });
+await quiet();
+await goto(ht[0] + 1.1, ht[1]); await press('KeyF');
+await page.waitForTimeout(700); await quiet();
+s = await st();
+ok(s.mode === 'house', 'went down the hatch into the cabin', `nearby ${s.nearby}, mode ${s.mode}`);
+await ev(() => { window.__game.state.hero.hp = 20; });
+await goto(-2.3 + 1.2, -1.4); await press('KeyF');
+await page.waitForTimeout(900);
+s = await st();
+ok(s.hp > 300, 'rested to full health in the bed', `hp ${Math.round(s.hp)}`);
+await shot('cabin');
+await goto(0, -3.4 + .9); await press('KeyF');
+await page.waitForTimeout(700); await quiet();
+s = await st();
+ok(s.mode === 'deck', 'climbed the ladder back up on deck');
+
 console.log(`\n${failures ? `${failures} FAILED` : 'ALL PASSED'}; page errors: ${errors.length ? errors.join(' | ') : 'none'}`);
 await browser.close();
 process.exit(failures || errors.length ? 1 : 0);

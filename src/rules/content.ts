@@ -333,5 +333,5 @@ export const DECK = {
   ropepost: [3.3, -2.9] as [number, number],
   fishspot: [0, 7.0] as [number, number],
   posts: [[-2.8, -3.9], [-3.1, -1.6], [2.1, 4.6], [-1.9, 5.3]] as [number, number][],
-  crewSpots: { nana: [-2.0, 1.7], pip: [0, -1.5], mina: [2.1, 3.3], tam: [1.9, 1.2], ria: [1.4, -5.2], olla: [0, 0], kai: [0, 0], coal: [0, 0] } as Record<CrewId, [number, number]>,
+  crewSpots: { nana: [-1.3, 4.6], pip: [0, -1.5], mina: [2.1, 3.3], tam: [1.9, 1.2], ria: [1.4, -5.2], olla: [0, 0], kai: [0, 0], coal: [0, 0] } as Record<CrewId, [number, number]>,
 };

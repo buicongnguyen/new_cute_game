@@ -708,7 +708,8 @@ export class Game {
     this.interactables = list;
     // The context button shows the nearest thing in reach.
     let best: Interactable | null = null, bd = Infinity;
-    for (const it of list) { if (!it.radius) continue; const d = flat(this.keeper.pos, it.pos); if (d < it.radius && d < bd) { bd = d; best = it; } }
+    // Talking to the crew loses ties to objects (people wander next to the hatch and the plots).
+    for (const it of list) { if (!it.radius) continue; const d = flat(this.keeper.pos, it.pos), score = d + (it.id.startsWith('crew-') ? .7 : 0); if (d < it.radius && score < bd) { bd = score; best = it; } }
     this.nearby = best;
   }
   /** Use the nearest thing, measured now (not at the last frame), so a press right after a move hits what is in reach. */
@@ -880,7 +881,11 @@ export class Game {
     if (this.keys.pressed('ring')) this.keeper.ring(false);
     if (this.keys.pressed('spin')) this.keeper.ring(true);
     if (this.keys.pressed('hop')) this.keeper.hop(stick.x, stick.z);
-    if (this.keys.pressed('interact')) { if (this.fishing.state !== 'off') this.reel(); else this.useNearby(); }
+    if (this.keys.pressed('interact')) {
+      // F reels only while still at the fishing spot; anywhere else it uses what is in reach.
+      const fishing = this.fishing.state !== 'off' && this.mode === 'deck' && flat(this.keeper.pos, this.bao.at(DECK.fishspot)) <= 2.4;
+      if (fishing) this.reel(); else { if (this.fishing.state !== 'off') this.stopFishing(); this.useNearby(); }
+    }
     if (this.keys.pressed('eat')) this.quickEat();
     this.keys.endStep();
     const combatOn = this.mode === 'isle' || !!this.raid;
