@@ -32,6 +32,8 @@ export class SaveStore<T> {
 
   /** Brings any older envelope up to the current version; throws if a step is missing. */
   migrate(envelope: SaveEnvelope<unknown>): SaveEnvelope<T> {
+    if (envelope.game !== this.options.game || !Number.isInteger(envelope.version) || envelope.version < 1 || envelope.version > this.options.version) throw new Error('SaveStore: unsupported envelope');
+    if (!envelope.data || typeof envelope.data !== 'object' || Array.isArray(envelope.data)) throw new Error('SaveStore: invalid data');
     let { version, data } = envelope;
     while (version < this.options.version) {
       const step = this.options.migrations?.[version];
@@ -55,7 +57,8 @@ export class SaveStore<T> {
     if (!Number.isInteger(envelope.version)) { this.lastProblem = 'corrupt'; return null; }
     if (envelope.version > this.options.version) { this.lastProblem = 'newer'; return null; }
     this.lastProblem = null;
-    return this.migrate(envelope).data;
+    try { return this.migrate(envelope).data; }
+    catch { this.lastProblem = 'corrupt'; return null; }
   }
 
   save(data: T) {

@@ -1,0 +1,224 @@
+{
+  "game": "cloudback",
+  "version": 1,
+  "savedAt": 1700000000000,
+  "data": {
+    "version": 1,
+    "seed": "fixture-v2-Bao",
+    "clock": 1700000000000,
+    "playSeconds": 0,
+    "place": "dawnreach",
+    "voyage": null,
+    "whale": {
+      "hunger": 70,
+      "mood": 70,
+      "xp": 0,
+      "stage": 1,
+      "petAt": 0,
+      "specks": 0,
+      "speckTimer": 0,
+      "moodTimer": 0,
+      "songs": 0
+    },
+    "notes": [
+      "clover"
+    ],
+    "plots": [
+      {
+        "tree": null,
+        "phase": "empty",
+        "progress": 0,
+        "crust": 0
+      },
+      {
+        "tree": null,
+        "phase": "empty",
+        "progress": 0,
+        "crust": 0
+      },
+      {
+        "tree": null,
+        "phase": "empty",
+        "progress": 0,
+        "crust": 0
+      },
+      {
+        "tree": null,
+        "phase": "empty",
+        "progress": 0,
+        "crust": 0
+      }
+    ],
+    "items": {
+      "seed_sproutbean": 2,
+      "seed_puffberry": 2,
+      "seed_ropevine": 2,
+      "cloudpear": 3,
+      "fibre": 9
+    },
+    "glimmer": 123,
+    "hero": {
+      "level": 1,
+      "xp": 0,
+      "hp": 100,
+      "buff": null,
+      "buffUntil": 0,
+      "freshUntil": 0
+    },
+    "gear": {
+      "mallet": 1,
+      "coat": 1,
+      "rope": true,
+      "line": false,
+      "bait": false
+    },
+    "posts": [],
+    "keepsakes": [],
+    "rescued": [
+      "olla",
+      "pip"
+    ],
+    "crew": [
+      "nana",
+      "pip"
+    ],
+    "isles": {
+      "clover": {
+        "spires": [
+          false,
+          false
+        ],
+        "cages": [
+          false,
+          false
+        ],
+        "groups": [
+          false,
+          false,
+          false
+        ],
+        "captives": [],
+        "freed": true,
+        "oreAt": [],
+        "wildAt": [
+          0,
+          0
+        ],
+        "visited": false,
+        "leftover": false,
+        "cracks": 0
+      },
+      "reef": {
+        "spires": [
+          false,
+          false
+        ],
+        "cages": [
+          false,
+          false,
+          false
+        ],
+        "groups": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "captives": [],
+        "freed": false,
+        "oreAt": [
+          0,
+          0
+        ],
+        "wildAt": [
+          0,
+          0
+        ],
+        "visited": false,
+        "leftover": false,
+        "cracks": 0
+      },
+      "ember": {
+        "spires": [
+          false,
+          false,
+          false
+        ],
+        "cages": [
+          false,
+          false
+        ],
+        "groups": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "captives": [],
+        "freed": false,
+        "oreAt": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "wildAt": [],
+        "visited": false,
+        "leftover": false,
+        "cracks": 0
+      },
+      "star": {
+        "spires": [],
+        "cages": [],
+        "groups": [
+          false,
+          false
+        ],
+        "captives": [
+          false,
+          false
+        ],
+        "freed": false,
+        "oreAt": [],
+        "wildAt": [],
+        "visited": false,
+        "leftover": false,
+        "cracks": 0
+      }
+    },
+    "raidsOwed": [],
+    "story": {
+      "prologueSeen": false,
+      "ended": false,
+      "endingSeen": false,
+      "flags": {
+        "onDeck": true,
+        "petted": true,
+        "planted": true,
+        "fed": true
+      },
+      "nanaGifts": 0
+    },
+    "timers": {
+      "gardener": 0,
+      "leftover": 0,
+      "nana": 0,
+      "mina": 0
+    },
+    "stats": {
+      "freed": 0,
+      "fish": 0,
+      "harvested": 0,
+      "voyages": 0,
+      "raidsWon": 0,
+      "faints": 0,
+      "shipped": 0,
+      "cooked": 0,
+      "families": 0
+    },
+    "school": {
+      "left": 3,
+      "t": 4
+    }
+  }
+}

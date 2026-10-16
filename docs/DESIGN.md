@@ -467,7 +467,7 @@ Far below the clouds lies a green forest (Clover, Ember), the sea (Reef, Frostfa
 
 ## 17. Saves and settings
 
-- **Save:** key `cloudback:save:main`, a versioned envelope (version 2) with chained migrations. Settings → Save code exports and imports a text code.
+- **Save:** key `cloudback:save:main`, a versioned envelope (version 3) with chained migrations. Settings → Save code exports and imports a text code.
 - **Settings:** English or Tiếng Việt, sound and music volume, screen shake, graphics, replay the prologue, start over.
 
 ## 18. Phase 0 foundations
@@ -479,3 +479,5 @@ Far below the clouds lies a green forest (Clover, Ember), the sea (Reef, Frostfa
 - T02: `src/systems/` owns deck, land, ship, skiff, drone, raid, scene transition, cottage, camera, story and interaction behavior. Game retains shared state, mode switching and the original frame order; mode systems receive enter/exit callbacks. Existing browser hooks forward to the extracted implementations.
 
 - T03: the context action scores all reachable targets by distance and facing. Facing a hatch or ladder gives it a small preference over an adjacent plot; wandering crew retain a small penalty. Explicit pointer picks still select the object tapped.
+
+- T04: saves migrate through the permanent v1 → v2 → v3 registry. V3 makes state normalization explicit, preserves prior progress, and restarts interrupted raids safely. Fixture saves cover each earlier version; missing migrations, malformed envelopes and newer versions are refused without overwriting storage.

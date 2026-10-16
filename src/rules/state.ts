@@ -86,7 +86,7 @@ export interface GameState {
   stats: { freed: number; fish: number; harvested: number; voyages: number; raidsWon: number; faints: number; shipped: number; cooked: number; families: number };
 }
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export function newIsle(isle: IsleId): IsleProgress {
   const map = ISLE_MAPS[isle];
@@ -156,6 +156,7 @@ export function fromV1(data: unknown): unknown {
     s.story = { ...(s.story as GameState['story']), flags: { ...(s.story?.flags ?? {}), onDeck: true, petted: true, shipped: true, cooked: true, fished: true } };
   }
   if (s.isles && !s.isles.star?.freed) delete (s.isles as Partial<Record<IsleId, IsleProgress>>).star;
+  s.version = 2;
   return s;
 }
 
@@ -206,3 +207,11 @@ export function repair(s: GameState): GameState {
   for (const k of SKILL_IDS) out.skills[k] = Math.max(0, Number(out.skills[k]) || 0);
   return out;
 }
+
+/** Version 2 → 3 makes normalization an explicit migration step; no gameplay fields are added. */
+export function fromV2(data: unknown): GameState {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid v2 save data');
+  return repair(data as GameState);
+}
+/** Keys are source versions; each function advances exactly one version. Keep all earlier steps. */
+export const SAVE_MIGRATIONS: Record<number, (data: unknown) => unknown> = { 1: fromV1, 2: fromV2 };

@@ -1,9 +1,9 @@
 import { SaveStore } from './core/save.ts';
-import { SAVE_VERSION, fromV1, newGame, repair, type GameState } from './rules/state.ts';
+import { SAVE_VERSION, SAVE_MIGRATIONS, newGame, repair, type GameState } from './rules/state.ts';
 import { catchUp } from './rules/tick.ts';
 
 /** `cloudback:save:main`. Migrations are chained by version and kept forever (design §17). */
-export const saves = new SaveStore<GameState>({ game: 'cloudback', version: SAVE_VERSION, migrations: { 1: fromV1 } });
+export const saves = new SaveStore<GameState>({ game: 'cloudback', version: SAVE_VERSION, migrations: SAVE_MIGRATIONS });
 
 export function loadGame(now = Date.now()) {
   const loaded = saves.load();
