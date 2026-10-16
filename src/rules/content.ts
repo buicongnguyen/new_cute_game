@@ -325,7 +325,8 @@ export const DECK = {
   plots: [[-1, -4.2], [1, -4.2], [-1, -2.4], [1, -2.4], [-1, 1.4], [1, 1.4], [-1, 3.2], [1, 3.2], [-1, -.6], [1, -.6]] as [number, number][],
   maptable: [2.1, -5.9] as [number, number],
   feed: [0, -6.9] as [number, number],
-  hut: [-2.9, .5] as [number, number],
+  /** The hatch down to Nana's cabin (it replaced the hut: the owner's wooden-ship deck, 2026-10-16). */
+  hatch: [-2.6, .6] as [number, number],
   workbench: [2.75, .2] as [number, number],
   kitchen: [2.75, 2.4] as [number, number],
   pantry: [-2.6, 3.0] as [number, number],

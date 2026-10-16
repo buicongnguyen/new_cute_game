@@ -1,9 +1,16 @@
 import type { Rng } from '../core/rng.ts';
-import { FISHING, ISLE_IDS, PLACES, STAGES, VOYAGE, WHALE, type IsleId, type PlaceId } from './content.ts';
+import { FISHING, ISLE_IDS, PLACES, VOYAGE, WHALE, type IsleId, type PlaceId } from './content.ts';
 import { hasCrew, type GameState } from './state.ts';
 import type { Result } from './garden.ts';
 
 const no = (why: string) => ({ ok: false as const, why });
+
+/** Why a gate stops Bao (fixed sentences, so they can be translated). */
+export const GATE_WHY: Record<number, string> = {
+  1: 'Bao must be a Young whale to pass the Wind Wall',
+  2: 'Bao must be an Adult whale to pass the Storm Belt',
+  3: 'Bao must be a Great whale to dive through the Deep Mist',
+};
 
 export function distance(a: PlaceId, b: PlaceId) {
   const [ax, ay] = PLACES[a].pos, [bx, by] = PLACES[b].pos;
@@ -16,7 +23,7 @@ export function canSail(s: GameState, to: PlaceId): Result {
   if (to === s.place) return no('Bao is already here');
   if (to === 'dawnreach') return no('There is nothing left at Dawnreach');
   const place = PLACES[to];
-  if (s.whale.stage < place.needStage) return no(`Bao must be ${STAGES[place.needStage].name} to pass the ${place.gate}`);
+  if (s.whale.stage < place.needStage) return no(GATE_WHY[place.needStage] ?? 'Bao must grow first');
   if (s.notes.length < place.needNotes) return no('Bao needs all three Notes to sing the Deep Song');
   return { ok: true };
 }

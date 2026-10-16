@@ -53,7 +53,13 @@ The Gloom has no body of its own. It grows **crystal shells** around the native 
 
 **Gloom specks** are small crystal flecks that land on Bao when it hovers near a crusted isle. They itch, and Bao's mood drops. The Keeper brushes them off.
 
-**Raids.** When Bao sings, the whole sky hears it, and so does the Gloom. After Bao frees an isle, the Gloom sends a raiding cloud on the next voyage: Gloom forms drop onto Bao's back and try to crust the trees. Small raids can also come while any isle is still grey. The crew shelter in Nana's hut, banging pots and ringing bells, because hiding is fine but keeping still is not.
+**Raids.** When Bao sings, the whole sky hears it, and so does the Gloom. After Bao frees an isle, the Gloom sends a raiding cloud on the next voyage: Gloom forms drop onto Bao's back and try to crust the trees. Small raids can also come while any isle is still grey. The crew climb down the hatch into Nana's cabin, banging pots and ringing bells, because hiding is fine but keeping still is not.
+
+## 4b. Bao's back: a little sky ship
+
+The backfolk do not live on bare moss. Long ago they built a **wooden ship deck** on the backs of their whales, like the basket of a hot-air balloon or the deck of a little submarine: honey-coloured planks, a rounded gunwale, and green weed and moss growing over the edges where Bao's skin shows. The garden grows in **wooden planter boxes** full of Bao's moss.
+
+Nana's home is below deck. A small round **hatch with a wooden gate** leads down a ladder into her **cabin**: a cozy round room with a patchwork bed, a stove, a table, a chest and a shelf where the Notes glow. The cabin's big round windows look out on open blue sky and drifting clouds, so even inside, you never forget you are flying. Rest in the bed to get your strength back (the game saves while you nap).
 
 ## 5. Prologue: "The night the star fell"
 
@@ -69,7 +75,7 @@ About 60 seconds long; it can be skipped and replayed from Settings.
 
 Every step teaches one verb. The goal card at the top of the screen always shows the next step.
 
-1. **Plant.** Nana gives two Puffberry seeds and two Ropevine seeds (one for each of the four moss patches), and a packed lunch of three Cloudpears for later. *"Whales carry gardens, child. Gardens feed whales. Plant them in the moss."* (You plant on the glowing moss patches.)
+1. **Plant.** Nana gives two Puffberry seeds and two Ropevine seeds (one for each of the four planter boxes), and a packed lunch of three Cloudpears for later. *"Whales carry gardens, child. Gardens feed whales. Plant them in the moss."* (You plant in the wooden planter boxes full of moss.)
 2. **Wait and look around.** While the trees sprout, Nana points to the tail: *"Your grandpa caught sky fish there."* (Fishing is optional, and fish are treats for Bao.)
 3. **Harvest and feed.** Puffberries ripen. You pick them and walk to Bao's head to feed it. Bao hums and its growth bar fills a little. *"See? A happy whale grows."*
 4. **Brush.** A Gloom speck lands on Bao. *"The Gloom followed us up. Brush it off before it itches."*
@@ -85,13 +91,13 @@ Every step teaches one verb. The goal card at the top of the screen always shows
 - **Pip.** Pip is caged by the first Spire. Once free, Pip runs back to the rope alone and climbs up to Bao. *"A WHALE? A real one? With MOSS? I'm coming. I'm a gardener. I'm a very good gardener."* Pip becomes the crew's **Gardener**.
 - **The Hive: Thornhive.** A crystal tower with thorns. It grows thorn rings, fires spike lines, and wakes Gloomlings. When it cracks, the **Note of Dawn** flies up to Bao.
 - **The song.** Bao sings for the first time: rings of gold light fall over the isle. The song shatters every shell still standing and opens every cage, and colour pours back into the grass, the windmills and the flowers. The freed animals run around. (The first raid will come on the next voyage.)
-- **Growth.** The Note of Dawn hums inside Bao. When Bao has eaten enough, it can grow to **Young**: its back stretches and new moss patches appear.
+- **Growth.** The Note of Dawn hums inside Bao. When Bao has eaten enough, it can grow to **Young**: its back stretches and new planter boxes fit on the deck.
 - **Nana:** *"One Note. Your mother is somewhere under all that grey, little one. We'll find the rest."*
 
 ## 8. Chapter 2: "Lantern Reef" (coral isle, teal and coral pink)
 
 - **The road there.** A **Wind Wall** of roaring cloud surrounds the reef. A calf is too small to cross it, but a Young whale can.
-- **The first raid.** On the way, a grey cloud drifts beside Bao and Gloom forms drop onto the back. You defend the trees. *"Into my hut, crew, and keep those pots ringing! Hide, but never keep still!"* Afterwards Nana says: *"It heard the song. It will hear every song. Good. Let it hear us. Maybe it's lonely."*
+- **The first raid.** On the way, a grey cloud drifts beside Bao and Gloom forms drop onto the back. You defend the trees. *"Crew, down the hatch, and keep those pots ringing! Hide, but never keep still!"* Afterwards Nana says: *"It heard the song. It will hear every song. Good. Let it hear us. Maybe it's lonely."*
 - **The reef.** Coral arches, unlit paper lanterns, and tide pools. **Rammers** charge along glowing lines; **Spitters** hide behind coral. Nana explains why Bao has not sung here: *"While a Hive stands, it drinks every song sung near it. Break it, and then Bao can sing."*
 - **Old Kai** is caged on the shore where you land. Once free: *"…Thank you… I'll stay with my boats. Bring me fish stories."* He opens the **Reef Market** (Glowplum and Honeybun seeds; he pays well for people food, because the reef folk are hungry).
 - **Ria** is caged on the lighthouse rocks. *"I saw your whale from up here for an hour before you came down. You need a lookout. I am a lookout."* Ria becomes the crew's **Lookout**.

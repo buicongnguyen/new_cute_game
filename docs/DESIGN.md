@@ -243,7 +243,8 @@ Each isle is an irregular disc about 70 m across, with cliffs you cannot fall of
 - **What they do:**
   - Raiders walk to the nearest clean tree, and crust it after 5 s of touching it.
   - They attack the Keeper when the Keeper is closer than 3 m (Spitters from 7 m).
-  - The crew shelter in Nana's hut, banging pots and ringing bells. Hiding is fine; keeping still is not.
+  - The crew climb down the hatch to Nana's cabin, banging pots and ringing bells. Hiding is fine; keeping still is not.
+  - A Keeper who is in the cabin when a raid starts is sent up on deck.
 - **Endings:**
   - **Win:** all waves freed, +25 glimmer per wave.
   - **Lose:** after 100 s the rest pop in the sunlight and float off as animals. Crusted trees stay crusted, and mood −12.
@@ -269,6 +270,18 @@ Each isle is an irregular disc about 70 m across, with cliffs you cannot fall of
 | Ember, the Star | 30 | 35 | 25 | 10 |
 
 The Good Line makes Ray and Koi 1.5 times as likely.
+
+## 12b. Bao's deck and Nana's cabin
+
+- **The deck** is a wooden ship deck on Bao's back, with green weed only at the edges. Garden trees grow in wooden planter boxes; their number is the stage's patch count (4, 6, 8, 10).
+- **The hatch** (a round hole with a wooden gate) leads down to Nana's cabin. In the cabin:
+  - **the bed:** rest to full health, and the game saves;
+  - **the shelf:** shows the Notes Bao holds, and opens Bao's card;
+  - **the stove:** the Kitchen once Mina is aboard;
+  - **the chest:** the bag;
+  - **the ladder:** back up on deck.
+- **Around the cabin** the game always shows a clear blue day sky with clouds, never a black void.
+- **What still runs:** the cabin counts as being on Bao (Pip harvests, health comes back, you can sail from the map).
 
 ## 13. Rules that keep you from getting stuck
 

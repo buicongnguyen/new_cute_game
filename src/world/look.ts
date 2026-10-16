@@ -25,6 +25,9 @@ export const LOOKS: Record<PlaceId | 'voyage', Look> = {
   star: { skyTop: '#040a20', skyHorizon: '#0d1a44', sun: '#9cb2ff', sunI: 1.3, hemiSky: '#3a4f9a', hemiGround: '#0a0e26', hemiI: 1.2, fog: '#0b1638', fogNear: 45, fogFar: 150, cloud: '#26335e', cloudShade: '#0d1430', night: true },
   voyage: { skyTop: '#1f74ff', skyHorizon: '#b8e4ff', sun: '#fff0d2', sunI: 2.5, hemiSky: '#e6f4ff', hemiGround: '#8fcf6a', hemiI: 1.45, fog: '#b8e4ff', fogNear: 60, fogFar: 190, cloud: '#ffffff', cloudShade: '#a9b8f0', night: false },
 };
+/** Around Nana's cabin: always a clear blue day sky with white clouds (the owner's wish, 2026-10-16). */
+export const CABIN_LOOK: Look = { ...LOOKS.dawnreach, skyTop: '#2a86ff', skyHorizon: '#bfe6ff', fog: '#cdeeff', fogNear: 70, fogFar: 220 };
+
 /** The night of the prologue (very dark blue, black-blue cloud sea). */
 export const NIGHT: Look = { ...LOOKS.star, skyTop: '#030817', skyHorizon: '#0a1636', fog: '#081130' };
 

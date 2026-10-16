@@ -1,14 +1,16 @@
 """Bao, the sky-whale calf -> public/assets/models/whale.glb (see docs/ART-CONTRACT.md).
 
 One smooth lofted body (a superellipse cross-section swept along the length, its top pressed into a
-gently domed deck with a smooth minimum), a moss mat with a scalloped rolled rim and tiny flowers, big
-glossy eyes, pink cheeks, a smile, spots, fins and a fluke. glTF space: head toward +Z, deck at y = 0.
+gently domed deck with a smooth minimum). On top rides a little sky ship's deck: lengthwise honey and caramel
+planks over dark seams with nail dots, a rounded dark-wood gunwale along the rim, and green weed growing in from
+the rim only (leafy tufts spilling over the edge onto Bao's skin, a few tiny flowers). Big glossy eyes, pink
+cheeks, a smile, spots, fins and a fluke. glTF space: head toward +Z, walkable deck at y = 0 (+-0.15).
 
     blender -b --factory-startup --python art/blender/kit/build_whale.py -- [--render]
 
 Nodes under the root `whale`: body, tail (pivot at the tail root, child marker tailtip), fin_l, fin_r
 (pivots at the fin roots), eye_l, eye_r (centred on each eye), markers mouth and blowhole.
-The moss and the face decals are ray-cast onto the real body mesh, so nothing sinks into it.
+The deck, the weed and the face decals are ray-cast onto the real body mesh, so nothing sinks into it.
 """
 import math
 import os
@@ -112,6 +114,7 @@ def materials():
         moss=pal('moss', 0.85), moss_dark=pal('moss_dark', 0.85), moss_light=pal('moss_light', 0.85),
         white=pal('white', 0.25), night=pal('night', 0.2), sun=pal('sun', 0.5), rose=pal('rose', 0.5),
         blossom=pal('blossom', 0.5), tangerine=pal('tangerine', 0.5), berry=pal('berry', 0.5),
+        wood_light=pal('wood_light', 0.6), wood=pal('wood', 0.6), wood_dark=pal('wood_dark', 0.6), iron=pal('iron', 0.4),
     )
 
 
@@ -233,54 +236,216 @@ def proj_patch(surf, origin, du, dv, d, rx, ry, m, segs=14, rows=2, lift=0.03, d
     return g.toward(lambda p: -d)
 
 
-# ------------------------------------------------------------------ moss deck
-RIM_X, RIM_Z = 1.04, 1.08
+# ------------------------------------------------------------------ the ship deck
+# Bao carries a little sky ship's deck: lengthwise planks over dark seams, a rounded dark-wood gunwale along the
+# rim, and green weed growing in from the edge and spilling over it onto Bao's skin. The middle is bare wood.
+PLANK_A, PLANK_B = DECK_A * 1.005, DECK_B * 1.005   # plank footprint (the planks run under the gunwale)
+RIM_A, RIM_B = DECK_A * 1.018, DECK_B * 1.018       # gunwale centre line
+PLANK_N, PLANK_GAP, JOINT_GAP = 20, 0.04, 0.035
+GUNWALE_R = 0.14
 
 
-def rim(phi):
-    return 1.0 + 0.018 * math.sin(9 * phi) + 0.009 * math.sin(5 * phi + 1.3) + 0.007 * math.sin(14 * phi + 0.4)
+def rim_pt(phi, d=0.0):
+    """A point on the gunwale centre line, moved out (d > 0) or in (d < 0) by d metres along the rim normal."""
+    n = Vector((math.cos(phi) / RIM_A, 0, math.sin(phi) / RIM_B)).normalized()
+    return Vector((RIM_A * math.cos(phi), 0, RIM_B * math.sin(phi))) + n * d, n
 
 
-def moss_xz(fr, phi):
-    r = fr * rim(phi)
-    return r * RIM_X * DECK_A * math.cos(phi), r * RIM_Z * DECK_B * math.sin(phi)
+def deck_top(surf, x, z, lift=MOSS_T):
+    loc, _ = surf.down(x, z)
+    return (loc.y if loc is not None else dome(x, z) - MOSS_T - 0.5) + lift
 
 
-def moss_geo(surf):
-    NA = 72
+def deck_base(surf):
+    """Dark wood under the planks; it shows in the seams and joints."""
     g = Geo()
-
-    def top(x, z):
-        loc, _ = surf.down(x, z)
-        return (loc.y if loc is not None else dome(x, z) - MOSS_T - 0.4) + MOSS_T
-
+    NA = 48
     rows = []
-    for fr in (0.18, 0.38, 0.56, 0.71, 0.83, 0.92, 0.975, 1.0):
+    for fr in (0.35, 0.7, 1.0):
         row = []
         for j in range(NA):
-            x, z = moss_xz(fr, math.tau * j / NA)
-            wob = 0.012 * math.sin(3.1 * x + 1.7 * z) * (1 - fr)
-            row.append(g.vert((x, top(x, z) + wob, z)))
+            phi = math.tau * j / NA
+            x, z = PLANK_A * fr * math.cos(phi), PLANK_B * fr * math.sin(phi)
+            row.append(g.vert((x, deck_top(surf, x, z) - 0.025, z)))
         rows.append(row)
-    roll = []
-    for out_fr, drop in ((1.012, 0.06), (1.017, 0.16)):
+    fan(g, g.vert((0, deck_top(surf, 0, 0) - 0.025, 0)), rows[0], M['wood_dark'])
+    grid_faces(g, rows, M['wood_dark'])
+    return g.toward(lambda p: UP)
+
+
+def planks_geo(surf):
+    """Lengthwise planks with staggered butt joints and nail dots, two warm wood tones."""
+    rng = random.Random(11)
+    g = Geo()
+    w = 2 * PLANK_A / PLANK_N
+    for i in range(PLANK_N):
+        xa, xb = -PLANK_A + i * w + PLANK_GAP / 2, -PLANK_A + (i + 1) * w - PLANK_GAP / 2
+        xo = max(abs(xa), abs(xb))
+        if xo >= PLANK_A * 0.995:
+            continue
+        zmax = PLANK_B * math.sqrt(1 - (xo / PLANK_A) ** 2)
+
+        def zend(x):   # the outer ends follow the rim's curve, side by side
+            return PLANK_B * math.sqrt(max(0.0, 1 - (x / PLANK_A) ** 2))
+        # staggered joints: two per plank, shifted plank to plank like a real deck
+        off = ((i * 0.618) % 1.0) * 0.5 - 0.25
+        cuts = [c_ * zmax for c_ in (-0.42 + off, 0.3 + off) if abs(c_) < 0.85]
+        edges = [-zmax] + cuts + [zmax]
+        for k in range(len(edges) - 1):
+            z0 = edges[k] + (JOINT_GAP / 2 if k > 0 else 0.0)
+            z1 = edges[k + 1] - (JOINT_GAP / 2 if k + 1 < len(edges) - 1 else 0.0)
+            if z1 - z0 < 0.3:
+                continue
+            m = M['wood'] if rng.random() < 0.34 else M['wood_light']
+            nseg = max(1, int(math.ceil((z1 - z0) / 1.2)))
+            za0, zb0 = (z0, z0) if k > 0 else (-zend(xa), -zend(xb))
+            za1, zb1 = (z1, z1) if k + 1 < len(edges) - 1 else (zend(xa), zend(xb))
+            rows = []
+            for s_ in range(nseg + 1):
+                t = s_ / nseg
+                zq, zr = za0 + (za1 - za0) * t, zb0 + (zb1 - zb0) * t
+                rows.append([g.vert((xa, deck_top(surf, xa, zq), zq)), g.vert((xb, deck_top(surf, xb, zr), zr))])
+            for r0, r1 in zip(rows, rows[1:]):
+                g.face((r0[0], r1[0], r1[1], r0[1]), m)
+            # nail dots near each inner end of the piece
+            for zz, inner in ((z0 + 0.09, k > 0), (z1 - 0.09, k + 1 < len(edges) - 1)):
+                if not inner:
+                    continue
+                for xx in (xa + w * 0.24, xb - w * 0.24):
+                    y = deck_top(surf, xx, zz) + 0.004
+                    q = 0.028
+                    g.face([g.vert((xx - q, y, zz - q)), g.vert((xx - q, y, zz + q)), g.vert((xx + q, y, zz + q)),
+                            g.vert((xx + q, y, zz - q))], M['iron'])
+    return g.toward(lambda p: UP)
+
+
+def gunwale_geo(surf, NA=64, sides=6):
+    """A rounded wooden strip around the rim: a low curb that frames the deck (no posts to walk into)."""
+    g = Geo()
+    rows = []
+    for j in range(NA):
+        phi = math.tau * j / NA
+        c, n = rim_pt(phi)
+        y = deck_top(surf, c.x, c.z) + 0.02
+        rows.append([g.vert(c + Vector((0, y, 0)) + n * (math.cos(math.tau * k / sides) * GUNWALE_R)
+                            + UP * (math.sin(math.tau * k / sides) * GUNWALE_R * 0.72)) for k in range(sides)])
+    grid_faces(g, rows + [rows[0]], M['wood_dark'])
+    return g.outward()
+
+
+def weed_d_in(phi):
+    """Inner edge of the weed (metres along the rim normal): ragged, about 0.5 m in, pulled back in a few stretches
+    so the dark-wood gunwale shows through."""
+    base = -(0.52 + 0.14 * math.sin(5 * phi + 0.5) + 0.09 * math.sin(11 * phi + 2.0) + 0.06 * math.sin(23 * phi + 1.0))
+    gap = math.sin(3 * phi + 0.7) * math.sin(4 * phi - 0.4)
+    return base + (0.06 - base) * smoothstep(0.32, 0.55, gap)
+
+
+def weed_d_out(phi):
+    return 0.2 + 0.2 * math.sin(phi) ** 2 + 0.05 * math.sin(7 * phi + 1.0) + 0.04 * math.sin(13 * phi)
+
+
+WEED_T = [(0.0, -0.012), (0.08, 0.03), (0.32, 0.035), (0.55, 0.035), (0.78, 0.03), (1.0, -0.012)]
+
+
+def weed_band(surf, NA=80):
+    """Green weed growing in from the rim and draping over the gunwale and down onto Bao's skin. Ray-cast onto the
+    deck and gunwale so it never sinks into them."""
+    g = Geo()
+    rows = []
+    prev = None
+    for t, lift in WEED_T:
         row = []
         for j in range(NA):
-            x, z = moss_xz(out_fr, math.tau * j / NA)
-            row.append(g.vert((x, top(x, z) - drop, z)))
-        roll.append(row)
-    under = []
-    for j in range(NA):
-        x, z = moss_xz(0.985, math.tau * j / NA)
-        under.append(g.vert((x, top(x, z) - MOSS_T - 0.3, z)))
-    centre = g.vert((0, top(0, 0), 0))
-    centre_under = g.vert((0, top(0, 0) - MOSS_T - 0.3, 0))
-    fan(g, centre, rows[0], M['moss'])
-    grid_faces(g, rows, M['moss'])
-    grid_faces(g, [rows[-1]] + roll, M['moss_dark'])
-    grid_faces(g, [roll[-1], under], M['moss_dark'])
-    fan(g, centre_under, under, M['moss_dark'], reverse=True)
-    return g.outward(), top
+            phi = math.tau * j / NA
+            c, n = rim_pt(phi, weed_d_in(phi) + (weed_d_out(phi) - weed_d_in(phi)) * t)
+            loc, _ = surf.down(c.x, c.z)
+            y = (prev[j].y - 0.25) if loc is None else loc.y + lift
+            row.append(Vector((c.x, y, c.z)))
+        rows.append(row)
+        prev = row
+    idx = [[g.vert(p) for p in r] for r in rows]
+    mats = [M['moss_light'], M['moss'], M['moss'], M['moss_dark'], M['moss_dark']]
+    for bi in range(len(idx) - 1):
+        grid_faces(g, [idx[bi], idx[bi + 1]], mats[bi])
+    return g.toward(lambda p: UP * 1.0 + Vector((p.x / RIM_A ** 2, 0, p.z / RIM_B ** 2)) * 0.5), rows
+
+
+def leaf(base, direction, length, width, m, droop=0.35, two_sided=True):
+    """A leaf card that bends down toward its tip."""
+    d = Vector(direction).normalized()
+    side = d.cross(UP)
+    if side.length < 1e-4:
+        side = Vector((1, 0, 0))
+    side.normalize()
+    up = side.cross(d).normalized()
+    if up.y < 0:
+        up = -up
+
+    def at(t, s):
+        return Vector(base) + d * (length * t) + side * s - up * (droop * length * t * t)
+    pts = [at(0, 0), at(0.42, width * 0.5), at(0.42, -width * 0.5), at(0.8, width * 0.3), at(0.8, -width * 0.3),
+           at(1.0, 0)]
+    g = Geo()
+    v = [g.vert(p) for p in pts]
+    for f in ((v[0], v[1], v[2]), (v[1], v[3], v[4], v[2]), (v[3], v[5], v[4])):
+        g.face(f, m)
+    g.toward(lambda p: up)
+    if two_sided:
+        back = Geo()
+        vb = [back.vert(p - up * 0.006) for p in pts]
+        for f in ((vb[0], vb[2], vb[1]), (vb[1], vb[2], vb[4], vb[3]), (vb[3], vb[4], vb[5])):
+            back.face(f, m)
+        back.toward(lambda p: -up)
+        g.add(back)
+    return g
+
+
+def tufts_geo(rows):
+    """Leafy weed tufts: big leaves spilling over the edge onto Bao's skin, short ones standing on the weed."""
+    rng = random.Random(17)
+    g = Geo()
+    greens = [M['moss'], M['moss_light'], M['moss_dark'], M['moss'], M['moss_light']]
+    outer, inner = rows[3], rows[2]
+    NA = len(outer)
+    count = 46
+    for k in range(count):
+        j = int((k + rng.uniform(-0.3, 0.3)) * NA / count) % NA
+        p = outer[j]
+        if p.z > 7.4 and abs(p.x) < 1.1:      # keep the blowhole clear
+            continue
+        phi = math.tau * j / NA
+        _, n = rim_pt(phi)
+        for li in range(3):
+            a = rng.uniform(-0.7, 0.7)
+            dirv = (Matrix.Rotation(a, 3, 'Y') @ n) + UP * rng.uniform(0.15, 0.45)
+            g.add(leaf(p + Vector((0, 0.01, 0)), dirv, rng.uniform(0.42, 0.66), rng.uniform(0.15, 0.22),
+                       greens[(k + li) % 5], droop=rng.uniform(0.5, 0.8), two_sided=False))
+        if k % 2 == 0:   # a short leaf standing on the weed, leaning in over the deck
+            q = inner[j]
+            dirv = -(Matrix.Rotation(rng.uniform(-0.6, 0.6), 3, 'Y') @ n) + UP * 0.8
+            g.add(leaf(q, dirv, rng.uniform(0.18, 0.26), 0.11, greens[(k + 1) % 5], droop=0.4, two_sided=False))
+    return g
+
+
+def rosettes_geo(rows):
+    """Low leaves creeping in from the weed's inner edge, lying flat so the deck stays walkable."""
+    rng = random.Random(23)
+    g = Geo()
+    inner = rows[1]
+    NA = len(inner)
+    for k in range(22):
+        j = int((k + rng.uniform(-0.3, 0.3)) * NA / 22) % NA
+        p = inner[j]
+        phi = math.tau * j / NA
+        _, n = rim_pt(phi)
+        if weed_d_in(phi) > -0.1:     # no creepers where the gunwale shows
+            continue
+        for li in range(2):
+            dirv = -(Matrix.Rotation(rng.uniform(-1.0, 1.0), 3, 'Y') @ n) + UP * 0.05
+            g.add(leaf(p + Vector((0, 0.006, 0)), dirv, rng.uniform(0.22, 0.32), rng.uniform(0.11, 0.14),
+                       M['moss_light'] if li else M['moss'], droop=0.05, two_sided=False))
+    return g
 
 
 def flower(c, n, r, petal, centre_m, seed):
@@ -305,40 +470,20 @@ def flower(c, n, r, petal, centre_m, seed):
     return g.toward(lambda p: nn)
 
 
-def flowers_geo(top):
-    rng = random.Random(21)
+def weed_flowers(rows):
+    """Tiny flowers in the weed band (none on the bare planks)."""
+    rng = random.Random(29)
     g = Geo()
-    petals = [M['rose'], M['white'], M['sun'], M['blossom'], M['tangerine'], M['white'], M['rose'], M['berry']]
-    n = 64
-    for i in range(n):
-        phi = math.tau * (i + rng.uniform(-0.3, 0.3)) / n
-        fr = rng.uniform(0.85, 0.965)
-        for k, (dfr, dphi, size) in enumerate(((0, 0, rng.uniform(0.13, 0.18)), (-0.035, 0.025, 0.11))):
-            if k == 1 and rng.random() > 0.4:
-                continue
-            x, z = moss_xz(fr + dfr, phi + dphi)
-            if z > 7.8 and abs(x) < 1.3:   # keep the blowhole lip clear
-                continue
-            nrm = Vector((top(x - 0.05, z) - top(x + 0.05, z), 0.1, top(x, z - 0.05) - top(x, z + 0.05))).normalized()
-            petal = petals[(i + 3 * k) % len(petals)]
-            centre_m = M['sun'] if petal is not M['sun'] else M['white']
-            g.add(flower(Vector((x, top(x, z), z)), nrm, size, petal, centre_m, i * 7 + k))
-    return g
-
-
-def tufts_geo(top):
-    """A few low, lighter moss cushions across the deck (flat enough to walk over)."""
-    rng = random.Random(5)
-    g = Geo()
-    for i in range(14):
-        phi = rng.uniform(0, math.tau)
-        fr = math.sqrt(rng.uniform(0.04, 0.8))
-        x, z = moss_xz(fr, phi)
-        for k in range(2):
-            rr = rng.uniform(0.3, 0.55) * (1 - 0.35 * k)
-            ox, oz = (rng.uniform(-0.45, 0.45), rng.uniform(-0.45, 0.45)) if k else (0, 0)
-            g.add(ellipsoid((x + ox, top(x + ox, z + oz) - 0.03, z + oz), (rr, 0.07, rr * rng.uniform(0.8, 1.2)), 11, 3,
-                            Matrix.Rotation(rng.uniform(0, 3), 3, 'Y'), M['moss_light']))
+    petals = [M['rose'], M['white'], M['sun'], M['blossom'], M['tangerine'], M['white']]
+    NA = len(rows[2])
+    for k in range(24):
+        j = int((k + rng.uniform(-0.35, 0.35)) * NA / 24) % NA
+        p = rows[2 + (k % 2)][j]
+        if p.z > 7.4 and abs(p.x) < 1.1:
+            continue
+        petal = petals[k % len(petals)]
+        g.add(flower(p + Vector((0, 0.004, 0)), UP, rng.uniform(0.12, 0.17), petal,
+                     M['sun'] if petal is not M['sun'] else M['white'], 300 + k))
     return g
 
 
@@ -503,9 +648,12 @@ def build():
     shell = body_geo()
     belly_paint(shell)
     surf = Surf(shell)
-    moss, top = moss_geo(surf)
-    body = Geo().add(shell, moss, flowers_geo(top), tufts_geo(top), spots_geo(), mouth_geo(surf), cheeks_geo(surf),
-                     blowhole_geo(surf))
+    deck = Geo().add(deck_base(surf), planks_geo(surf), gunwale_geo(surf))
+    band, rows = weed_band(Surf(Geo().add(shell, deck)))
+    weed = Geo().add(band, tufts_geo(rows), rosettes_geo(rows), weed_flowers(rows))
+    for name, part in (('shell', shell), ('deck', deck), ('weed', weed)):
+        print(f'   {name}: {part.tris()} tris')
+    body = Geo().add(shell, deck, weed, spots_geo(), mouth_geo(surf), cheeks_geo(surf), blowhole_geo(surf))
     for side in (1, -1):
         body.add(brow_geo(side))
     cast.part(root, 'body', body, (0, 0, 0))
@@ -539,10 +687,33 @@ def deck_report(cast):
     return lo, hi
 
 
+def deck_closeup(cast):
+    """A close look at the deck's front-left rim, with the Keeper (imported from keeper.glb, if built) for scale."""
+    import bpy
+    from kit_cast import MODELS, PREVIEWS, camera, setup_render, to_b
+    for r in cast.roots:
+        r.location = (0, 0, 0)
+    kpath = os.path.join(MODELS, 'keeper.glb')
+    if os.path.exists(kpath):
+        before = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=kpath)
+        for o in bpy.data.objects:
+            if o not in before and o.parent is None:
+                o.location = to_b((-1.4, 0.06, 4.9))
+                o.rotation_mode = 'XYZ'
+                o.rotation_euler = (0, 0, 0.5)
+    setup_render((1600, 1000), None)
+    camera(to_b((-2.6, -0.3, 5.0)), 9.0, 45, 30)
+    out = os.path.join(PREVIEWS, 'whale-deck.png')
+    style.render(out)
+    print('preview', out)
+
+
 def render_previews(cast):
     sheet(cast, 'whale.png', size=(1600, 1000), elev=45, yaw=35, ground=None, ortho=30)
     sheet(cast, 'whale-front.png', size=(1200, 900), elev=12, yaw=8, ground=None, ortho=17)
     sheet(cast, 'whale-side.png', size=(1600, 800), elev=5, yaw=90, ground=None, ortho=27)
+    deck_closeup(cast)
 
 
 def main():

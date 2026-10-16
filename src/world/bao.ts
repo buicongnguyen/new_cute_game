@@ -59,7 +59,7 @@ export class Bao {
       const o = part('props', name, { shadows }) ?? fallback();
       this.deck.add(o); this.props[name] = o; return o;
     };
-    make('hut', () => standIn('box', '#e3a05a', 2.2));
+    make('hatch', fallbackHatch, false);
     make('workbench', () => standIn('box', '#c77a3a', 1.1));
     make('kitchen', () => standIn('box', '#ff8a2a', 1.0));
     make('maptable', () => standIn('box', '#8a4b25', .9));
@@ -97,7 +97,7 @@ export class Bao {
   private layout() {
     this.whale.scale.setScalar(this.scale);
     const put = (name: string, p: readonly [number, number], rot = 0) => { const o = this.props[name]; if (o) { this.at(p, o.position); o.rotation.y = rot; } };
-    put('hut', DECK.hut, .4); put('workbench', DECK.workbench, -Math.PI / 2); put('kitchen', DECK.kitchen, -Math.PI / 2);
+    put('hatch', DECK.hatch, .4); put('workbench', DECK.workbench, -Math.PI / 2); put('kitchen', DECK.kitchen, -Math.PI / 2);
     put('maptable', DECK.maptable, .3); put('ropepost', DECK.ropepost, -Math.PI / 2); put('fishspot', DECK.fishspot, Math.PI); put('pantry', DECK.pantry, Math.PI / 2);
     this.posts.forEach((p, i) => this.at(DECK.posts[i], p.position));
     this.plots.forEach((pv, i) => this.at(DECK.plots[i], pv.group.position));
@@ -117,10 +117,14 @@ export class Bao {
     this.posts.forEach((p, i) => { p.visible = s.posts.includes(i); });
     this.specks.forEach((sp, i) => { sp.visible = i < s.whale.specks; });
     this.plots.forEach((pv, i) => pv.sync(s.plots[i], i < s.plots.length));
-    for (const [id, actor] of this.crew) actor.root.visible = s.crew.includes(id) && !raidActive;
+    // During a raid the crew climb down the hatch (the game walks them there and hides them).
+    for (const [id, actor] of this.crew) if (!raidActive) actor.root.visible = s.crew.includes(id);
   }
 
   happy() { this.happyFor = .9; }
+  /** Opens the hatch's gate for a moment (entering or leaving the cabin, the crew hiding in a raid). */
+  openHatch(seconds = 1.2) { this.hatchOpen = seconds; }
+  private hatchOpen = 0;
 
   update(dt: number, mood: number) {
     this.t += dt;
@@ -141,6 +145,9 @@ export class Bao {
     const eyeY = this.happyFor > 0 ? .35 : mood < 25 ? .7 : 1;
     for (const e of this.eyes) e.scale.y = Math.min(blink, eyeY);
     for (const [, a] of this.crew) a.update(dt);
+    this.hatchOpen = Math.max(0, this.hatchOpen - dt);
+    const door = findChild(this.props.hatch, 'door');
+    if (door) door.rotation.x += ((this.hatchOpen > 0 ? -1.9 : 0) - door.rotation.x) * (1 - Math.exp(-9 * dt));
     for (const pv of this.plots) pv.update(dt, t);
   }
 
@@ -186,8 +193,13 @@ export class PlotView {
   private crust: T.Object3D;
   private ripe = false;
   private pop = 0;
+  private soilY = 0;
   constructor() {
-    this.patch = part('trees', 'plot') ?? (() => { const m = new T.Mesh(new T.CylinderGeometry(.72, .78, .12, 24), makeToon('#3e9e36')); m.position.y = .06; return m; })();
+    // Wooden planter boxes on the deck (the moss patch disc is the fallback).
+    const planter = part('props', 'planter', { shadows: true });
+    this.patch = planter ?? part('trees', 'plot') ?? (() => { const m = new T.Mesh(new T.CylinderGeometry(.72, .78, .12, 24), makeToon('#3e9e36')); m.position.y = .06; return m; })();
+    const soil = planter ? findChild(planter, 'soil') : null;
+    this.soilY = soil ? soil.position.y : planter ? .27 : 0;
     this.crust = part('gloom', 'cage') ? crustShards() : crustShards();
     this.crust.visible = false;
     this.group.add(this.patch, this.crust);
@@ -201,7 +213,7 @@ export class PlotView {
       if (this.tree) this.group.remove(this.tree);
       this.tree = key ? (part('trees', key, { shadows: true }) ?? standIn('tree', '#4fbf3a', stage === 'sprout' ? .35 : stage === 'young' ? .7 : 1.2)) : null;
       this.fruits = this.tree ? findChild(this.tree, 'fruits') : null;
-      if (this.tree) { this.group.add(this.tree); this.pop = .25; }
+      if (this.tree) { this.tree.position.y = this.soilY; this.group.add(this.tree); this.pop = .25; }
       this.treeKey = key;
     }
     const ripe = p.phase === 'ripe';
@@ -218,6 +230,17 @@ export class PlotView {
       this.tree.rotation.z = Math.sin(t * 1.4 + this.group.position.x) * .02;
     }
   }
+}
+
+/** A round hatch with a hinged wooden gate (before props.glb has one). */
+function fallbackHatch() {
+  const g = new T.Group();
+  const rim = new T.Mesh(new T.TorusGeometry(.78, .12, 10, 28).rotateX(Math.PI / 2), makeToon('#f5b21e')); rim.position.y = .08; g.add(rim);
+  const hole = new T.Mesh(new T.CircleGeometry(.72, 28).rotateX(-Math.PI / 2), makeToon('#1a1d33')); hole.position.y = .03; g.add(hole);
+  const door = new T.Group(); door.name = 'door'; door.position.set(0, .14, -.75);
+  const lid = new T.Mesh(new T.CylinderGeometry(.74, .74, .1, 28), makeToon('#c77a3a')); lid.position.z = .75; door.add(lid);
+  g.add(door);
+  return g;
 }
 
 function crustShards() {
