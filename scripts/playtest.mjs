@@ -145,7 +145,7 @@ for (let t = 0; t < 120; t++) {
   await sim(1);
   s = await st();
   if (s.raid) { raided = true; const f = await ev(() => { const x = window.__game.combat.forms.find(f => !f.dead); return x ? [x.pos.x, x.pos.z] : null; }); if (f) await goto(f[0] + .8, f[1]); await ev(() => { window.__game.state.hero.hp = 400; }); }
-  if (raided && t % 10 === 0) await quiet();
+  await quiet();
   if (s.place === 'reef' && !s.voyage) break;
 }
 await quiet();
