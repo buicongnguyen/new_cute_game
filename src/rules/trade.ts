@@ -1,5 +1,5 @@
-import { FISH, HOME, ITEMS, LIKED_BONUS, MARKETS, MEALS, POST, RECIPES, SKILL_GAIN, UPGRADES, type FishId, type IsleId, type ItemId, type LandId, type MarketDef, type MealId, type RecipeId, type UpgradeId } from './content.ts';
-import { count, give, hasCrew, isRescued, take, type GameState } from './state.ts';
+import { FISH, HOME, ITEMS, plotCount, LIKED_BONUS, MARKETS, MEALS, POST, RECIPES, SKILL_GAIN, UPGRADES, type FishId, type IsleId, type ItemId, type LandId, type MarketDef, type MealId, type RecipeId, type UpgradeId } from './content.ts';
+import { count, emptyPlot, give, hasCrew, isRescued, take, type GameState } from './state.ts';
 import { payout, perks, train } from './home.ts';
 import type { Result } from './garden.ts';
 
@@ -47,7 +47,7 @@ export function buyUpgrade(s: GameState, isle: IsleId, id: UpgradeId): Result {
 }
 
 // --------------------------------------------------------------- workbench
-const TRACK: Partial<Record<RecipeId, ['mallet' | 'coat', number]>> = { mallet2: ['mallet', 2], mallet3: ['mallet', 3], coat2: ['coat', 2], coat3: ['coat', 3] };
+const TRACK: Partial<Record<RecipeId, ['mallet' | 'coat' | 'deck', number]>> = { mallet2: ['mallet', 2], mallet3: ['mallet', 3], coat2: ['coat', 2], coat3: ['coat', 3], deck1: ['deck', 1], deck2: ['deck', 2], deck3: ['deck', 3] };
 /** Glimmer a recipe costs now: the craft room takes 20% off, and every Crafting level 3% more. */
 export const recipeGlimmer = (s: GameState, id: RecipeId) => Math.round(RECIPES[id].glimmer * (s.rooms.craft ? HOME.craftDiscount : 1) * perks(s).craftCost);
 export type RecipeState = 'owned' | 'ready' | 'missing' | 'locked' | 'full';
@@ -79,7 +79,7 @@ export function craft(s: GameState, id: RecipeId, spot?: number): Result<{ skill
   for (const [item, n] of Object.entries(r.cost)) take(s, item as ItemId, n ?? 0);
   s.glimmer -= recipeGlimmer(s, id);
   const track = TRACK[id];
-  if (track) s.gear[track[0]] = track[1];
+  if (track) { s.gear[track[0]] = track[1]; if (track[0] === 'deck') { while (s.plots.length < plotCount(s.whale.stage, s.gear.deck)) s.plots.push(emptyPlot()); } }
   else if (id === 'rope') s.gear.rope = true;
   else if (id === 'line') s.gear.line = true;
   else if (r.keepsake) s.keepsakes.push(id);

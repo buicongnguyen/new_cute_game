@@ -24,6 +24,8 @@ import style  # noqa: E402
 FILE = 'trees.glb'
 IDS = ['puffberry', 'ropevine', 'cloudpear', 'chimewood', 'honeybun', 'glowplum', 'starfig', 'golden']
 STAGE_BUDGET = 1500
+EXTRA = ['sproutbean']  # added later; built after the original roots so they stay byte-identical
+EXTRA_SPEC = {'sproutbean': dict(budget=1200, sprout=(0.3, 0.42), young=(0.7, 0.9), grown=(1.2, 1.45))}
 
 
 # ================================================================ helpers
@@ -543,6 +545,63 @@ def golden(m):
 
 
 # -------------------------------------------------------------------- plot
+# ---------------------------------------------------------------- sproutbean
+def bean_tripod(p, m, h, spread):
+    tops = Vector((0, 0, h))
+    for k in range(3):
+        a = RAD(-90 + 120 * k)
+        foot = Vector((math.cos(a) * spread, math.sin(a) * spread, 0))
+        p.add(tube([foot, tops + Vector((0, 0, 0.04))], [0.026 * h / 1.3 + 0.01, 0.016], sides=5), m['straw_light'])
+    p.add(lathe([(0.05 * h / 1.3 + 0.03, -0.03), (0.05 * h / 1.3 + 0.03, 0.03)], 8), m['wood'], xf(tops - Vector((0, 0, 0.06))))
+
+
+def bean_vine(p, m, h, spread, turns, n, leaves, seed):
+    rng = random.Random(seed)
+    for k in range(3):
+        a0 = RAD(-90 + 120 * k)
+        pts = []
+        for i in range(n):
+            t = i / (n - 1)
+            r = spread * (1 - t) + 0.05
+            a = a0 + 0.6 * math.sin(turns * TAU * t)
+            pts.append(Vector((math.cos(a) * r, math.sin(a) * r, h * 0.92 * t + 0.02)))
+        p.add(tube(pts, 0.018, sides=3), m['leaf_dark'])
+        for i in range(1, n - 1, max(1, (n - 2) // leaves)):
+            yaw = a0 + rng.uniform(-1.2, 1.2) + (math.pi / 2 if i % 2 else -math.pi / 2)
+            p.add(leaf(0.34 * h / 1.3 + 0.07, 0.3 * h / 1.3 + 0.06, 3, 'heart', 0.25, -0.2),
+                  m['leaf_light'] if i % 3 else m['leaf'], leaf_frame(pts[i], yaw, RAD(rng.uniform(5, 35))))
+    return pts
+
+
+def sproutbean(m):
+    out = {}
+    s = sprout('sproutbean_sprout', m['leaf_dark'], m['leaf_light'],
+               [(30, 40, 0.17, 0.15, 1), (210, 40, 0.17, 0.15, 1)], height=0.34, shape='heart')
+    tip = Vector((0.03, -0.02, 0.245))
+    s.add(tube(curl(tip, (1, -0.3, 0), 0.06, 1.3, 6, 0.06), [0.012 - 0.0012 * i for i in range(6)], sides=3), m['leaf_dark'])
+    out['sprout'] = (s, None)
+    y = Piece('sproutbean_young')
+    bean_tripod(y, m, 0.78, 0.22)
+    bean_vine(y, m, 0.7, 0.2, 1.0, 6, 2, 3)
+    out['young'] = (y, None)
+    g = Piece('sproutbean_grown')
+    bean_tripod(g, m, 1.28, 0.36)
+    bean_vine(g, m, 1.2, 0.33, 1.2, 9, 3, 7)
+    for start, d in (((0.0, 0.0, 1.3), (1, -0.5, 0)), ((0.05, 0.0, 1.25), (-1, -0.2, 0))):
+        g.add(tube(curl(start, d, 0.12, 1.4, 7, 0.06), [0.016 - 0.0015 * i for i in range(7)], sides=3), m['leaf_dark'])
+    f = Piece('sproutbean_grown_fruits')
+    pod = lathe([(0.0, -0.36), (0.045, -0.33), (0.065, -0.22), (0.068, -0.11), (0.05, -0.02), (0.0, 0.0)], 6,
+                mod=lambda th, i: 1.0 + 0.12 * math.cos(2 * th))
+    for k, (ang, z) in enumerate(((-90, 0.75), (-30, 0.95), (30, 0.6), (150, 0.85), (210, 0.62), (-130, 1.05))):
+        a = RAD(ang)
+        r = 0.36 * (1 - z / 1.28) + 0.09
+        top = Vector((math.cos(a) * r, math.sin(a) * r, z))
+        f.add(tube([top + Vector((0, 0, 0.03)), top], 0.01, sides=3), m['leaf_dark'])
+        f.add(pod, m['pear'] if k % 2 else m['leaf_light'], xf(top, (RAD(12 * (k % 3 - 1)), RAD(10), a)))
+    out['grown'] = (g, f)
+    return out
+
+
 def build_plot(m):
     p = Piece('plot')
     prof = [(0.0, 0.055), (0.17, 0.058), (0.22, 0.075), (0.5, 0.088), (0.64, 0.082), (0.7, 0.074), (0.76, 0.06),
@@ -563,7 +622,7 @@ def build_plot(m):
 def build():
     m = mats()
     roots = {}
-    for tid in IDS:
+    for tid in IDS + EXTRA:
         stages = globals()[tid](m)
         for st in ('sprout', 'young', 'grown'):
             body, fruit = stages[st]
@@ -596,6 +655,14 @@ def check(stats):
                 errors.append(f'{tid}_{st}: base {s["min_y"]}')
         if 'fruits' not in stats[f'{tid}_grown']['children']:
             errors.append(f'{tid}_grown has no fruits child')
+    for tid, spec in EXTRA_SPEC.items():
+        for st in ('sprout', 'young', 'grown'):
+            s = stats[f'{tid}_{st}']
+            lo, hi = spec[st]
+            if s['tris'] > spec['budget'] or not lo <= s['max_y'] <= hi or abs(s['min_y']) > 0.01:
+                errors.append(f'{tid}_{st}: {s["tris"]} tris, y {s["min_y"]}..{s["max_y"]}')
+        if 'fruits' not in stats[f'{tid}_grown']['children']:
+            errors.append(f'{tid}_grown has no fruits child')
     p = stats['plot']
     if not 1.5 <= p['size'][0] <= 1.7:
         errors.append(f'plot width {p["size"][0]}')
@@ -621,6 +688,8 @@ def main():
                 n = f'{tid}_{st}'
                 cells.append((roots[n], f'{n}  {stats[n]["tris"]}'))
         cells += [None, None, None, (roots['plot'], f'plot  {stats["plot"]["tris"]}')]
+        cells += [(roots[f'sproutbean_{st}'], f'sproutbean_{st}  {stats[f"sproutbean_{st}"]["tris"]}')
+                  for st in ('grown', 'young', 'sprout')]
         placed = K.contact_sheet(cells, os.path.join(K.PREVIEWS, 'trees.png'), cols=8, pitch=(3.0, 2.9),
                                  width_px=2400, label_size=0.2, label_dy=1.15)
         # Review close-ups: grown row in two halves, then the young and sprout rows.

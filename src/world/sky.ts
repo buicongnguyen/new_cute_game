@@ -97,11 +97,28 @@ export class Sky {
     for (const m of this.puffMeshes) m.instanceMatrix.needsUpdate = true;
   }
 
+  /**
+   * What lies far below the clouds (the owner): a green forest canopy, the sea, or only cloud tops when Bao flies high.
+   * One plane with a small painted texture that scrolls past while Bao flies: no extra draw calls.
+   */
+  below: 'clouds' | 'forest' | 'sea' = 'clouds';
+  private belowTex: Partial<Record<'forest' | 'sea', T.CanvasTexture>> = {};
+  private look: Look | null = null;
+  setBelow(kind: 'clouds' | 'forest' | 'sea') {
+    if (kind === this.below) return;
+    this.below = kind;
+    const m = this.floor.material;
+    m.map = kind === 'clouds' ? null : (this.belowTex[kind] ??= paintBelow(kind));
+    m.needsUpdate = true;
+    if (this.look) this.apply(this.look);
+  }
   apply(look: Look) {
+    this.look = look;
     this.dome.material.uniforms.top.value.set(look.skyTop);
     this.dome.material.uniforms.horizon.value.set(look.skyHorizon);
     this.dome.material.uniforms.sunColor.value.set(look.night ? '#6f86ff' : look.sun);
-    this.floor.material.color.set(look.cloudShade).lerp(new T.Color(look.fog), .35);
+    if (this.below === 'clouds') this.floor.material.color.set(look.cloudShade).lerp(new T.Color(look.fog), .35);
+    else this.floor.material.color.set('#ffffff').lerp(new T.Color(look.fog), look.night ? .7 : .15);
     this.stars.visible = look.night;
     for (const m of this.materials) m.mat.color.set(m.shade ? look.cloudShade : look.cloud);
   }
@@ -117,6 +134,7 @@ export class Sky {
     this.dome.position.copy(camera.position);
     this.stars.position.copy(camera.position);
     this.floor.position.x = camera.position.x; this.floor.position.z = camera.position.z;
+    const map = this.floor.material.map; if (map) map.offset.y -= this.speed * dt * .35 / 900 * map.repeat.y;
   }
 }
 
@@ -130,4 +148,24 @@ function fallbackPuff() {
   }
   const merge = (list: T.BufferGeometry[]) => { const m = list.map(g => g.toNonIndexed()); let n = 0; m.forEach(g => n += g.attributes.position.count); const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3); let o = 0; for (const g of m) { pos.set(g.attributes.position.array as Float32Array, o * 3); nor.set(g.attributes.normal.array as Float32Array, o * 3); o += g.attributes.position.count; } const out = new T.BufferGeometry(); out.setAttribute('position', new T.BufferAttribute(pos, 3)); out.setAttribute('normal', new T.BufferAttribute(nor, 3)); return out; };
   return [{ geometry: merge(top), material: makeToon('#ffffff') as T.Material }, { geometry: merge(under), material: makeToon('#b9c6f2') as T.Material }];
+}
+
+/** A small painted tile for the ground far below: treetops in greens, or sea blue with whitecaps. */
+function paintBelow(kind: 'forest' | 'sea') {
+  const size = 256, c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d')!, rng = makeRng(`below-${kind}`);
+  if (kind === 'forest') {
+    g.fillStyle = '#3f9a3a'; g.fillRect(0, 0, size, size);
+    const greens = ['#2f7f33', '#4fb143', '#6cc24a', '#2a6b2e', '#5aa83e'];
+    for (let i = 0; i < 420; i++) { const x = rng.next() * size, y = rng.next() * size, r = 5 + rng.next() * 11; g.fillStyle = greens[i % greens.length]; for (const [dx, dy] of [[0, 0], [size, 0], [-size, 0], [0, size], [0, -size]]) { g.beginPath(); g.arc(x + dx, y + dy, r, 0, Math.PI * 2); g.fill(); } }
+    for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(120, 190, 255, .7)'; g.beginPath(); g.ellipse(rng.next() * size, rng.next() * size, 10 + rng.next() * 16, 6 + rng.next() * 8, rng.next() * 3, 0, Math.PI * 2); g.fill(); }
+  } else {
+    g.fillStyle = '#2f8ed8'; g.fillRect(0, 0, size, size);
+    for (let i = 0; i < 60; i++) { g.fillStyle = i % 3 ? 'rgba(80, 170, 235, .8)' : 'rgba(20, 100, 180, .6)'; g.beginPath(); g.ellipse(rng.next() * size, rng.next() * size, 18 + rng.next() * 30, 6 + rng.next() * 10, 0, 0, Math.PI * 2); g.fill(); }
+    g.strokeStyle = 'rgba(255, 255, 255, .85)'; g.lineWidth = 2;
+    for (let i = 0; i < 70; i++) { const x = rng.next() * size, y = rng.next() * size, w = 4 + rng.next() * 9; g.beginPath(); g.moveTo(x - w, y); g.quadraticCurveTo(x, y - 3, x + w, y); g.stroke(); }
+  }
+  const tex = new T.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = T.RepeatWrapping; tex.repeat.set(14, 14); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
+  return tex;
 }

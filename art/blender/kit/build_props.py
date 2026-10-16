@@ -1104,8 +1104,39 @@ def ice_hut(m):
     return dict(body=p, children=[], markers=[])
 
 
-BATCH5 = ['lift', 'skiff', 'crate', 'chime_cannon', 'bao_plank', 'snow_lantern', 'ice_hut']
-BATCH5_BUDGET = {'lift': 1500, 'skiff': 1500, 'crate': 800, 'chime_cannon': 1200, 'bao_plank': 300, 'snow_lantern': 500,
+def sea_buoy(m):
+    """A small red-and-white float marker bobbing at the waterline (y = 0 is the cloud-sea surface)."""
+    p = Piece('sea_buoy')
+    prof = [(0.0, -0.18), (0.16, -0.15), (0.24, -0.04), (0.24, 0.06), (0.18, 0.16), (0.1, 0.22), (0.07, 0.5),
+            (0.09, 0.52), (0.0, 0.55)]
+    p.add(lathe(prof, 10, tag=lambda b, s2: 'white' if b in (2, 6) else 'red'), {'red': m['red'], 'white': m['white']})
+    p.add(ico0(0.06, (0, 0, 0.6)), m['lantern'])
+    return dict(body=p, children=[], markers=[])
+
+
+def sea_rock(m):
+    """A mossy sea rock standing in the cloud sea, with a little foam ring at the waterline y = 0."""
+    p = Piece('sea_rock')
+    planes = [((0.3, -0.6, 0.75), 0.5), ((-0.8, -0.3, 0.5), 0.55), ((0.75, 0.4, 0.5), 0.55), ((0, 0, 1), 0.62)]
+    g = blob((0, 0, 0.25), (0.75, 0.65, 0.8), 10, LATS5, 0.06, 61)
+    cc = Vector((0, 0, 0.25))
+    for v in g.verts:
+        for d, lim in planes:
+            d = Vector(d).normalized()
+            over = (v - cc).dot(d) - lim
+            if over > 0:
+                v -= d * over * 0.85
+        v.z = max(v.z, -0.3)
+    g.retag(lambda c, n, t: 'moss' if n.z > 0.6 and c.z > 0.5 else 'stone')
+    p.add(g, {'moss': m['moss'], 'stone': m['stone']})
+    foam = [(0.86 * math.cos(TAU * k / 16) * (1 + 0.08 * math.sin(3 * k)), 0.76 * math.sin(TAU * k / 16), 0.0)
+            for k in range(17)]
+    p.add(tube(foam, [0.07 + 0.02 * math.sin(k * 2.1) for k in range(17)], sides=4, flatten=1.6), m['cloud'])
+    return dict(body=p, children=[], markers=[])
+
+
+BATCH5 = ['lift', 'skiff', 'crate', 'chime_cannon', 'bao_plank', 'snow_lantern', 'ice_hut', 'sea_buoy', 'sea_rock']
+BATCH5_BUDGET = {'sea_buoy': 300, 'sea_rock': 500, 'lift': 1500, 'skiff': 1500, 'crate': 800, 'chime_cannon': 1200, 'bao_plank': 300, 'snow_lantern': 500,
                  'ice_hut': 1500}
 
 
@@ -1168,7 +1199,7 @@ def check(stats):
         limit = NEW_BUDGET[n] if n in NEW_IDS else BATCH5_BUDGET[n] if n in BATCH5 else BUDGET
         if s['tris'] > limit:
             errors.append(f'{n}: {s["tris"]} tris > {limit}')
-        if n not in ('skydew', 'hatch', 'skiff', 'bao_plank') and abs(s['min_y']) > 0.01:
+        if n not in ('skydew', 'hatch', 'skiff', 'bao_plank', 'sea_buoy', 'sea_rock') and abs(s['min_y']) > 0.01:
             errors.append(f'{n}: base {s["min_y"]}')
     want = {'hatch': ['door'], 'planter': ['soil'], 'gong': ['disc'], 'lift': ['platform', 'rope'], 'crate': ['lid'],
             'chime_cannon': ['barrel']}
@@ -1252,7 +1283,7 @@ def main():
         out = globals()[n](m)
         if isinstance(out, dict):
             body = out['body']
-            if n not in ('hatch', 'skiff', 'bao_plank'):
+            if n not in ('hatch', 'skiff', 'bao_plank', 'sea_buoy', 'sea_rock'):
                 body.deform(lambda v: (v.x, v.y, max(0.0, v.z)))
             obj = body.build(sharp=50, name=n)
             for cname, piece, pivot in out['children']:
@@ -1305,7 +1336,7 @@ def main():
                  'kitchen', 'workbench', 'maptable', 'fishspot', 'ropepost', 'pantry',
                  'chimepost', 'lantern', 'ore_rock', 'postspot', 'rod', 'speck', 'skydew']
         new_small = ['hatch', 'planter', 'gong', 'lift', 'skiff', 'crate', 'chime_cannon', 'bao_plank', 'snow_lantern',
-                     'ice_hut']
+                     'ice_hut', 'sea_buoy', 'sea_rock']
         cells = [(roots[n], f'{n}  {stats[n]["tris"]}') for n in order + new_small]
         placed = K.contact_sheet(cells, os.path.join(K.PREVIEWS, 'props.png'), cols=6, pitch=(4.4, 4.7),
                                  width_px=2400, label_size=0.26, label_dy=2.15)

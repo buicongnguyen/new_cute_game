@@ -5,7 +5,7 @@ import { RngStreams } from './core/rng.ts';
 import { damp } from './core/feel.ts';
 import { verticalFovForAspect } from './core/camera.ts';
 import { t } from './i18n.ts';
-import { CANNON, CONCH, CREW, DECK, BEAST, HELPER, HELPERS, HIVES, HOME, ISLE_MAPS, ITEMS, KEEPER, LIFT, LIST, MARKETS, PLACES, POST, RAID, RECIPES, ROOMS, SKILL_NAMES, UPGRADES, VOYAGE, isLand, isShip,
+import { BELOW, CANNON, CONCH, CREW, DECK, BEAST, HELPER, HELPERS, HIVES, HOME, ISLE_MAPS, ITEMS, KEEPER, LIFT, LIST, MARKETS, PLACES, POST, RAID, RECIPES, ROOMS, SKILL_NAMES, UPGRADES, VOYAGE, isLand, isShip,
   type CrewId, type FishId, type HelperId, type IsleId, type ItemId, type LandId, type MealId, type PlaceId, type RecipeId, type RoomId, type ShipId, type SkillId, type TreeId, type UpgradeId } from './rules/content.ts';
 import { count, hasCrew, newGame, type GameState } from './rules/state.ts';
 import { tickRules, catchUp } from './rules/tick.ts';
@@ -17,7 +17,8 @@ import { cageLocked, faint as rulesFaint, formFreed, freeCaptive, groupCleared, 
 import { buy, buyUpgrade, cook, craft, sell } from './rules/trade.ts';
 import { repairRoom, shipCrate } from './rules/home.ts';
 import { goal, raidPlan, type RaidPlan, type Where } from './rules/story.ts';
-import { biteWait, biteWindow, castFor, landFish, rollFish, takeBite } from './rules/fishing.ts';
+import { castFor, landFish, rollFish, takeBite } from './rules/fishing.ts';
+import { FISH_POWER, ReelSim } from './rules/reel.ts';
 import { HEART } from './rules/content.ts';
 import { CABIN_LOOK, LOOKS, Lighting, GLOOM, NIGHT, addGloom, mixLook, type Look } from './world/look.ts';
 import { Sky } from './world/sky.ts';
@@ -78,7 +79,7 @@ export class Game {
   private families: Family[] = [];
   private shells: Shell[] = [];
   private campNpc: Actor | null = null;
-  private fishing: { state: 'off' | 'wait' | 'bite'; t: number; fish: FishId | null; window: number; bobber: T.Object3D; line: T.Line } ;
+  private fishing: { state: 'off' | 'wait' | 'bite'; sim: ReelSim | null; pause: number; bobber: T.Object3D; line: T.Line; at: T.Vector3 };
   private dews: { o: T.Object3D; treasure: boolean; alive: boolean }[] = [];
   private raid: { plan: RaidPlan; wave: number; t: number; warn: number; total: number; postT: number[]; ships: Ship[]; queue: { kind: RaidPlan['waves'][number][number]; ship: number; t: number }[]; gongCd: number[] } | null = null;
   private interactables: Interactable[] = [];
@@ -156,7 +157,7 @@ export class Game {
       context: () => this.live() && this.useNearby(),
       ring: () => this.live() && this.keeper.ring(false), spin: () => this.live() && this.keeper.ring(true),
       hop: () => this.live() && this.keeper.hop(this.hud.stick.x || this.keeper.vel.x, this.hud.stick.z || this.keeper.vel.z),
-      eat: () => this.live() && this.quickEat(), reel: () => this.live() && this.reel(),
+      eat: () => this.live() && this.quickEat(), reel: (held: boolean) => { if (this.live() || !held) this.reel(held); },
       conch: () => this.live() && this.blowConch(),
       pull: () => this.live() && this.pullRope(),
       open: p => this.openPanel(p),
@@ -210,7 +211,7 @@ export class Game {
     s.posts.forEach(i => add(DECK.posts[i], .3));
     if (hasCrew(s, 'juno')) add(DECK.cannon, .55);
     if (this.raid) { DECK.gongs.forEach(g => add(g, .55)); return list; }
-    add(DECK.workbench, .65); add(DECK.maptable, .55); add(DECK.pantry, .5); add(DECK.ropepost, .3); add(DECK.crate, .55); add(DECK.lift, .35);
+    add(DECK.workbench, .65); add(DECK.maptable, .55); add(DECK.pantry, .5); add(DECK.ropepost, .3); add(DECK.crate, .55); add(this.bao.liftCalf(), .35);
     s.plots.forEach((p, i) => { if (p.tree && p.phase !== 'empty') add(DECK.plots[i], .32); });
     return list;
   }
@@ -265,7 +266,7 @@ export class Game {
     const g = this.deckGround();
     Object.defineProperty(g, 'blockers', { get: () => this.memoBlockers('deck', () => this.deckBlockers()) });
     this.keeper.bounds = g; this.combat.ground = g;
-    const post = this.bao.at(DECK.ropepost), hatch = this.bao.at(DECK.hatch), lift = this.bao.at(DECK.lift), plank = this.bao.at(DECK.plank);
+    const post = this.bao.at(DECK.ropepost), hatch = this.bao.at(DECK.hatch), lift = this.bao.at(this.bao.liftCalf()), plank = this.bao.at(this.bao.plankCalf());
     if (first) this.keeper.place(0, 1.5);
     else if (from === 'hatch') { this.keeper.place(hatch.x + 1.2, hatch.z + .3); this.bao.openHatch(.9); }
     else if (from === 'lift') this.keeper.place(lift.x - 1, lift.z);
@@ -291,8 +292,8 @@ export class Game {
     const id = this.state.place as IsleId, v = this.isleView(id);
     v.group.visible = true; v.setFar(true);
     if (v.kind === 'ship') {
-      const rail = DECK.half[0] * this.bao.scale * .93;
-      v.group.position.set(rail + 3.2 + BEAST.half[0], 0, DECK.plank[1] * this.bao.scale - BEAST.gaps[2]);
+      const rail = this.bao.half()[0] * .93;
+      v.group.position.set(rail + 3.2 + BEAST.half[0], 0, this.bao.plankCalf()[1] * this.bao.scale);
       v.setFreed(this.state.isles[id].freed, true);
       this.bao.plankOut = !this.state.isles[id].freed;
       this.gloomTarget = 0; GLOOM.value = 0;
@@ -398,8 +399,8 @@ export class Game {
       const g = this.isleGround(v);
       this.keeper.bounds = g; this.combat.ground = g; this.combat.formsTier = tier; this.combat.raidTarget = null; this.combat.onShip = true;
       // Bao alongside, its plank laid across to the landing gap.
-      const rail = DECK.half[0] * this.bao.scale * .93;
-      this.bao.root.position.set(-(rail + 3.2 + BEAST.half[0]), 0, BEAST.gaps[2] - DECK.plank[1] * this.bao.scale);
+      const rail = this.bao.half()[0] * .93;
+      this.bao.root.position.set(-(rail + 3.2 + BEAST.half[0]), 0, -this.bao.plankCalf()[1] * this.bao.scale);
       this.bao.plankOut = true; this.bao.sync(s, false);
       map.groups.forEach((grp, gi) => {
         if (prog.groups[gi]) return;
@@ -456,24 +457,44 @@ export class Game {
   }
 
   // ------------------------------------------------------------ fishing trip
-  /** The skiff on the cloud sea below Bao's lift, with a patch of cloud for it to float on. */
+  /**
+   * The skiff on the sea far below the clouds (the owner: fishing goes down to the sea): a blue sea with a few rocks
+   * and buoys, cloud banks overhead, and sky fish swimming just under the surface.
+   */
   private buildSkiff() {
     const boat = part('props', 'skiff', { shadows: true }) ?? (() => { const m = new T.Mesh(new T.BoxGeometry(1.4, .4, 3.2).translate(0, -.2, 0), makeToon('#c98a4a')); const g = new T.Group(); g.add(m); return g; })();
     boat.name = 'skiff-boat'; boat.rotation.y = Math.PI / 2;
-    const sea = new T.Mesh(new T.CircleGeometry(70, 40).rotateX(-Math.PI / 2), new T.MeshLambertMaterial({ color: '#f2f8ff', emissive: '#dfeaff', emissiveIntensity: .45, fog: true }));
-    sea.name = 'cloud-sea'; sea.position.y = -.32; sea.receiveShadow = true;
-    this.skiff.add(boat, sea);
+    const sea = new T.Mesh(new T.CircleGeometry(90, 48).rotateX(-Math.PI / 2), new T.MeshLambertMaterial({ color: '#2f9be0', emissive: '#0d4f8a', emissiveIntensity: .35, transparent: true, opacity: .82, depthWrite: false, fog: true }));
+    sea.name = 'sea'; sea.position.y = -.12; sea.renderOrder = 2;
+    const deep = new T.Mesh(new T.CircleGeometry(90, 48).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ color: '#0b3d73', fog: true }));
+    deep.position.y = -2.2;
+    this.skiff.add(boat, sea, deep);
     const rng = this.rng.stream('skiff');
+    // Rocks and buoys around, and cloud banks high overhead (Bao is up above them).
+    for (let i = 0; i < 7; i++) {
+      const o = part('props', i % 2 ? 'sea_buoy' : 'sea_rock') ?? new T.Mesh(new T.IcosahedronGeometry(.8, 0), makeToon('#8c95a5'));
+      const a = i / 7 * Math.PI * 2 + rng.next() * .5, r = 8 + rng.next() * 16;
+      o.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); o.rotation.y = rng.next() * 6; o.scale.setScalar(i % 2 ? 1 : 1.4 + rng.next());
+      this.skiff.add(o);
+    }
     for (let i = 0; i < 12; i++) {
       const puff = part('nature', 'cloud_puff') ?? new T.Mesh(new T.IcosahedronGeometry(2, 1), PUFF);
       puff.traverse(o => { const m = o as T.Mesh; if (m.isMesh) m.material = PUFF; });
-      const a = i / 12 * Math.PI * 2 + rng.next() * .4, r = 9 + rng.next() * 22;
-      puff.position.set(Math.cos(a) * r, -.6 - rng.next() * .4, Math.sin(a) * r); puff.scale.setScalar(1.2 + rng.next() * 1.4); puff.rotation.y = rng.next() * 6;
+      const a = i / 12 * Math.PI * 2 + rng.next() * .4, r = 22 + rng.next() * 30;
+      puff.position.set(Math.cos(a) * r, 9 + rng.next() * 4, Math.sin(a) * r); puff.scale.setScalar(2.4 + rng.next() * 2); puff.rotation.y = rng.next() * 6;
       this.skiff.add(puff);
+    }
+    // The school: a few fish swimming in loops under the surface; one of them comes to the bobber.
+    for (let i = 0; i < 7; i++) {
+      const id = FISH_IDS[i % FISH_IDS.length], o = part('fish', id) ?? new T.Mesh(new T.SphereGeometry(.25, 8, 6), makeToon('#7cc8ff'));
+      o.scale.setScalar(1.6);
+      this.skiff.add(o);
+      this.swimmers.push({ o, id, a: rng.next() * 6, r: 3 + rng.next() * 6, speed: .3 + rng.next() * .4, y: -.45 - rng.next() * .4 });
     }
     this.skiff.visible = false;
   }
-  private skiffAt() { const p = this.bao.at(DECK.lift); return new T.Vector3(p.x + 1.6, -LIFT.drop, p.z); }
+  private swimmers: { o: T.Object3D; id: FishId; a: number; r: number; speed: number; y: number }[] = [];
+  private skiffAt() { const p = this.bao.at(this.bao.liftCalf()); return new T.Vector3(p.x + 1.6, -LIFT.drop, p.z); }
   private skiffGround(): Ground {
     const c = this.skiffAt();
     return { height: () => c.y, clamp: p => { const dx = (p.x - c.x) / 1.15, dz = (p.z - c.z) / .42, k = dx * dx + dz * dz; if (k > 1) { const s = 1 / Math.sqrt(k); p.x = c.x + (p.x - c.x) * s; p.z = c.z + (p.z - c.z) * s; } }, blockers: [] } as Ground;
@@ -612,7 +633,7 @@ export class Game {
       if (fam.t < 1.4) { for (const a of fam.actors) { if (a.action !== 'cheer') a.play('cheer', 1.4); a.update(dt); } continue; }
       let gone = true;
       fam.actors.forEach((a, i) => {
-        const p = a.root.position, target = p.x > -BEAST.half[0] + .4 ? new T.Vector3(-BEAST.half[0] + .2, 0, BEAST.gaps[2] + (i - .5) * .7) : new T.Vector3(-BEAST.half[0] - 4, 0, BEAST.gaps[2]);
+        const p = a.root.position, target = p.x > -BEAST.half[0] + .4 ? new T.Vector3(-BEAST.half[0] + .2, 0, (i - .5) * .7) : new T.Vector3(-BEAST.half[0] - 4, 0, 0);
         walkTo(a, target.x, target.z, 3.2, dt, .2);
         a.update(dt);
         if (p.x > -BEAST.half[0] - 3.5) gone = false;
@@ -1009,56 +1030,93 @@ export class Game {
     const line = new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(), new T.Vector3()]), new T.LineBasicMaterial({ color: '#ffffff' }));
     line.visible = false; line.frustumCulled = false;
     this.scene.add(bobber, line);
-    return { state: 'off' as 'off' | 'wait' | 'bite', t: 0, fish: null as FishId | null, window: 0, bobber, line };
+    return { state: 'off' as 'off' | 'wait' | 'bite', sim: null as ReelSim | null, pause: 0, bobber, line, at: new T.Vector3() };
   }
-  /** Where the bobber floats: off the skiff's bow, on the cloud sea. */
-  private bobberSpot() { const c = this.skiffAt(); return new T.Vector3(c.x + 3.4, c.y - .2, c.z + .3); }
+  /** Where the bobber lands: off the skiff's bow. */
+  private bobberSpot() { const c = this.skiffAt(); return new T.Vector3(c.x + 4.2, c.y, c.z + .3); }
+  /**
+   * A cast (Zoo Garden's fishing game, rules/reel.ts): a fish swims up, nibbles, bites; hook it, then hold Reel and let
+   * go when it surges, or the line strains and may snap.
+   */
   private startFishing() {
     const f = this.fishing;
     if (this.mode !== 'skiff') return;
     if ((this.state.schools[this.state.place]?.left ?? 0) <= 0) { this.hud.toast(t('The fish are hiding. Try again in a little while.'), 'info'); return; }
-    f.state = 'wait'; f.t = biteWait(this.rng.stream('fish'), this.state.gear.bait);
-    f.bobber.position.copy(this.bobberSpot());
+    const s = this.state, c = castFor(s), rng = this.rng.stream('fish');
+    f.sim = new ReelSim({
+      quality: Math.min(1, .3 + (c.line ? .3 : 0) + c.window), bait: c.bait, random: () => rng.next(),
+      choose: bonus => { if (!takeBite(s)) return null; const id = rollFish(rng, s.place, c.line, c.rare * (1 + bonus * .4)); return { id, power: FISH_POWER[id] }; },
+    });
+    f.state = 'wait'; f.pause = 0;
+    f.at.copy(this.bobberSpot()); f.bobber.position.copy(this.keeper.pos).setY(this.keeper.pos.y + 1.4);
     f.bobber.visible = f.line.visible = true;
-    this.keeper.actor.lookAt(f.bobber.position.x, f.bobber.position.z);
+    this.keeper.actor.lookAt(f.at.x, f.at.z);
     this.keeper.actor.play('cast', .5);
     play('splash');
   }
-  private stopFishing() { const f = this.fishing; f.state = 'off'; f.bobber.visible = f.line.visible = false; }
-  private reel() {
-    const f = this.fishing;
-    if (f.state === 'bite' && f.fish) {
-      const level = landFish(this.state, f.fish);
-      play('catch');
-      this.fx.sparkle(f.bobber.position.clone(), '#8fdbff', 12);
-      this.hud.toast(t('You caught a {fish}!', { fish: ITEMS[f.fish].name }), 'good');
-      this.keeper.actor.play('cheer', .9);
-      this.skillUp('fish', level);
-      this.scene_('fished');
-      this.startFishing();
-    } else if (f.state === 'wait') { this.hud.toast(t('Too early! Wait for the bobber to dip.'), 'info'); play('miss'); this.startFishing(); }
-  }
+  private stopFishing() { const f = this.fishing; f.state = 'off'; f.sim = null; f.bobber.visible = f.line.visible = false; }
+  /** Reel held (the Reel button, F or a long press): press and release go to the simulation. */
+  private reelHeld = false;
+  private reel(held = true) { if (this.mode === 'skiff' && !this.fishing.sim && held) { this.startFishing(); return; } this.reelHeld = held; }
   private updateFishing(dt: number) {
     const f = this.fishing;
-    if (f.state === 'off') return;
+    // The swimmers circle under the surface whatever happens.
+    const t0 = this.loop.gameTime, sim = f.sim, coming = sim && (sim.phase === 'approach' || sim.phase === 'nibble' || sim.phase === 'bite' || sim.phase === 'hooked') ? sim.pick?.id ?? null : null;
+    let comer = coming ? this.swimmers.find(w => w.id === coming) ?? this.swimmers[0] : null;
+    for (const w of this.swimmers) {
+      if (w === comer) continue;
+      w.a += dt * w.speed;
+      const c = this.skiffAt();
+      w.o.position.set(c.x + 3 + Math.cos(w.a) * w.r, c.y + w.y, c.z + Math.sin(w.a) * w.r * .7);
+      w.o.rotation.y = -w.a;
+    }
+    if (f.state === 'off' || !sim) return;
     if (this.mode !== 'skiff' || this.raid) { this.stopFishing(); return; }
-    f.t -= dt;
-    const base = this.bobberSpot().y;
-    const bob = f.state === 'bite' ? -.25 + Math.sin(f.t * 40) * .06 : Math.sin(this.loop.gameTime * 2.4) * .06;
-    f.bobber.position.y = base + bob;
+    if (f.pause > 0) { f.pause -= dt; if (f.pause <= 0) this.startFishing(); return; }
+    const held = this.reelHeld || this.keys.isDown('interact');
+    const before = sim.phase;
+    sim.update(dt, held);
+    // The bobber: a short arc out, a bob on the swell, dips for nibbles, pulled under on the bite, dragged in as you reel.
+    const surface = this.skiffAt().y;
+    if (sim.phase === 'cast') { const k = Math.min(1, (this.loop.gameTime % 10) * 0 + .2); void k; f.bobber.position.lerp(f.at, Math.min(1, dt * 6)); f.bobber.position.y = surface + .6; }
+    else {
+      const pulled = sim.phase === 'hooked' ? f.at.clone().lerp(this.keeper.pos, sim.progress * .8) : f.at;
+      const dip = sim.phase === 'bite' ? -.32 + Math.sin(t0 * 40) * .05 : sim.dart > 0 ? -.18 : sim.phase === 'hooked' ? -.15 + Math.sin(t0 * 25) * .08 * (sim.surge > 0 ? 2 : 1) : Math.sin(t0 * 2.4) * .05;
+      f.bobber.position.set(pulled.x, surface + dip, pulled.z);
+    }
     const hand = this.keeper.pos.clone().add(new T.Vector3(Math.sin(this.keeper.actor.facing) * .5, 1.5, Math.cos(this.keeper.actor.facing) * .5));
     (f.line.geometry as T.BufferGeometry).setFromPoints([hand, f.bobber.position]);
-    if (f.state === 'wait' && f.t <= 0) {
-      if (!takeBite(this.state)) { this.hud.toast(t('The fish are hiding. Try again in a little while.'), 'info'); this.stopFishing(); return; }
-      const c = castFor(this.state);
-      f.fish = rollFish(this.rng.stream('fish'), this.state.place, c.line, c.rare);
-      f.window = biteWindow(f.fish, c.line, c.window);
-      f.state = 'bite'; f.t = f.window;
-      play('bite'); this.fx.burst(f.bobber.position.clone(), '#ffffff', 8, { speed: 2, up: 2, size: .08, life: .4 });
-    } else if (f.state === 'bite' && f.t <= 0) {
-      play('miss'); this.hud.toast(t('It got away. Cast again!'), 'info');
-      this.startFishing();
+    (f.line.material as T.LineBasicMaterial).color.set(sim.strained ? '#ff5c5c' : '#ffffff');
+    // The coming fish swims to the bobber, darts at it, and thrashes on the line.
+    if (comer) {
+      const bp = f.bobber.position, d = sim.phase === 'approach' ? sim.fishDistance : .45;
+      const ang = Math.atan2(comer.o.position.z - bp.z, comer.o.position.x - bp.x) || 0;
+      comer.o.position.set(bp.x + Math.cos(ang) * d, surface - .35 + (sim.phase === 'hooked' ? Math.abs(Math.sin(t0 * 9)) * .3 : 0), bp.z + Math.sin(ang) * d);
+      comer.o.rotation.y = Math.PI / 2 - ang + (sim.phase === 'hooked' ? Math.sin(t0 * 14) * .5 : 0);
     }
+    f.state = sim.phase === 'bite' || sim.phase === 'hooked' ? 'bite' : 'wait';
+    if (before !== sim.phase) {
+      if (sim.phase === 'nibble') play('bite', .4);
+      if (sim.phase === 'bite') { play('bite'); this.fx.burst(f.bobber.position.clone(), '#ffffff', 8, { speed: 2, up: 2, size: .08, life: .4 }); this.hud.toast(t('A bite! Reel!'), 'good'); }
+      if (sim.phase === 'hooked') { play('splash'); this.keeper.actor.play('cast', .4); }
+      if (sim.phase === 'wait' && sim.reason) { this.hud.toast(t(sim.reason), 'info'); sim.reason = ''; if (before !== 'cast') play('miss'); }
+      if (sim.phase === 'caught' && sim.pick) {
+        const id = sim.pick.id, level = landFish(this.state, id);
+        play('catch'); this.fx.sparkle(f.bobber.position.clone().setY(surface + .5), '#8fdbff', 14);
+        this.hud.toast(t('You caught a {fish}!', { fish: ITEMS[id].name }), 'good');
+        this.keeper.actor.play('cheer', .9);
+        this.skillUp('fish', level);
+        this.scene_('fished');
+        f.pause = 1.2; f.bobber.visible = false;
+      }
+      if (sim.phase === 'escaped') { this.hud.toast(t(sim.reason), 'warn'); play(sim.reason.includes('snapped') ? 'shield' : 'miss'); if (sim.reason.includes('hiding')) { this.stopFishing(); return; } f.pause = 1.2; }
+    }
+  }
+  /** What the HUD shows of a cast. */
+  private fishingView() {
+    const sim = this.fishing.sim;
+    if (!sim) return { reel: null };
+    return { reel: { phase: sim.phase, tension: sim.tension, progress: sim.progress, strained: sim.strained } };
   }
 
   // ---------------------------------------------------------------- dew
@@ -1111,9 +1169,9 @@ export class Game {
       add('crate', at(DECK.crate), 1.5, 'Shipping crate', '📦', () => this.openPanel('crate'));
       add('pantry', at(DECK.pantry), 1.4, 'Bag', '🎒', () => this.openPanel('bag'));
       add('hatch', at(DECK.hatch), 1.6, 'Go inside', '🚪', () => this.enterHouse());
-      if (isShip(s.place) && !s.voyage) add('plank', at(DECK.plank), 1.7, 'Board the ship', '⚔️', () => this.board());
+      if (isShip(s.place) && !s.voyage) add('plank', at(this.bao.plankCalf()), 1.7, 'Board the ship', '⚔️', () => this.board());
       else add('rope', at(DECK.ropepost), 1.5, s.place === 'dawnreach' || s.voyage ? 'Rope' : 'Go down', '🪢', () => this.descend());
-      add('lift', at(DECK.lift), 1.6, 'Go fishing', '🎣', () => this.goFishing());
+      add('lift', at(this.bao.liftCalf()), 1.6, 'Go fishing', '🎣', () => this.goFishing());
       for (const [id, a] of this.bao.crew) if (s.crew.includes(id) && a.root.visible) add(`crew-${id}`, a.root.position, 1.4, 'Talk', '💬', () => this.talk(id));
       for (const d of this.dews) if (d.alive) add('dew', d.o.position, 0, 'Catch', '✨', () => this.catchDew(d));
     } else if (this.mode === 'skiff') {
@@ -1171,7 +1229,14 @@ export class Game {
       if (moved > 12 || this.paused || this.mode === 'cut' || this.mode === 'ride') return;
       this.tap(e.clientX, e.clientY);
     });
-    this.canvas.addEventListener('wheel', e => { e.preventDefault(); this.zoom = Math.min(1.35, Math.max(.75, this.zoom * (1 + Math.sign(e.deltaY) * .08))); }, { passive: false });
+    this.canvas.addEventListener('wheel', e => { e.preventDefault(); this.setZoom(this.zoom * (1 + Math.sign(e.deltaY) * .08)); }, { passive: false });
+    // Two fingers on the canvas pinch the camera in and out (phones had no zoom before).
+    const touches = new Map<number, { x: number; y: number }>();
+    let pinch0 = 0, zoom0 = 1;
+    const spread = () => { const [a, b] = [...touches.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+    this.canvas.addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (touches.size === 2) { pinch0 = spread(); zoom0 = this.zoom; down = null; } });
+    this.canvas.addEventListener('pointermove', e => { if (!touches.has(e.pointerId)) return; touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (touches.size === 2 && pinch0 > 10) this.setZoom(zoom0 * pinch0 / Math.max(10, spread())); });
+    for (const ev of ['pointerup', 'pointercancel'] as const) this.canvas.addEventListener(ev, e => { touches.delete(e.pointerId); if (touches.size < 2) pinch0 = 0; });
   }
   /** A tap picks the nearest thing on screen (in pixels, so small things stay easy to hit), else walks there. */
   tap(cx: number, cy: number) {
@@ -1195,7 +1260,7 @@ export class Game {
     }
     for (const f of this.combat.forms) if (!f.dead) consider(f.pos, .6, () => this.keeper.walkTo(f.pos.x, f.pos.z, null, 1.6));
     if (best) { (best as { act: () => void }).act(); return; }
-    if (this.mode === 'skiff') { if (this.fishing.state === 'off') this.startFishing(); else this.reel(); return; }
+    if (this.mode === 'skiff') { if (this.fishing.state === 'off') this.startFishing(); return; }
     // Walk to the ground point under the tap.
     const ndc = new T.Vector2((cx - rect.left) / rect.width * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1);
     const ray = new T.Raycaster(); ray.setFromCamera(ndc, this.camera);
@@ -1341,6 +1406,8 @@ export class Game {
   // ----------------------------------------------------------------- loop
   start() { this.renderer.setAnimationLoop(() => { const now = performance.now(); const dt = (now - (this.lastFrame || now)) / 1000; this.lastFrame = now; this.loop.advance(dt); }); }
   private lastFrame = 0;
+  /** Camera distance factor: closer 0.75, farther up to 1.6 (wheel, pinch). */
+  setZoom(z: number) { this.zoom = Math.min(1.6, Math.max(.75, z)); }
 
   /** Test hook: run `seconds` of game steps without rendering each one (fights, voyages, raids). */
   simulate(seconds: number) { for (let i = 0; i < seconds * 60; i++) this.step(1 / 60); }
@@ -1364,7 +1431,7 @@ export class Game {
     if (this.keys.pressed('conch')) this.blowConch();
     if (this.keys.pressed('interact')) {
       // In the skiff F casts, then reels; anywhere else it uses what is in reach.
-      if (this.mode === 'skiff') { if (this.fishing.state === 'off') this.startFishing(); else this.reel(); }
+      if (this.mode === 'skiff') { if (this.fishing.state === 'off') this.startFishing(); }
       else this.useNearby();
     }
     if (this.keys.pressed('eat')) this.quickEat();
@@ -1450,7 +1517,7 @@ export class Game {
     // Camera: follow the Captain (low and close in the skiff, so Bao's belly shows overhead).
     const aspect = this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight);
     const skiff = this.mode === 'skiff' || this.mode === 'ride';
-    const base = skiff ? CAMERA.skiff : this.mode === 'isle' ? (this.isle?.kind === 'ship' ? CAMERA.ship : CAMERA.isle) : this.mode === 'house' ? CAMERA.house : CAMERA.deck;
+    const base = skiff ? CAMERA.skiff : this.mode === 'isle' ? (this.isle?.kind === 'ship' ? CAMERA.ship : CAMERA.isle) : this.mode === 'house' ? CAMERA.house : CAMERA.deck * (1 + .38 * Math.max(0, this.bao.half()[1] / 8 - 1));
     const dist = base * this.zoom * (aspect < .8 ? CAMERA.portrait : 1);
     const k = this.keeper.pos;
     this.focus.x = damp(this.focus.x, k.x, 7, realDt); this.focus.z = damp(this.focus.z, k.z, 7, realDt); this.focus.y = damp(this.focus.y, k.y, this.mode === 'ride' ? 12 : 4, realDt);
@@ -1484,6 +1551,8 @@ export class Game {
     else look = LOOKS[s.place];
     if (look === this.lastLook) return;
     this.lastLook = look;
+    // Halfway through a voyage the ground below turns into the destination's.
+    this.sky.setBelow(this.mode === 'house' ? 'clouds' : s.voyage ? BELOW[s.voyage.elapsed / s.voyage.duration > .5 ? s.voyage.to : s.voyage.from] : BELOW[s.place]);
     this.lighting.apply(look); this.sky.apply(look);
     this.renderer.setClearColor(look.fog);
     const sea = this.skiff.getObjectByName('cloud-sea') as T.Mesh | undefined;
@@ -1500,7 +1569,7 @@ export class Game {
     const view: HudView = {
       mode: where, combat: this.mode === 'isle' || !!this.raid,
       context: this.nearby ? this.nearby.label : null, contextIcon: this.nearby?.icon ?? '✋',
-      fishing: this.fishing.state, cooldowns: { spin: this.keeper.spinCd / KEEPER.spin.cooldown, hop: this.keeper.hopCd / KEEPER.hop.cooldown },
+      fishing: this.fishing.state, ...this.fishingView(), cooldowns: { spin: this.keeper.spinCd / KEEPER.spin.cooldown, hop: this.keeper.hopCd / KEEPER.hop.cooldown },
       eat: quickEatItem(s), place: PLACES[s.place].name,
       raid: this.raid ? (this.raid.wave < 0 ? t('Gloom ships in {n}…', { n: Math.ceil(this.raid.warn - this.raid.t) }) : t('Ship battle! {n}s', { n: Math.max(0, Math.ceil(RAID.timeout - this.raid.total)) })) : null,
       conch: this.mode === 'isle' && !!s.story.flags.conch,
@@ -1512,6 +1581,7 @@ export class Game {
   }
 
   syncDeck() {
+    this.bao.setDeck(this.state.gear.deck);
     this.bao.sync(this.state, !!this.raid);
     // The golden-bell keepsake: the Captain's mallet shines gold.
     const gold = this.state.keepsakes.includes('goldbell');
@@ -1659,7 +1729,7 @@ export class Game {
   /** Plain-data summary for tests and the test hook. */
   summary() {
     const s = this.state;
-    return { mode: this.mode, place: s.place, voyage: s.voyage ? { to: s.voyage.to, k: s.voyage.elapsed / s.voyage.duration, raid: s.voyage.raidState } : null, stage: s.whale.stage, hunger: s.whale.hunger, mood: s.whale.mood, whaleXp: s.whale.xp, level: s.hero.level, hp: s.hero.hp, glimmer: s.glimmer, notes: s.notes, crew: s.crew, rescued: s.rescued, rooms: s.rooms, skills: s.skills, forms: this.combat.aliveCount(), hive: this.hive ? { id: this.hive.id, hp: this.hive.hp, shielded: this.hive.shielded, broken: this.hive.broken, status: this.hive.status() } : null, nearby: this.nearby?.id ?? null, fishing: this.fishing.state, raid: !!this.raid, goal: goal(s, this.where()).text, items: s.items, gloom: GLOOM.value, keeper: { x: this.keeper.pos.x, y: this.keeper.pos.y, z: this.keeper.pos.z }, helpers: this.helpers.map(h => h.id), families: this.families.length };
+    return { mode: this.mode, place: s.place, voyage: s.voyage ? { to: s.voyage.to, k: s.voyage.elapsed / s.voyage.duration, raid: s.voyage.raidState } : null, stage: s.whale.stage, hunger: s.whale.hunger, mood: s.whale.mood, whaleXp: s.whale.xp, level: s.hero.level, hp: s.hero.hp, glimmer: s.glimmer, notes: s.notes, crew: s.crew, rescued: s.rescued, rooms: s.rooms, skills: s.skills, forms: this.combat.aliveCount(), hive: this.hive ? { id: this.hive.id, hp: this.hive.hp, shielded: this.hive.shielded, broken: this.hive.broken, status: this.hive.status() } : null, nearby: this.nearby?.id ?? null, fishing: this.fishing.state, reel: this.fishingView().reel, raid: !!this.raid, goal: goal(s, this.where()).text, items: s.items, gloom: GLOOM.value, keeper: { x: this.keeper.pos.x, y: this.keeper.pos.y, z: this.keeper.pos.z }, helpers: this.helpers.map(h => h.id), families: this.families.length };
   }
 }
 
@@ -1667,6 +1737,7 @@ const GOLD = makeToon('#ffc83a', { emissive: '#5a3a00' });
 /** Raid creatures stay crusted (their own Gloom tint, always on). */
 const RAIDER_GLOOM = { value: 1 };
 /** Cloud puffs around the skiff: bright white like the sky's clouds. */
+const FISH_IDS: FishId[] = ['puff_minnow', 'sun_carp', 'star_ray', 'cloud_koi', 'sun_carp', 'puff_minnow', 'star_ray'];
 const PUFF = new T.MeshLambertMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: .45, fog: true });
 /** The chime cannon's shot: a little golden bell. */
 const BELL_GEO = (() => { const g = new T.CylinderGeometry(.12, .3, .42, 12, 1, true); g.translate(0, -.1, 0); return g; })();

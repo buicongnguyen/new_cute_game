@@ -125,7 +125,7 @@ function hooks(g: Game) {
   const STATES: Record<string, (s: GameState) => void> = {
     'new-game': () => { Object.assign(g.state, newGame('test', Date.now())); },
     // Chapters 1 and 2 done: on deck, Bao met, the kitchen fixed, a tart cooked, a fish caught, the rope made.
-    'rope': s => { s.gear.rope = true; s.rooms.kitchen = true; s.story.flags = { onDeck: true, petted: true, planted: true, harvested: true, fed: true, shipped: true, cooked: true, fished: true, conch: true, scene_intro: true, scene_rope: true, scene_planted: true, scene_harvested: true, scene_fed: true, scene_met_bao: true, scene_deck_first: true, scene_wake: true, scene_shipped: true, scene_cooked: true, scene_fished: true, scene_room_kitchen: true, scene_skiff_first: true, scene_conch: true }; s.story.prologueSeen = true; },
+    'rope': s => { s.gear.rope = true; s.rooms.kitchen = true; s.gear.deck = Math.max(1, s.gear.deck); s.story.flags = { onDeck: true, petted: true, planted: true, harvested: true, fed: true, shipped: true, cooked: true, fished: true, conch: true, scene_intro: true, scene_rope: true, scene_planted: true, scene_harvested: true, scene_fed: true, scene_met_bao: true, scene_deck_first: true, scene_wake: true, scene_shipped: true, scene_cooked: true, scene_fished: true, scene_room_kitchen: true, scene_skiff_first: true, scene_conch: true }; s.story.prologueSeen = true; },
     // A fresh captain who has just climbed up and met Bao (the start of chapter 2).
     'deck': s => { s.story.prologueSeen = true; s.story.flags = { onDeck: true, petted: true, scene_wake: true, scene_deck_first: true, scene_met_bao: true, scene_intro: true }; },
     'clover': s => { STATES.rope(s); s.place = 'clover'; },

@@ -97,6 +97,12 @@ button:disabled { cursor: default; }
 .btn.context { right: 80px; bottom: 76px; width: 72px; height: 72px; background: radial-gradient(circle at 35% 30%, #ffb59e, var(--coral)); color: #fff; }
 .btn.context small { bottom: 6px; text-shadow: 0 1px 0 rgba(0,0,0,.3); font-size: 11px; padding: 0 4px; line-height: 1.05; }
 .btn.context .ico { margin-bottom: 12px; }
+.reel-meter { position: absolute; left: 50%; bottom: calc(150px + var(--safe-b)); transform: translateX(-50%); width: min(320px, 80vw); display: grid; gap: 6px; padding: 10px 12px; border-radius: 16px; background: rgba(255,255,255,.88); box-shadow: 0 4px 14px rgba(0,0,0,.18); pointer-events: none; text-align: center; }
+.reel-meter .bar { height: 12px; }
+.reel-meter .tension i { background: linear-gradient(90deg, #7bd54a, #ffc83a 60%, #ef3b3b); }
+.reel-meter .landed i { background: #35b6f2; }
+.reel-meter small { font-size: 12px; font-weight: 700; color: #33415e; }
+.reel-meter.strained { animation: pulse .3s ease-in-out infinite; }
 .btn.reel { right: 0; bottom: 0; width: 96px; height: 96px; background: #d9e9ff; }
 .btn.reel.bite { background: radial-gradient(circle at 35% 30%, #a0f08a, var(--good)); color: #fff; animation: pulse .3s ease-in-out infinite; }
 .btn.reel .ico { font-size: 36px; margin-bottom: 14px; }

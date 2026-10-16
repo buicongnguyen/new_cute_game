@@ -49,7 +49,9 @@ export function visibleStrings() {
   for (const d of Object.values(UPGRADES)) { add(d.name); add(d.effect); }
   for (const why of Object.values(FLEET_WHY)) add(why);
   // Boss states and reasons passed around as plain strings (hive.ts status(), trade.ts cookBlock()).
-  for (const s of ['Shielded', 'Cracked! Strike!', 'Silent: ring the echo bells', 'Dizzy! Strike!', 'Ring its glowing knots', 'Stuck! Strike!', 'Bao sings! Strike!', 'Open! Strike!', 'Repair the kitchen first', 'Mina will teach you this one', 'Missing ingredients', 'Repair the craft room first', 'A backfolk family']) add(s);
+  for (const s of ['Shielded', 'Cracked! Strike!', 'Silent: ring the echo bells', 'Dizzy! Strike!', 'Ring its glowing knots', 'Stuck! Strike!', 'Bao sings! Strike!', 'Open! Strike!', 'Repair the kitchen first', 'Mina will teach you this one', 'Missing ingredients', 'Repair the craft room first', 'A backfolk family',
+    // Fishing reasons (rules/reel.ts), shown with t().
+    'Too early: the bobber jerked and the fish swam off.', 'The fish lost interest.', 'The bite was missed. Wait for the next fish.', 'The line snapped. Let go of Reel when the fish surges.', 'The line went slack and the fish slipped away.', 'A lovely catch!']) add(s);
   for (const kind of ['Whale food', 'People food', 'Craft', 'Fish', 'Meals', 'Seeds']) add(kind);
   for (const who of ['Bao', 'The Gloom', 'You']) add(who);
   for (const why of Object.values(GATE_WHY)) add(why);

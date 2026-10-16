@@ -151,7 +151,7 @@ test('the Grey Heart gives the Golden Seed at once; a raider on the hatch crusts
 function chapter3(seed = 't'): GameState {
   const s = newGame(seed, 0);
   Object.assign(s.story.flags, { onDeck: true, petted: true, planted: true, harvested: true, fed: true, shipped: true, cooked: true, fished: true });
-  s.gear.rope = true; s.rooms.kitchen = true;
+  s.gear.rope = true; s.rooms.kitchen = true; s.gear.deck = 1;
   return s;
 }
 
@@ -237,8 +237,13 @@ test('the goal card walks through chapters 1 and 2', () => {
   assert.equal(goal(s, 'house').target, 'ladder', 'chapter 1: wake up below deck');
   s.story.flags.onDeck = true; assert.equal(goal(s, 'deck').target, 'feed', 'meet Bao');
   pet(s); assert.equal(goal(s, 'deck').target, 'plot');
-  plant(s, 0, 'puffberry'); plant(s, 1, 'ropevine'); assert.equal(goal(s, 'deck').target, 'ripe');
-  growGarden(s, 100); harvest(s, 0); harvest(s, 1); assert.equal(goal(s, 'deck').target, 'feed');
+  plant(s, 0, 'puffberry'); plant(s, 1, 'ropevine'); plant(s, 2, 'sproutbean'); assert.equal(goal(s, 'deck').target, 'ripe');
+  growGarden(s, 100); harvest(s, 0); harvest(s, 1); harvest(s, 2);
+  assert.equal(goal(s, 'deck').text, 'Grow Sprout Beans for the side decks ({n}/{all})', 'build out the ship first');
+  s.items.bean = 6; assert.equal(goal(s, 'deck').target, 'workbench');
+  assert.equal(craft(s, 'deck1').ok, true); assert.equal(s.plots.length, 6, 'two more planter boxes');
+  s.glimmer += 20;
+  assert.equal(goal(s, 'deck').target, 'feed');
   feed(s, 'puffberry'); assert.equal(goal(s, 'deck').target, 'crate');
   shipCrate(s, 'puffberry'); assert.equal(goal(s, 'deck').target, 'ripe', 'Fibre for the kitchen (2/3)');
   s.items.fibre = 3; assert.equal(goal(s, 'deck').target, 'repair');

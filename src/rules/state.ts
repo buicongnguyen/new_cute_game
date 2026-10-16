@@ -1,4 +1,4 @@
-import { CREW, FISHING, ISLE_IDS, ISLE_MAPS, PLACE_IDS, ROOM_IDS, SKILL_IDS, STAGES, WHALE, type CrewId, type HelperId, type IsleId, type ItemId, type NoteIsle, type PlaceId, type RecipeId, type RoomId, type SkillId, type Stage, type TreeId } from './content.ts';
+import { CREW, FISHING, ISLE_IDS, plotCount, ISLE_MAPS, PLACE_IDS, ROOM_IDS, SKILL_IDS, STAGES, WHALE, type CrewId, type HelperId, type IsleId, type ItemId, type NoteIsle, type PlaceId, type RecipeId, type RoomId, type SkillId, type Stage, type TreeId } from './content.ts';
 
 /** One planter box on Bao's deck. `progress` counts seconds of growth toward `need`. */
 export interface Plot {
@@ -57,7 +57,8 @@ export interface GameState {
   glimmer: number;
   /** `freshUntil`: the bath's buff (separate from meal buffs, so both can be on). */
   hero: { level: number; xp: number; hp: number; buff: 'power' | 'guard' | null; buffUntil: number; freshUntil: number };
-  gear: { mallet: number; coat: number; rope: boolean; line: boolean; bait: boolean };
+  /** `deck`: deck extensions built (0–3). */
+  gear: { mallet: number; coat: number; rope: boolean; line: boolean; bait: boolean; deck: number };
   /** Rooms of Nana's cottage that have been repaired (chapter 2). */
   rooms: Record<RoomId, boolean>;
   /** Life-skill XP. */
@@ -106,10 +107,11 @@ export function newGame(seed = 'cloudback', now = Date.now()): GameState {
     notes: [],
     plots: Array.from({ length: STAGES[0].plots }, emptyPlot),
     // Two of each seed for the four planter boxes, and Nana's packed lunch: three Cloudpears (two make the first Pear Tart).
-    items: { seed_puffberry: 2, seed_ropevine: 2, cloudpear: 3 },
+    // Two Sprout Beans for quick coin and the first deck, two of each tree, and Nana's lunch (three Cloudpears).
+    items: { seed_sproutbean: 2, seed_puffberry: 2, seed_ropevine: 2, cloudpear: 3 },
     glimmer: 20,
     hero: { level: 1, xp: 0, hp: 100, buff: null, buffUntil: 0, freshUntil: 0 },
-    gear: { mallet: 1, coat: 1, rope: false, line: false, bait: false },
+    gear: { mallet: 1, coat: 1, rope: false, line: false, bait: false, deck: 0 },
     rooms: all(ROOM_IDS, false),
     skills: all(SKILL_IDS, 0),
     bank: { fruit: 0, portion: 0 },
@@ -150,6 +152,7 @@ export function fromV1(data: unknown): unknown {
   const s = data as Partial<GameState> & { story?: GameState['story'] };
   if (s.gear?.rope) {
     s.rooms = { kitchen: true, craft: false, study: false, bath: false };
+    if (s.gear) (s.gear as GameState['gear']).deck = 1;
     s.story = { ...(s.story as GameState['story']), flags: { ...(s.story?.flags ?? {}), onDeck: true, petted: true, shipped: true, cooked: true, fished: true } };
   }
   if (s.isles && !s.isles.star?.freed) delete (s.isles as Partial<Record<IsleId, IsleProgress>>).star;
@@ -190,7 +193,8 @@ export function repair(s: GameState): GameState {
       captives: base.captives.map((_, i) => !!have.captives?.[i]), oreAt: base.oreAt.map((_, i) => have.oreAt?.[i] ?? 0), wildAt: base.wildAt.map((_, i) => have.wildAt?.[i] ?? 0),
     } : base;
   }
-  const plots = STAGES[out.whale.stage]?.plots ?? 4;
+  out.gear.deck = Math.max(0, Math.min(3, Math.round(out.gear.deck) || 0));
+  const plots = plotCount(out.whale.stage, out.gear.deck);
   out.plots = Array.from({ length: plots }, (_, i) => ({ ...emptyPlot(), ...(s.plots?.[i] ?? {}) }));
   if (!out.crew.includes('nana')) out.crew = ['nana', ...out.crew];
   // Numbers a hand-edited or damaged save could break (code review 26).

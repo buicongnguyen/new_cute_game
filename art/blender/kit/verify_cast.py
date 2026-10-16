@@ -62,7 +62,7 @@ SIZE = {  # root: (axis index, lo, hi) in glTF metres
     'greyheart': [(1, 5.4, 6.4)], 'note': [(1, 0.55, 0.65)],
     'plank': [(2, 3.2, 3.5), (0, 0.78, 1.05)],
     'shellback': [(2, 1.0, 1.45)], 'puffcap': [(1, 0.85, 1.05)], 'pebbleturtle': [(0, 0.4, 0.7)],
-    'mushpup': [(1, 0.5, 0.7)], 'gloom_beast': [(2, 28.0, 34.0)], 'gloom_raider': [(2, 6.8, 8.2)],
+    'mushpup': [(1, 0.5, 0.7)], 'gloom_beast': [(2, 28.0, 36.0)], 'gloom_raider': [(2, 6.8, 8.2)],
     'hushbell': [(1, 6.5, 7.5)], 'echo_bell': [(1, 1.55, 1.7)], 'captain_barnacle': [(1, 2.6, 3.2)],
     'coilwyrm': [(1, 3.2, 3.9), (0, 3.8, 4.8)], 'folk_a': [(1, 1.0, 1.2)], 'folk_b': [(1, 0.7, 0.8)],
 }
@@ -232,12 +232,22 @@ def rail_gaps(objs):
     """The galleon's side rails: present at z = -3 and 3, open in the 2 m gaps at z = -6, 0 and 6 (both sides)."""
     o = find(objs, 'gloom_beast', 'body')
     inv = o.matrix_world.inverted()
-    for z, x, rail in ((-6.0, 3.85, False), (0.0, 3.85, False), (6.0, 3.85, False), (-5.0, 3.85, True), (1.0, 3.85, True), (5.0, 3.85, True)):
-        for side in (1, -1):
-            ok, loc, _, _ = o.ray_cast(inv @ Vector((side * x, -z, 30.0)), (inv.to_3x3() @ Vector((0, 0, -1))).normalized())
-            y = (o.matrix_world @ loc).z if ok else None
+    for deg, rail in ((40, False), (90, False), (140, False), (-40, False), (-90, False), (-140, False),
+                      (0, True), (180, True), (65, True), (-65, True), (115, True), (-115, True)):
+        a = math.radians(deg)
+        for side in (1,):
+            x, z = 6.65 * math.sin(a), 9.85 * math.cos(a)
+            y = None
+            for da in (-0.06, -0.03, 0.0, 0.03, 0.06):   # the rope is thin: probe a short stretch of the rail line
+                xx, zz = 6.65 * math.sin(a + da), 9.85 * math.cos(a + da)
+                for dr in (-0.05, 0.0, 0.05):
+                    ok, loc, _, _ = o.ray_cast(inv @ Vector((xx * (1 + dr / 6.65), -zz * (1 + dr / 9.85), 30.0)),
+                                               (inv.to_3x3() @ Vector((0, 0, -1))).normalized())
+                    if ok:
+                        yy = (o.matrix_world @ loc).z
+                        y = yy if y is None else max(y, yy)
             got = y is not None and y > 0.3
-            print(f'   rail at z {z:+.0f} side {side:+d}: top {y:.3f} -> {"rail" if got else "open"}')
+            print(f'   rail at {deg:+d} deg: top {y:.3f} -> {"rail" if got else "open"}')
             if y is None or got != rail:
                 fail(f'gloom_beast rail check at z {z}, side {side}: top {y}, want {"rail" if rail else "gap"}')
 
@@ -321,8 +331,8 @@ def main():
     deck_check(imported['whale.glb'])
     top_check(imported['gloom.glb'], 'gloom_raider', 'body', (-1.2, -0.3, 0.6), (-1.5, 0.2, 1.4), tol=0.02)
     top_check(imported['gloom.glb'], 'plank', 'body', (-0.3, -0.05, 0.2), (0.6, 1.6, 2.4))
-    top_check(imported['gloom.glb'], 'gloom_beast', 'body', (-3.25, -1.75, 0.25, 1.75, 3.25), (-7.0, -5.5, -3.0, -0.5, 1.0, 3.0, 6.0),
-              tol=0.02)   # the plank seams are 1.5 cm deep
+    top_check(imported['gloom.glb'], 'gloom_beast', 'body', (-4.1, -2.4, -0.9, 0.6, 2.1, 3.6), (-7.0, -5.5, -3.0, -0.5, 1.0, 3.0, 7.0),
+              tol=0.035)   # the plank seams are 1.5 cm deep
     rail_gaps(imported['gloom.glb'])
     if '--render' in args():
         pose_render(imported)

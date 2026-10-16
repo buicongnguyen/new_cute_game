@@ -45,41 +45,55 @@ s = await st();
 ok(s.goal === 'Plant a seed in a planter box', 'patted Bao: chapter 2 begins', s.goal);
 await shot('met-bao');
 
-// 1. Plant the four moss patches through the plot panel.
-for (let i = 0; i < 4; i++) {
+// 1. Plant: Sprout Beans first (quick coin for the side decks), and Ropevine for Fibre.
+async function plantAt(i, name) {
   const [x, z] = await plotPos(i);
   await goto(x + .6, z);
   await press('KeyF');
   ok(await page.isVisible('.sheet'), `plot ${i} panel opens with F`);
-  await page.click('.sheet .row .act');
+  await page.locator('.sheet .row', { hasText: name }).first().locator('.act').click();
   await quiet();
 }
-s = await st();
-ok(Object.keys(s.items).filter(k => k.startsWith('seed_')).length === 0, 'all four seeds planted', JSON.stringify(s.items));
+async function harvestPlots(list) { for (const i of list) { const [x, z] = await plotPos(i); await goto(x + .6, z); await press('KeyF'); await quiet(); if (await page.isVisible('.sheet')) await page.click('.sheet .x'); } }
+await plantAt(0, 'Sprout Bean'); await plantAt(1, 'Sprout Bean'); await plantAt(2, 'Ropevine'); await plantAt(3, 'Ropevine');
 await shot('planted');
 
-// 2. Grow, harvest and feed.
-await ev(() => window.__warp(60));
-for (let i = 0; i < 4; i++) { const [x, z] = await plotPos(i); await goto(x + .6, z); await press('KeyF'); await quiet(); if (await page.isVisible('.sheet')) await page.click('.sheet .x'); }
+// 2. Beans ripen in 15 s: two pickings pay for the side decks.
+await ev(() => window.__warp(60)); await harvestPlots([0, 1, 2, 3]);
+await ev(() => window.__warp(30)); await harvestPlots([0, 1]);
 s = await st();
-ok((s.items.puffberry ?? 0) >= 6 && (s.items.fibre ?? 0) >= 4, 'harvested berries and fibre', JSON.stringify(s.items));
+ok((s.items.bean ?? 0) >= 6 && (s.items.fibre ?? 0) >= 4, 'harvested Sprout Beans and Fibre', JSON.stringify(s.items));
+ok(s.goal === 'Build the side decks at the Workbench', 'the first goal is to build out the ship', s.goal);
+const wb0 = await ev(() => { const p = window.__game.bao.props.workbench.position; return [p.x, p.z]; });
+await goto(wb0[0] - 1.1, wb0[1]); await press('KeyF');
+await page.locator('.sheet .row', { hasText: 'Side decks' }).locator('.act').click();
+await page.click('.sheet .x'); await quiet();
+s = await st();
+const plots = await ev(() => window.__game.state.plots.length);
+ok(plots === 6 && await ev(() => window.__game.bao.deckTier === 1), 'the side decks are built: two more planter boxes', `plots ${plots}`);
+await shot('side-decks');
+await plantAt(4, 'Puffberry'); await plantAt(5, 'Puffberry');
+await ev(() => window.__warp(60)); await harvestPlots([0, 1, 2, 3, 4, 5]);
+s = await st();
+ok((s.items.puffberry ?? 0) >= 6, 'harvested Puffberries on the new decks', JSON.stringify(s.items));
 await goto(feedAt[0], feedAt[1] + .5); await press('KeyF'); await quiet();
 s = await st();
 ok(s.whaleXp > 0 && !s.items.puffberry, 'Bao ate the berries', `xp ${s.whaleXp}`);
 
-// 2b. The shipping crate: one Cloudpear to the sky-post finches.
+// 2b. The shipping crate: the spare beans and two Fibre to the sky-post finches.
 const crate = await spot('crate');
 await goto(crate[0] - 1, crate[1]); await press('KeyF');
 ok(await page.isVisible('.sheet'), 'the shipping crate opens');
 const g0 = s.glimmer;
-await page.click('.sheet .row .act');
+await page.locator('.sheet .row', { hasText: 'Sprout Bean' }).locator('.act', { hasText: 'All' }).click();
+for (let i = 0; i < 2; i++) await page.locator('.sheet .row', { hasText: 'Fibre' }).locator('.act').first().click();
 await page.click('.sheet .x'); await quiet();
 s = await st();
-ok(s.glimmer > g0 && s.goal === 'Repair the kitchen below deck', 'shipped a Cloudpear: now repair the kitchen', `${g0} → ${s.glimmer}, ${s.goal}`);
+ok(s.glimmer >= 15 && s.goal === 'Repair the kitchen below deck', 'shipped beans: now repair the kitchen', `${g0} → ${s.glimmer}, ${s.goal}`);
 
 // 2c. Below deck: repair the kitchen, then cook the first Pear Tart.
 const hatch = await spot('hatch');
-await goto(hatch[0] + 1.1, hatch[1]); await press('KeyF');
+await goto(hatch[0] - 1.0, hatch[1]); await press('KeyF');
 await page.waitForTimeout(700); await quiet();
 const door = await spot('repair-kitchen');
 ok(!!door, 'the boarded kitchen door has a Repair spot');
@@ -108,14 +122,22 @@ await sim(3); await quiet();
 s = await st();
 ok(s.mode === 'skiff', 'the lift lowered the Captain to the skiff', s.mode);
 await press('KeyF');
-let caught = 0;
-for (let t = 0; t < 400 && caught < 1; t++) {
+// Zoo Garden's fishing game: wait for the bite, hook it, then hold Reel and let go whenever the line strains.
+let caught = 0, holding = false, hooked = false;
+for (let t = 0; t < 3000 && caught < 1; t++) {
   await sim(.05);
   s = await st();
-  if (t % 20 === 0) await quiet();
-  if (s.fishing === 'bite') { await press('KeyF'); caught = await ev(() => window.__game.state.stats.fish); }
+  if (t % 20 === 0 && !holding) await quiet();
+  const phase = s.reel?.phase;
+  if (phase === 'hooked') hooked = true;
+  const want = phase === 'bite' || (phase === 'hooked' && !s.reel.strained);
+  if (want !== holding) { if (want) await page.keyboard.down('KeyF'); else await page.keyboard.up('KeyF'); holding = want; }
+  if (!s.reel && s.mode === 'skiff') await press('KeyF');
+  caught = await ev(() => window.__game.state.stats.fish);
 }
-ok(caught >= 1, 'caught a sky fish from the skiff');
+if (holding) await page.keyboard.up('KeyF');
+ok(hooked, 'a fish swam up, nibbled and was hooked');
+ok(caught >= 1, 'reeled in a fish against the line tension');
 await quiet();
 await shot('skiff');
 await page.click('#b-pull');
@@ -132,7 +154,7 @@ await goto(feedAt[0], feedAt[1] + .5); await press('KeyF'); await quiet();
 const wb = await ev(() => { const p = window.__game.bao.props.workbench.position; return [p.x, p.z]; });
 await goto(wb[0] - 1.1, wb[1]); await press('KeyF');
 ok(await page.isVisible('.sheet'), 'workbench opens', JSON.stringify(await ev(() => { const g = window.__game; g.buildInteractables(); return { mode: g.mode, nearby: g.nearby?.id, n: g.interactables.length, ids: g.interactables.map(i => i.id).join(','), talking: g.hud.talking, panel: g.panels.kind, k: [g.keeper.pos.x, g.keeper.pos.z], ride: !!g.ride }; })));
-await page.click('.sheet .row:first-child .act');
+await page.locator('.sheet .row').filter({ has: page.locator('b', { hasText: /^Climbing Rope$/ }) }).locator('.act').click();
 s = await ev(() => window.__game.state.gear);
 ok(s.rope, 'Climbing Rope made');
 await page.click('.sheet .x'); await quiet();
@@ -234,7 +256,7 @@ await shot('over-reef');
 // 11. Down the hatch into Nana's cottage (the owner's Zoo Garden house), nap in the bed, climb back up.
 const ht = await ev(() => { const p = window.__game.bao.props.hatch.position; return [p.x, p.z]; });
 await quiet();
-await goto(ht[0] + 1.1, ht[1]); await press('KeyF');
+await goto(ht[0] - 1.0, ht[1]); await press('KeyF');
 await page.waitForTimeout(700); await quiet();
 s = await st();
 ok(s.mode === 'house', 'went down the hatch into the cottage', `nearby ${s.nearby}, mode ${s.mode}`);

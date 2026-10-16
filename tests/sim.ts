@@ -100,6 +100,7 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
 
   // ------------------------------------------------------------- the deck
   const WANT: [TreeId, (s: GameState) => number][] = [
+    ['sproutbean', g => g.gear.deck >= 1 ? 0 : 2],
     ['ropevine', g => g.gear.rope ? 1 : 2],
     ['puffberry', g => g.whale.stage >= 2 ? 1 : 2],
     ['chimewood', () => 1],
@@ -118,7 +119,7 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
     // Better trees replace spare Puffberries and the second Ropevine.
     for (const better of ['starfig', 'glowplum', 'chimewood', 'cloudpear'] as TreeId[]) {
       if (count(s, `seed_${better}` as ItemId) <= 0) continue;
-      const spare = s.plots.findIndex(p => (p.tree === 'puffberry' && plantedCount(s, 'puffberry') > (s.whale.stage >= 2 ? 1 : 2)) || (p.tree === 'ropevine' && s.gear.rope && plantedCount(s, 'ropevine') > 1));
+      const spare = s.plots.findIndex(p => (p.tree === 'sproutbean' && s.gear.deck >= 1) || (p.tree === 'puffberry' && plantedCount(s, 'puffberry') > (s.whale.stage >= 2 ? 1 : 2)) || (p.tree === 'ropevine' && s.gear.rope && plantedCount(s, 'ropevine') > 1));
       if (spare >= 0) { uproot(s, spare); plant(s, spare, better); }
     }
   }

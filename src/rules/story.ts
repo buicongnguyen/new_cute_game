@@ -1,4 +1,4 @@
-import { CREW, HIVES, HIVE_OF, ISLE_IDS, ISLE_MAPS, ITEMS, LANDS, PLACES, RAID, ROOMS, STAGES, TIERS, TREES, isShip, seedOf, type FormId, type IsleId, type LandId, type NoteIsle } from './content.ts';
+import { CREW, HIVES, HIVE_OF, ISLE_IDS, ISLE_MAPS, ITEMS, LANDS, PLACES, RAID, RECIPES, ROOMS, STAGES, TIERS, TREES, isShip, seedOf, type FormId, type IsleId, type LandId, type NoteIsle } from './content.ts';
 import { count, give, type GameState } from './state.ts';
 import { growNeeds } from './whale.ts';
 import { ownsTreeOrSeed } from './garden.ts';
@@ -33,6 +33,13 @@ export function goal(s: GameState, where: Where): Goal {
   // Chapter 2: the ship's economy, one step at a time.
   if (!f.planted) return { text: 'Plant a seed in a planter box', target: 'plot' };
   if (!f.harvested) return { text: 'Wait for fruit, then pick it', target: 'ripe' };
+  // Building out the ship first (the owner): quick Sprout Beans pay for the side decks.
+  if (s.gear.deck < 1) {
+    const need = RECIPES.deck1.cost.bean ?? 0;
+    if (count(s, 'bean') < need) return { text: 'Grow Sprout Beans for the side decks ({n}/{all})', vars: { n: count(s, 'bean'), all: need }, target: 'ripe' };
+    if (s.glimmer < RECIPES.deck1.glimmer) return { text: 'Ship goods in the crate for glimmer ({n}/{all})', vars: { n: s.glimmer, all: RECIPES.deck1.glimmer }, target: 'crate' };
+    return { text: 'Build the side decks at the Workbench', target: 'workbench' };
+  }
   if (!f.fed) return { text: 'Feed Bao at the bow', target: 'feed' };
   if (!f.shipped) return { text: 'Put something spare in the shipping crate', target: 'crate' };
   if (!s.rooms.kitchen) {

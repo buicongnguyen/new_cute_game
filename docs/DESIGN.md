@@ -66,9 +66,9 @@ Sky-map positions are in leagues (`content.ts PLACES`). A voyage costs **2 fulln
 | Stage | Growth XP needed | Note needed | Planter boxes | Back scale | Unlocks |
 |---|---|---|---|---|---|
 | Calf | 0 | — | 4 | 1.00 | Clover Rise |
-| Young | 120 | Note of Dawn | 6 | 1.18 | the Wind Wall (Lantern Reef) |
-| Adult | 380 | Note of Tide | 8 | 1.34 | the Storm Belt (Ember Peaks) |
-| Great | 760 | Note of Ember | 10 | 1.50 | the Frost Veil (Frostfall); with the Note of Frost, the fleet |
+| Young | 120 | Note of Dawn | 6 | 1.30 | the Wind Wall (Lantern Reef) |
+| Adult | 380 | Note of Tide | 8 | 1.55 | the Storm Belt (Ember Peaks) |
+| Great | 760 | Note of Ember | 10 | 1.80 | the Frost Veil (Frostfall); with the Note of Frost, the fleet |
 
 - **Growing up:** when both needs are met, Bao's card shows **Grow!** and a short ceremony plays. Growth XP keeps counting.
 - **Bao always eats:** fullness stops at 100, but growth XP still counts. **Mood** comes from care, not from food.
@@ -104,6 +104,7 @@ Trees are perennial: plant a seed once and the tree fruits again and again. Upro
 
 | Tree | Kind | First fruit | Regrow | Yield | Seed source | Seed price |
 |---|---|---|---|---|---|---|
+| Sprout Bean | Craft (coin) | 15 | 12 | 2 beans (crate 2 ✦ each) | Start ×2 | 3 |
 | Puffberry | Whale food | 40 | 35 | 3 | Start ×2, every market | 5 |
 | Ropevine | Craft (Fibre) | 50 | 45 | 2 | Start ×2, every market | 6 |
 | Cloudpear | People food | 80 | 60 | 2 | Clover Market | 10 |
@@ -209,6 +210,18 @@ The repaired cottage kitchen cooks the Pear Tart; Mina teaches the other two. A 
 - **Mina's breakfast:** once every "day" of play (20 minutes), Mina leaves a Fish Bun in your bag.
 - **Quick Eat** picks the smallest food that covers the missing health, or the biggest food if none does.
 
+### 6e. Building out the ship (the owner)
+
+The first goal after the first harvest: quick Sprout Beans (15 s) pay for the **side decks**. Wooden decks bolted round Bao's rim widen the walkable oval and add planter boxes. Growth works like volume: every stage and every extension costs much more than the last and adds less room. A Great whale with all three has a 27 × 36 m deck, the size of Zoo Garden's safe area (radius 18 m), and it grows no further.
+
+| Extension | Cost | Oval grows (calf m) | Boxes |
+|---|---|---|---|
+| Side decks | 6 Sprout Beans, 20 glimmer | +1.6 across | +2 |
+| Bow and stern decks | 4 Chimewood, 4 Fibre, 90 glimmer | +2.6 across, +1.2 long | +2 |
+| Grand deck | 4 Ore, 4 Chimewood, 250 glimmer | +3.2 across, +2.0 long | +2 |
+
+The camera moves back as the deck grows. The wheel or a two-finger pinch zooms from 0.75× to 1.6×.
+
 ## 7. The Captain
 
 - **Level** comes from XP, up to level 20. Cumulative XP for levels 2–20: 40, 100, 190, 300, 440, 600, 800, 1040, 1320, 1650, 2080, 2600, 3200, 3900, 4800, 5900, 7200, 8700 and 10400.
@@ -288,7 +301,7 @@ Each land is an irregular disc about 70 m across, with cliffs you cannot fall of
 
 ## 9b. The Gloom fleet (chapter 5)
 
-**The ships.** The Gloom's ships are sky creatures it has crusted over, each with a flat deck on its back, like Bao's (the owner, 2026-10-16: no masts, nothing tall in the middle). The deck is 27 × 13 m, with the head toward the bow. Rails run along both sides with **three 3 m gaps per side**, and the hold hatch is near the bow.
+**The ships.** The Gloom's ships are sky creatures it has crusted over, each with a flat **oval** deck on its back, like Bao's (the owner: no masts, nothing tall in the middle). The deck is 22 × 32 m, with the head toward the bow. A rail runs all round it with **six gaps**, at ±40°, ±90° and ±140° from the bow. The hold hatch is near the bow.
 
 **A mission:**
 1. **Sail to the ship.** Bao comes alongside, and Juno's cannon softens the captain's crust (−10% HP).
@@ -347,14 +360,16 @@ Each land is an irregular disc about 70 m across, with cliffs you cannot fall of
 
 ## 12. Fishing from the skiff
 
-- **The trip:** the sky fish swim deep in the cloud layer. Step onto the **lift** at Bao's starboard side (F or tap). It lowers you 16 m in 2.4 s (1.2 s with Juno) to a little **skiff** on the cloud sea, with Bao overhead.
-- **Casting:** cast (F, the Cast button or a tap) and wait 2–6 s for a bite (×0.6 with Kai's bait pot). Then reel (F, the Reel button or a tap) within the bite window.
-- **Going back:** the **Pull the rope** button hauls you back up to the deck.
-- **Bite window:**
-  - Minnow 0.9 s, Carp 0.8 s, Ray 0.65 s, Koi 0.5 s;
-  - +0.35 s with the Good Line, + the Fishing perk.
-- **The school:** each place has 6 bites, refilling one every 40 s of play. When it is empty, the fish are hiding.
-- **What bites:**
+- **The trip:** the lift on Bao's starboard rail lowers you 16 m in 2.4 s (1.2 s with Juno) through the clouds to a little **skiff on the sea**, with rocks, buoys and fish swimming under the surface. **Pull the rope** to go back up.
+- **The game:** Zoo Garden's fishing (rules/reel.ts, the owner's code):
+  1. Cast, then wait 2–5.5 s. Bait comes ×1.7 faster, a better rod sooner.
+  2. A fish swims up and nibbles 1–4 times. Pressing early scares it off.
+  3. It bites: hook it within 1.4 s + 0.6 × rod quality.
+  4. **Hold Reel** to bring it in. Tension builds, faster while the fish surges.
+  5. When the bar fills, the line strains ("Let go!") and may snap: 45%, or 25% with the Good Line. Seven seconds of slack loses the fish.
+- **Rod quality:** 0.3, +0.3 with the Good Line, +0.03 per Fishing level.
+- **How hard each fish fights:** Minnow 0.15, Carp 0.3, Ray 0.5, Koi 0.75.
+- **The school:** each place has 6 bites, refilling one every 40 s of play.
 
 | Waters | Minnow | Carp | Ray | Koi |
 |---|---|---|---|---|
@@ -362,7 +377,9 @@ Each land is an irregular disc about 70 m across, with cliffs you cannot fall of
 | Reef | 40 | 35 | 20 | 5 |
 | Ember, Frostfall, the fleet | 30 | 35 | 25 | 10 |
 
-The Good Line makes Ray and Koi 1.5 times as likely; the Fishing perk adds to that.
+## 11b. What Bao flies over
+
+Far below the clouds lies a green forest (Clover, Ember), the sea (Reef, Frostfall), or nothing but cloud tops when Bao flies high (Dawnreach, the fleet). Halfway through a voyage it changes to the destination's.
 
 ## 12b. Bao's deck and Nana's cottage
 

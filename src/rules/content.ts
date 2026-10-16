@@ -16,10 +16,10 @@ export const SHIPS: readonly ShipId[] = ['sloop', 'warship', 'star'];
 export const isShip = (id: string): id is ShipId => (SHIPS as readonly string[]).includes(id);
 export const isLand = (id: string): id is LandId => (LANDS as readonly string[]).includes(id);
 export type Stage = 0 | 1 | 2 | 3;
-export type TreeId = 'puffberry' | 'ropevine' | 'cloudpear' | 'chimewood' | 'honeybun' | 'glowplum' | 'starfig' | 'golden';
+export type TreeId = 'sproutbean' | 'puffberry' | 'ropevine' | 'cloudpear' | 'chimewood' | 'honeybun' | 'glowplum' | 'starfig' | 'golden';
 export type FishId = 'puff_minnow' | 'sun_carp' | 'star_ray' | 'cloud_koi';
 export type MealId = 'pear_tart' | 'fish_bun' | 'sky_stew';
-export type ProduceId = 'puffberry' | 'glowplum' | 'starfig' | 'cloudpear' | 'honeybun' | 'fibre' | 'chimewood' | 'ore';
+export type ProduceId = 'bean' | 'puffberry' | 'glowplum' | 'starfig' | 'cloudpear' | 'honeybun' | 'fibre' | 'chimewood' | 'ore';
 export type SeedId = `seed_${TreeId}`;
 export type ItemId = ProduceId | FishId | MealId | SeedId | 'cocoa';
 export type ItemKind = 'whale' | 'people' | 'craft' | 'fish' | 'meal' | 'seed';
@@ -30,9 +30,9 @@ export type HiveId = 'thornhive' | 'clamhive' | 'forgehive' | 'hushbell' | 'barn
 // ------------------------------------------------------------------ whale
 export const STAGES = [
   { name: 'Calf', xp: 0, note: null, plots: 4, scale: 1 },
-  { name: 'Young', xp: 120, note: 'clover', plots: 6, scale: 1.18 },
-  { name: 'Adult', xp: 380, note: 'reef', plots: 8, scale: 1.34 },
-  { name: 'Great', xp: 760, note: 'ember', plots: 10, scale: 1.5 },
+  { name: 'Young', xp: 120, note: 'clover', plots: 6, scale: 1.3 },
+  { name: 'Adult', xp: 380, note: 'reef', plots: 8, scale: 1.55 },
+  { name: 'Great', xp: 760, note: 'ember', plots: 10, scale: 1.8 },
 ] as const satisfies readonly { name: string; xp: number; note: NoteIsle | null; plots: number; scale: number }[];
 
 export const WHALE = {
@@ -72,6 +72,8 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   cloudpear: { name: 'Cloudpear', kind: 'people', sell: 4, eat: { heal: 25 } },
   honeybun: { name: 'Honeybun', kind: 'people', sell: 8, eat: { heal: 45 } },
   cocoa: { name: 'Warm Cocoa', kind: 'people', sell: 6, eat: { heal: 70 } },
+  /** The quick early crop: no food, only coin (the crate, the markets) and the first deck extension. */
+  bean: { name: 'Sprout Bean', kind: 'craft', sell: 3 },
   fibre: { name: 'Fibre', kind: 'craft', sell: 3 },
   chimewood: { name: 'Chimewood', kind: 'craft', sell: 6 },
   ore: { name: 'Ore', kind: 'craft', sell: 6 },
@@ -90,6 +92,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   seed_glowplum: { name: 'Glowplum seed', kind: 'seed', sell: 0 },
   seed_starfig: { name: 'Starfig seed', kind: 'seed', sell: 0 },
   seed_golden: { name: 'Golden seed', kind: 'seed', sell: 0 },
+  seed_sproutbean: { name: 'Sprout Bean seed', kind: 'seed', sell: 0 },
 };
 export const FISH: readonly FishId[] = ['puff_minnow', 'sun_carp', 'star_ray', 'cloud_koi'];
 export const seedOf = (tree: TreeId) => `seed_${tree}` as SeedId;
@@ -97,6 +100,7 @@ export const seedOf = (tree: TreeId) => `seed_${tree}` as SeedId;
 // ------------------------------------------------------------------- trees
 export interface TreeDef { name: string; kind: 'whale' | 'people' | 'craft' | 'decor'; grow: number; regrow: number; yield: [ProduceId, number] | null; seedPrice: number }
 export const TREES: Record<TreeId, TreeDef> = {
+  sproutbean: { name: 'Sprout Bean', kind: 'craft', grow: 15, regrow: 12, yield: ['bean', 2], seedPrice: 3 },
   puffberry: { name: 'Puffberry', kind: 'whale', grow: 40, regrow: 35, yield: ['puffberry', 3], seedPrice: 5 },
   ropevine: { name: 'Ropevine', kind: 'craft', grow: 50, regrow: 45, yield: ['fibre', 2], seedPrice: 6 },
   cloudpear: { name: 'Cloudpear', kind: 'people', grow: 80, regrow: 60, yield: ['cloudpear', 2], seedPrice: 10 },
@@ -129,6 +133,8 @@ export const PLACES: Record<PlaceId, PlaceDef> = {
   star: { name: 'The Grey Star', kind: 'ship', pos: [3, -98], needStage: 3, needNotes: 4, tier: 4, gate: 'Deep Mist', hue: '#7a5cff', after: 'warship' },
 };
 export const PLACE_IDS = Object.keys(PLACES) as PlaceId[];
+/** What Bao flies over near each place (the owner): forest, sea, or high above the cloud tops. */
+export const BELOW: Record<PlaceId, 'clouds' | 'forest' | 'sea'> = { dawnreach: 'clouds', clover: 'forest', reef: 'sea', ember: 'forest', frost: 'sea', sloop: 'clouds', warship: 'clouds', star: 'clouds' };
 export const ISLE_IDS: readonly IsleId[] = ['clover', 'reef', 'ember', 'frost', 'sloop', 'warship', 'star'];
 /** Fullness spent per league (×0.85 with the Study repaired); a hungry flight is twice as slow. */
 export const VOYAGE = { base: 24, perLeague: .9, max: 75, costPerLeague: 2, hungrySlow: 2, raidAt: .4, randomRaid: .2, dewEvery: 6, dew: { hunger: 1, mood: 1, glimmer: 1 }, treasure: 15 } as const;
@@ -186,9 +192,13 @@ export const SKILL_PERK = {
 } as const;
 
 // -------------------------------------------------------------- workbench
-export type RecipeId = 'rope' | 'mallet2' | 'mallet3' | 'coat2' | 'coat3' | 'line' | 'post' | 'lanterns' | 'crown' | 'goldbell';
+export type RecipeId = 'deck1' | 'deck2' | 'deck3' | 'rope' | 'mallet2' | 'mallet3' | 'coat2' | 'coat3' | 'line' | 'post' | 'lanterns' | 'crown' | 'goldbell';
 export interface RecipeDef { name: string; cost: Partial<Record<ItemId, number>>; glimmer: number; needsTam: boolean; effect: string; needsRope?: boolean; needsRoom?: RoomId; keepsake?: boolean }
 export const RECIPES: Record<RecipeId, RecipeDef> = {
+  // Building out the ship (the owner): wooden decks bolted round Bao's rim, more room and more planter boxes.
+  deck1: { name: 'Side decks', cost: { bean: 6 }, glimmer: 20, needsTam: false, effect: 'Wider deck, +2 planter boxes' },
+  deck2: { name: 'Bow and stern decks', cost: { chimewood: 4, fibre: 4 }, glimmer: 90, needsTam: false, effect: 'Longer deck, +2 planter boxes' },
+  deck3: { name: 'Grand deck', cost: { ore: 4, chimewood: 4 }, glimmer: 250, needsTam: false, effect: 'The biggest deck, +2 planter boxes' },
   rope: { name: 'Climbing Rope', cost: { fibre: 3 }, glimmer: 0, needsTam: false, effect: 'Go down to the lands' },
   mallet2: { name: 'Mallet II', cost: { chimewood: 4 }, glimmer: 30, needsTam: false, effect: 'Damage ×1.4' },
   mallet3: { name: 'Mallet III', cost: { chimewood: 6, ore: 6 }, glimmer: 150, needsTam: true, effect: 'Damage ×2.2' },
@@ -406,13 +416,13 @@ export interface IsleMap {
 const G = (n: number, f: FormId) => Array<FormId>(n).fill(f);
 /**
  * A Gloom ship (gloom.glb `gloom_beast` × 1.6): like Bao, a sky creature with a flat deck on its back (the owner: no
- * masts, nothing tall in the middle), crusted over by the Gloom. Its head points to +z; rails run along both sides with
- * three gaps per side where raiders can be knocked overboard, and the hold hatch is on the centre line.
+ * masts, nothing tall in the middle), crusted over by the Gloom. Its head points to +z; an oval deck (the owner) with a
+ * rail all round and six gaps in it (angles from the bow toward starboard), where raiders can be knocked overboard.
  */
-export const BEAST = { scale: 1.6, half: [6.4, 14.4] as const, gaps: [-9.6, 0, 9.6] as const, gapHalf: 1.6, hold: [0, 7.2] as [number, number] };
+export const BEAST = { scale: 1.6, half: [10.9, 16] as const, gaps: [40, 90, 140, -40, -90, -140] as const, gapHalf: .12, hold: [0, 8] as [number, number] };
 const ship = (groups: GroupDef[], hive: [number, number], gifts: [ItemId, number][]): IsleMap => ({
-  radius: 15, landing: [-5.0, 9.6], market: null, groups, spires: [], cages: [], hive, ore: [], wild: [], decor: [], echo: [],
-  captives: [{ at: [2.4, 7.2], gift: gifts[0] }, { at: [-2.4, 6.4], gift: gifts[1] }],
+  radius: 18, landing: [-9.4, 0], market: null, groups, spires: [], cages: [], hive, ore: [], wild: [], decor: [], echo: [],
+  captives: [{ at: [2.6, 8.4], gift: gifts[0] }, { at: [-2.6, 7.4], gift: gifts[1] }],
 });
 const land = (m: Omit<IsleMap, 'captives' | 'echo'> & { echo?: [number, number][] }): IsleMap => ({ captives: [], echo: [], ...m });
 export const ISLE_MAPS: Record<IsleId, IsleMap> = {
@@ -484,11 +494,27 @@ export const ISLE_MAPS: Record<IsleId, IsleMap> = {
   ], [0, -9.8], [['cloud_koi', 1], ['seed_honeybun', 1]]),
 };
 
+// ------------------------------------------------------------ deck extensions
+/**
+ * Each extension widens the walkable oval (calf metres, added to DECK.half) and adds planter boxes. Like a growing
+ * body, each one costs much more than the last and adds less room (the owner: growth by volume). A Great whale with
+ * every extension has a deck of 2 × (13.7 × 18) m: it ends at the size of Zoo Garden's safe area (radius 18 m).
+ */
+export const EXTENSIONS = [
+  { half: [0, 0], plots: 0 },
+  { half: [1.6, 0], plots: 2 },
+  { half: [2.6, 1.2], plots: 4 },
+  { half: [3.2, 2.0], plots: 6 },
+] as const;
+export const SAFE_AREA = 18;
+export const plotCount = (stage: Stage, deck: number) => STAGES[stage].plots + EXTENSIONS[Math.max(0, Math.min(3, deck))].plots;
+
 // ------------------------------------------------------------- Bao's deck
 /** Deck positions at calf size, metres; the head is toward −z. They spread out with the stage scale. */
 export const DECK = {
   half: [4.4, 8.0] as const,
-  plots: [[-1, -4.2], [1, -4.2], [-1, -2.4], [1, -2.4], [-1, 1.4], [1, 1.4], [-1, 3.2], [1, 3.2], [-1, -.6], [1, -.6]] as [number, number][],
+  /** Ten boxes for Bao's stages, then two on each deck extension (side wings, bow and stern, the grand deck). */
+  plots: [[-1, -4.2], [1, -4.2], [-1, -2.4], [1, -2.4], [-1, 1.4], [1, 1.4], [-1, 3.2], [1, 3.2], [-1, -.6], [1, -.6], [-4.9, -1.2], [4.9, 1.8], [-1, 8.9], [1, 8.9], [-5.3, 3.8], [-1.6, -9.4]] as [number, number][],
   maptable: [2.1, -5.9] as [number, number],
   feed: [0, -6.9] as [number, number],
   /** The hatch down to Nana's cottage (it replaced the hut: the owner's wooden-ship deck, 2026-10-16). */

@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { DECK, LIFT, STAGES, type CrewId } from '../rules/content.ts';
+import { DECK, EXTENSIONS, LIFT, STAGES, type CrewId } from '../rules/content.ts';
 import type { GameState } from '../rules/state.ts';
 import { treeStage } from '../rules/garden.ts';
 import { findChild, part, standIn, whole } from './assets.ts';
@@ -67,7 +67,7 @@ export class Bao {
     if (bh) bh.getWorldPosition(this.blowhole);
     if (mo) mo.getWorldPosition(this.mouth);
     this.model.traverse(o => { const m = o as T.Mesh; if (m.isMesh) { m.receiveShadow = true; m.castShadow = false; } });
-    this.deck.add(this.stow);
+    this.deck.add(this.stow, this.extGroup);
     this.root.add(this.whale, this.deck);
     this.buildProps();
   }
@@ -92,7 +92,7 @@ export class Bao {
       const sp = part('props', 'speck') ?? standIn('blob', '#8c86a8', .35);
       sp.visible = false; this.deck.add(sp); this.specks.push(sp);
     }
-    for (let i = 0; i < 10; i++) { const pv = new PlotView(); this.plots.push(pv); this.stow.add(pv.group); }
+    for (let i = 0; i < DECK.plots.length; i++) { const pv = new PlotView(); this.plots.push(pv); this.stow.add(pv.group); }
     for (let i = 0; i < 8; i++) { const l = part('props', 'lantern') ?? standIn('box', '#ffb13b', .35); l.visible = false; this.stow.add(l); this.lanterns.push(l); }
     for (let i = 0; i < DECK.gongs.length; i++) { const g = part('props', 'gong', { shadows: true }) ?? fallbackGong(); g.visible = false; this.deck.add(g); this.gongs.push(g); }
     const kinds = ['flower_a', 'flower_b', 'flower_c'];
@@ -109,7 +109,27 @@ export class Bao {
   /** Deck metres at the current stage for a calf-size position. */
   at(p: readonly [number, number] | number[], out = new T.Vector3()) { return out.set(p[0] * this.scale, 0, p[1] * this.scale); }
   /** Half-axes of the walkable ellipse now. */
-  half() { return [DECK.half[0] * this.scale, DECK.half[1] * this.scale] as const; }
+  half() { const [ax, bz] = this.calfHalf(); return [ax * this.scale, bz * this.scale] as const; }
+  /** Deck extensions built (0–3): the walkable oval, in calf metres. */
+  deckTier = 0;
+  calfHalf() { const e = EXTENSIONS[this.deckTier].half; return [DECK.half[0] + e[0], DECK.half[1] + e[1]] as const; }
+  /** The fishing lift and the boarding plank sit on the starboard rail, wherever the rail is now. */
+  liftCalf(): [number, number] { const [a, b] = this.calfHalf(), z = DECK.lift[1]; return [a * Math.sqrt(1 - (z / b) ** 2) - .1, z]; }
+  plankCalf(): [number, number] { const [a, b] = this.calfHalf(), z = DECK.plank[1]; return [a * Math.sqrt(1 - (z / b) ** 2) - .4, z]; }
+  /** Builds the wooden deck extensions bolted round Bao's rim (one ring per tier, each from the oval before it). */
+  setDeck(tier: number) {
+    tier = Math.max(0, Math.min(3, tier));
+    if (tier === this.deckTier && this.extGroup.children.length === tier) return;
+    this.deckTier = tier;
+    this.extGroup.clear();
+    for (let i = 1; i <= tier; i++) {
+      const a0 = DECK.half[0] + EXTENSIONS[i - 1].half[0], b0 = DECK.half[1] + EXTENSIONS[i - 1].half[1];
+      const a1 = DECK.half[0] + EXTENSIONS[i].half[0] + .15, b1 = DECK.half[1] + EXTENSIONS[i].half[1] + .15;
+      this.extGroup.add(deckRing(a0 - .3, b0 - .3, a1, b1, i === tier));
+    }
+    this.layout();
+  }
+  private extGroup = new T.Group();
 
   setStage(stage: number, instant = false) {
     this.scaleTarget = STAGES[stage].scale;
@@ -121,10 +141,11 @@ export class Bao {
     this.whale.scale.setScalar(this.scale);
     const put = (name: string, p: readonly [number, number], rot = 0) => { const o = this.props[name]; if (o) { this.at(p, o.position); o.rotation.y = rot; } };
     put('hatch', DECK.hatch, .4); put('workbench', DECK.workbench, -Math.PI / 2); put('crate', DECK.crate, -Math.PI / 2);
-    put('maptable', DECK.maptable, .3); put('ropepost', DECK.ropepost, -Math.PI / 2); put('lift', DECK.lift, 0); put('pantry', DECK.pantry, Math.PI / 2);
+    put('maptable', DECK.maptable, .3); put('ropepost', DECK.ropepost, -Math.PI / 2); put('lift', this.liftCalf(), 0); put('pantry', DECK.pantry, Math.PI / 2);
+    this.extGroup.scale.set(this.scale, 1, this.scale);
     if (this.cannon) this.at(DECK.cannon, this.cannon.position);
     // The plank leaves the starboard rail (its +z turned to +x).
-    if (this.plank) { this.plank.position.set(DECK.half[0] * this.scale * .93, 0, DECK.plank[1] * this.scale); this.plank.rotation.y = Math.PI / 2; }
+    if (this.plank) { this.at(this.plankCalf(), this.plank.position); this.plank.rotation.y = Math.PI / 2; }
     this.posts.forEach((p, i) => this.at(DECK.posts[i], p.position));
     this.plots.forEach((pv, i) => this.at(DECK.plots[i], pv.group.position));
     this.lanterns.forEach((l, i) => { const a = i / this.lanterns.length * Math.PI * 2 + .2; l.position.set(Math.cos(a) * DECK.half[0] * .93 * this.scale, 0, Math.sin(a) * DECK.half[1] * .93 * this.scale); });
@@ -162,7 +183,7 @@ export class Bao {
     if (rope) rope.scale.y = 1 + drop;
   }
   /** World position of the lift's platform top (where the Captain stands on the way down). */
-  liftSpot(out = new T.Vector3()) { this.at(DECK.lift, out); out.x += 1.6; out.y = -this.liftK * this.liftDrop; return out; }
+  liftSpot(out = new T.Vector3()) { this.at(this.liftCalf(), out); out.x += 1.6; out.y = -this.liftK * this.liftDrop; return out; }
   /** The crate's lid lifts while the finches fly off. */
   openCrate() { this.crateOpen = 1.4; }
   /** Turns Juno's cannon toward a deck point and kicks the barrel back. */
@@ -335,4 +356,35 @@ function crustShards() {
     g.add(m);
   }
   return g;
+}
+
+/**
+ * One deck extension: a ring of warm planks between two ovals (calf metres), its top flush with the deck at y = 0, a
+ * darker skirt under its outer edge, and (on the outermost ring) a low rail of posts with a rope. One draw call.
+ */
+function deckRing(a0: number, b0: number, a1: number, b1: number, rail: boolean) {
+  const seg = 72, pos: number[] = [], col: number[] = [], c = new T.Color();
+  const tri = (p: number[][], hex: string) => { c.set(hex); for (const v of p) { pos.push(v[0], v[1], v[2]); col.push(c.r, c.g, c.b); } };
+  for (let i = 0; i < seg; i++) {
+    const t0 = i / seg * Math.PI * 2, t1 = (i + 1) / seg * Math.PI * 2;
+    const p = (a: number, b: number, t: number, y: number) => [Math.cos(t) * a, y, Math.sin(t) * b];
+    const wood = i % 2 ? '#c98a4a' : '#b9783d';
+    const i0 = p(a0, b0, t0, -.01), i1 = p(a0, b0, t1, -.01), o0 = p(a1, b1, t0, -.01), o1 = p(a1, b1, t1, -.01);
+    tri([i0, o1, o0], wood); tri([i0, i1, o1], wood);
+    const d0 = p(a1, b1, t0, -.45), d1 = p(a1, b1, t1, -.45);
+    tri([o0, o1, d1], '#7a4424'); tri([o0, d1, d0], '#7a4424');
+    if (rail && i % 3 === 0) {
+      const [x, , z] = p(a1 - .12, b1 - .12, t0, 0), w = .07;
+      const q = (dx: number, dz: number, y: number) => [x + dx, y, z + dz];
+      const faces: [number, number][][] = [[[w, w], [-w, w]], [[-w, w], [-w, -w]], [[-w, -w], [w, -w]], [[w, -w], [w, w]]];
+      for (const [[ax, az], [bx, bz]] of faces) { tri([q(ax, az, 0), q(bx, bz, 0), q(bx, bz, .6)], '#8a4b25'); tri([q(ax, az, 0), q(bx, bz, .6), q(ax, az, .6)], '#8a4b25'); }
+    }
+    if (rail) { const r0 = p(a1 - .12, b1 - .12, t0, .52), r1 = p(a1 - .12, b1 - .12, t1, .52), r2 = p(a1 - .12, b1 - .12, t1, .58), r3 = p(a1 - .12, b1 - .12, t0, .58); tri([r0, r1, r2], '#e3c27a'); tri([r0, r2, r3], '#e3c27a'); }
+  }
+  const g = new T.BufferGeometry();
+  g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new T.Float32BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  const m = new T.Mesh(g, makeToon('#ffffff', { vertexColors: true }));
+  m.material.side = T.DoubleSide; m.receiveShadow = true; m.name = 'deck-extension';
+  return m;
 }

@@ -74,7 +74,8 @@ test('stage gates come in story order: each Note comes from an isle the stage be
 test('recipes only need materials that exist before the recipe is needed', () => {
   // Tam's recipes need ore; ore is on the reef and the ember isle, both reachable before or with Tam.
   for (const [id, r] of Object.entries(RECIPES)) {
-    if (r.cost.ore) assert.ok(r.needsTam, `${id} needs ore before ore rocks or Tam exist`);
+    // The Grand deck needs ore too: it comes after the reef, whose rocks give ore.
+    if (r.cost.ore) assert.ok(r.needsTam || id === 'deck3', `${id} needs ore before ore rocks or Tam exist`);
   }
   assert.ok(ISLE_MAPS.reef.ore.length > 0, 'ore reachable before the Ember isle');
 });

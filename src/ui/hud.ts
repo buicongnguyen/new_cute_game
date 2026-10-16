@@ -9,11 +9,13 @@ import type { Line, Speaker } from '../dialogue.ts';
 import { play } from '../sfx.ts';
 
 export interface HudActions {
-  context(): void; ring(): void; spin(): void; hop(): void; eat(): void; reel(): void; conch(): void; pull(): void;
+  context(): void; ring(): void; spin(): void; hop(): void; eat(): void; reel(held: boolean): void; conch(): void; pull(): void;
   open(panel: 'bag' | 'bao' | 'map' | 'journal' | 'settings'): void;
   grow(): void;
 }
-export interface HudView { mode: 'deck' | 'isle' | 'house' | 'skiff'; combat: boolean; context: string | null; contextIcon: string; fishing: 'off' | 'wait' | 'bite'; cooldowns: { spin: number; hop: number }; eat: string | null; bossName?: string; boss?: number; bossShield?: boolean; bossStatus?: string | null; raid?: string | null; place: string; conch?: boolean; pull?: boolean }
+export interface HudView { mode: 'deck' | 'isle' | 'house' | 'skiff'; combat: boolean; context: string | null; contextIcon: string; fishing: 'off' | 'wait' | 'bite'; cooldowns: { spin: number; hop: number }; eat: string | null; bossName?: string; boss?: number; bossShield?: boolean; bossStatus?: string | null; raid?: string | null; place: string; conch?: boolean; pull?: boolean;
+  /** Zoo Garden's fishing game: the phase, the line's tension and how far the fish is reeled in. */
+  reel?: { phase: string; tension: number; progress: number; strained: boolean } | null }
 
 const WHO_COLOR: Record<Speaker, string> = { bao: '#3fa9f5', gloom: '#9a8cc8', keeper: '#16a9a0', folk: '#5aa8e0', ...Object.fromEntries(Object.entries(CREW).map(([k, v]) => [k, v.color])) } as Record<Speaker, string>;
 const WHO_NAME = (w: Speaker) => w === 'bao' ? 'Bao' : w === 'gloom' ? 'The Gloom' : w === 'keeper' ? 'You' : w === 'folk' ? 'A backfolk family' : CREW[w].name;
@@ -62,7 +64,8 @@ export class Hud {
         h('button', { class: 'btn spin', id: 'b-spin', 'aria-label': t('Chime Spin'), onpointerdown: (e: PointerEvent) => { e.preventDefault(); this.act.spin(); } }, h('span', { class: 'ico' }, '🌀'), h('i', { class: 'cd', id: 'b-spin-cd' })),
         h('button', { class: 'btn ring', id: 'b-ring', 'aria-label': t('Ring'), onpointerdown: (e: PointerEvent) => { e.preventDefault(); this.act.ring(); } }, h('span', { class: 'ico' }, '🔔')),
         h('button', { class: 'btn context', id: 'b-ctx', onclick: () => { play('click'); this.act.context(); } }, h('span', { class: 'ico', id: 'b-ctx-i' }, '✋'), h('small', { id: 'b-ctx-t' })),
-        h('button', { class: 'btn reel', id: 'b-reel', hidden: true, onpointerdown: (e: PointerEvent) => { e.preventDefault(); this.act.reel(); } }, h('span', { class: 'ico' }, '🎣'), h('small', { id: 'b-reel-t' }, t('Reel!')))),
+        h('button', { class: 'btn reel', id: 'b-reel', hidden: true, onpointerdown: (e: PointerEvent) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); this.act.reel(true); }, onpointerup: () => this.act.reel(false), onpointercancel: () => this.act.reel(false), onlostpointercapture: () => this.act.reel(false) }, h('span', { class: 'ico' }, '🎣'), h('small', { id: 'b-reel-t' }, t('Reel!')))),
+      h('div', { class: 'reel-meter', id: 'h-reel', hidden: true }, h('div', { class: 'bar tension' }, h('i', { id: 'h-tension' })), h('div', { class: 'bar landed' }, h('i', { id: 'h-landed' })), h('small', { id: 'h-reel-t' })),
       this.dialog = h('div', { class: 'speech', id: 'speech', hidden: true, onclick: () => this.next() },
         h('div', { class: 'who', id: 's-who' }), h('div', { class: 'say', id: 's-say' }), h('div', { class: 'tap' }, t('Tap to continue'))),
     );
@@ -156,7 +159,10 @@ export class Hud {
     setText($('#b-ctx-i', r), view.contextIcon);
     toggle($('#b-reel', r), view.fishing !== 'off');
     $('#b-reel', r)!.classList.toggle('bite', view.fishing === 'bite');
-    setText($('#b-reel-t', r), view.fishing === 'bite' ? t('Reel!') : t('Wait…'));
+    const rl = view.reel;
+    setText($('#b-reel-t', r), !rl ? t('Wait…') : rl.phase === 'hooked' ? (rl.strained ? t('Let go!') : t('Hold!')) : rl.phase === 'bite' ? t('Reel!') : t('Wait…'));
+    toggle($('#h-reel', r), rl?.phase === 'hooked');
+    if (rl?.phase === 'hooked') { setWidth($('#h-tension', r), rl.tension); setWidth($('#h-landed', r), rl.progress); setText($('#h-reel-t', r), rl.strained ? t('Line strained! Let go!') : t('Hold Reel; let go when it surges')); $('#h-reel', r)!.classList.toggle('strained', rl.strained); }
     cooldown($('#b-spin-cd', r), view.cooldowns.spin); cooldown($('#b-hop-cd', r), view.cooldowns.hop);
     toggle($('#h-boss', r), view.boss !== undefined);
     if (view.boss !== undefined) {

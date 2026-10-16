@@ -7,8 +7,8 @@ import type { Blocker } from './isle-view.ts';
 /**
  * A ship of the Gloom fleet (chapter 5). Like Bao, it is a sky creature with a flat deck on its back (the owner,
  * 2026-10-16: no masts, nothing tall in the middle), but the Gloom has crusted it over: gloom.glb `gloom_beast` × 1.6.
- * The deck is flat at y = 0 with the head toward +z; rails run along both sides with three gaps per side (BEAST.gaps)
- * where a knocked raider falls overboard, and the hold hatch sits on the centre line. Its own Gloom tint greys the
+ * The deck is a flat oval at y = 0 with the head toward +z; a rail runs all round it with six gaps (BEAST.gaps) where
+ * a knocked raider falls overboard, and the hold hatch sits near the bow. Its own Gloom tint greys the
  * creature while it is crusted; beating its captain shatters the `crust` and the colour pours back over about 3 s.
  * It has the same surface the game uses for a land (height, clamp, blockers), so the fight code runs unchanged.
  */
@@ -56,27 +56,18 @@ export class BeastShipView {
   }
 
   height() { return 0; }
-  /** Inside the deck (the Captain never falls overboard: the rails hold, the gaps too). */
-  inside(x: number, z: number, margin = .6) { const [hx, hz] = BEAST.half; return Math.abs(x) < hx - margin && Math.abs(z) < hz - margin; }
-  clampInside(p: T.Vector3) {
-    const [hx, hz] = BEAST.half;
-    p.x = Math.max(-(hx - .6), Math.min(hx - .6, p.x));
-    p.z = Math.max(-(hz - .8), Math.min(hz - .8, p.z));
-  }
-  /** In front of one of the rail gaps? */
-  inGap(z: number) { return BEAST.gaps.some(g => Math.abs(z - g) < BEAST.gapHalf); }
-  /** A form past the rail line through a gap is overboard. */
-  outside(p: T.Vector3) { return Math.abs(p.x) > BEAST.half[0] - .1 && this.inGap(p.z); }
-  /**
-   * Forms stay on deck while they walk; a knocked one slides on, and through a gap it goes over the side (the rails
-   * stop it everywhere else).
-   */
-  formClamp(p: T.Vector3, knocked: boolean) {
-    const [hx, hz] = BEAST.half;
-    const edge = knocked && this.inGap(p.z) ? hx + 1 : hx - .5;
-    p.x = Math.max(-edge, Math.min(edge, p.x));
-    p.z = Math.max(-(hz - .6), Math.min(hz - .6, p.z));
-  }
+  /** Oval measure: 1 on the rail line (the rail is inset 0.15 m from the deck's edge). */
+  private k(x: number, z: number, inset = .15) { const [a, b] = BEAST.half; return (x / (a - inset)) ** 2 + (z / (b - inset)) ** 2; }
+  private pull(p: T.Vector3, most: number, inset: number) { const k = this.k(p.x, p.z, inset); if (k > most) { const s = Math.sqrt(most / k); p.x *= s; p.z *= s; } }
+  inside(x: number, z: number, margin = .7) { return this.k(x, z, margin) < 1; }
+  /** The Captain never falls overboard: the rail holds, and so do the gaps. */
+  clampInside(p: T.Vector3) { this.pull(p, 1, .8); }
+  /** Facing one of the six rail gaps? (Angles from the bow toward starboard.) */
+  inGap(x: number, z: number) { const a = Math.atan2(x, z); return BEAST.gaps.some(g => Math.abs(Math.atan2(Math.sin(a - g * Math.PI / 180), Math.cos(a - g * Math.PI / 180))) < BEAST.gapHalf); }
+  /** A form past the rail through a gap is overboard. */
+  outside(p: T.Vector3) { return this.k(p.x, p.z) > 1 && this.inGap(p.x, p.z); }
+  /** Forms stay on deck while they walk; a knocked one through a gap slides over the side (the rail stops it elsewhere). */
+  formClamp(p: T.Vector3, knocked: boolean) { if (knocked && this.inGap(p.x, p.z)) this.pull(p, 1.5, .15); else this.pull(p, 1, .6); }
 
   /** The crust shatters and the creature's colours come back (`instant` when a freed beast is shown again). */
   setFreed(on: boolean, instant = false) {
@@ -113,17 +104,11 @@ const isInside = (o: T.Object3D, root: T.Object3D) => { for (let p: T.Object3D |
 function fallbackBeast() {
   const g = new T.Group(), skin = makeToon('#ff7f8a'), belly = makeToon('#fff0d6'), wood = makeToon('#c98a4a'), rail = makeToon('#8a4b25'), crystal = makeToon('#9a8cc8', { emissive: '#2a1840' });
   const [hx, hz] = [BEAST.half[0] / BEAST.scale, BEAST.half[1] / BEAST.scale];
+  void hz;
   const body = new T.Mesh(new T.SphereGeometry(1, 28, 16), skin); body.name = 'body'; body.scale.set(hx * 1.15, 2.6, hz * 1.15); body.position.y = -2.1; g.add(body);
   const under = new T.Mesh(new T.SphereGeometry(1, 24, 12), belly); under.scale.set(hx * .9, 1.6, hz * .95); under.position.y = -3.4; g.add(under);
-  const deck = new T.Mesh(new T.BoxGeometry(hx * 2, .3, hz * 2), wood); deck.position.y = -.15; g.add(deck);
-  const gaps = BEAST.gaps.map(z => z / BEAST.scale), gap = BEAST.gapHalf / BEAST.scale;
+  const deck = new T.Mesh(new T.CylinderGeometry(1, 1, .3, 40), wood); deck.scale.set(hx, 1, BEAST.half[1] / BEAST.scale); deck.position.y = -.15; g.add(deck); void rail;
   for (const side of [-1, 1]) {
-    let from = -hz;
-    for (const z of [...gaps, hz + gap]) {
-      const to = z - gap, len = to - from;
-      if (len > .1) { const r = new T.Mesh(new T.BoxGeometry(.18, .45, len), rail); r.position.set(side * (hx - .1), .22, from + len / 2); g.add(r); }
-      from = z + gap;
-    }
     const fin = new T.Group(); fin.name = side < 0 ? 'fin_l' : 'fin_r'; fin.position.set(side * hx, -1.6, 2);
     const f = new T.Mesh(new T.SphereGeometry(1, 12, 8), skin); f.scale.set(3, .3, 1.6); f.position.x = side * 2.6; fin.add(f); g.add(fin);
     const eye = new T.Group(); eye.name = side < 0 ? 'eye_l' : 'eye_r'; eye.position.set(side * hx * .7, -1.2, hz * 1.02);

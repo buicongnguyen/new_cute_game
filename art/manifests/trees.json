@@ -1,6 +1,6 @@
 {
   "file": "trees.glb",
-  "bytes": 419324,
+  "bytes": 451860,
   "roots": {
     "puffberry_sprout": {
       "tris": 82,
@@ -363,6 +363,54 @@
         "pal_gold",
         "pal_sun",
         "pal_wood_light"
+      ],
+      "children": [
+        "fruits"
+      ]
+    },
+    "sproutbean_sprout": {
+      "tris": 84,
+      "size": [
+        0.254,
+        0.335,
+        0.19
+      ],
+      "materials": [
+        "pal_leaf_dark",
+        "pal_leaf_light"
+      ],
+      "children": []
+    },
+    "sproutbean_young": {
+      "tris": 184,
+      "size": [
+        0.759,
+        0.824,
+        0.709
+      ],
+      "materials": [
+        "pal_leaf",
+        "pal_leaf_dark",
+        "pal_leaf_light",
+        "pal_straw_light",
+        "pal_wood"
+      ],
+      "children": []
+    },
+    "sproutbean_grown": {
+      "tris": 682,
+      "size": [
+        1.037,
+        1.366,
+        1.139
+      ],
+      "materials": [
+        "pal_leaf",
+        "pal_leaf_dark",
+        "pal_leaf_light",
+        "pal_pear",
+        "pal_straw_light",
+        "pal_wood"
       ],
       "children": [
         "fruits"

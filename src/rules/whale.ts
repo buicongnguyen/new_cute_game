@@ -1,4 +1,4 @@
-import { ITEMS, STAGES, WHALE, type ItemId, type Stage } from './content.ts';
+import { ITEMS, STAGES, WHALE, plotCount, type ItemId, type Stage } from './content.ts';
 import { count, emptyPlot, take, type GameState } from './state.ts';
 import type { Result } from './garden.ts';
 
@@ -61,7 +61,7 @@ export function grow(s: GameState): Result<{ stage: Stage }> {
   if (!canGrow(s)) return no('Bao is not ready to grow');
   if (s.voyage) return no('Wait until Bao stops flying');
   s.whale.stage = (s.whale.stage + 1) as Stage;
-  const plots = STAGES[s.whale.stage].plots;
+  const plots = plotCount(s.whale.stage, s.gear.deck);
   while (s.plots.length < plots) s.plots.push(emptyPlot());
   return { ok: true, stage: s.whale.stage };
 }

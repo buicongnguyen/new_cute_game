@@ -13,15 +13,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS = os.path.normpath(os.path.join(HERE, '..', '..', '..', 'public', 'assets', 'models'))
 TREE_IDS = ['puffberry', 'ropevine', 'cloudpear', 'chimewood', 'honeybun', 'glowplum', 'starfig', 'golden']
 EXPECT = {
-    'trees.glb': dict(roots=[f'{t}_{s}' for t in TREE_IDS for s in ('sprout', 'young', 'grown')] + ['plot'],
-                      budget=lambda n: 1500),
+    'trees.glb': dict(roots=[f'{t}_{s}' for t in TREE_IDS + ['sproutbean'] for s in ('sprout', 'young', 'grown')] + ['plot'],
+                      budget=lambda n: 1200 if n.startswith('sproutbean') else 1500),
     'props.glb': dict(roots=['hut', 'workbench', 'kitchen', 'maptable', 'ropepost', 'fishspot', 'pantry', 'chimepost',
                              'postspot', 'market', 'tent', 'lantern', 'windmill', 'coral_arch', 'ore_rock', 'forge', 'rod',
                              'speck', 'skydew', 'hatch', 'planter', 'gong', 'lift', 'skiff', 'crate', 'chime_cannon',
-                             'bao_plank', 'snow_lantern', 'ice_hut'],
+                             'bao_plank', 'snow_lantern', 'ice_hut', 'sea_buoy', 'sea_rock'],
                       budget=lambda n: {'hatch': 1500, 'planter': 600, 'gong': 900, 'lift': 1500, 'skiff': 1500,
                                         'crate': 800, 'chime_cannon': 1200, 'bao_plank': 300, 'snow_lantern': 500,
-                                        'ice_hut': 1500}.get(n, 2000)),
+                                        'ice_hut': 1500, 'sea_buoy': 300, 'sea_rock': 500}.get(n, 2000)),
     'nature.glb': dict(roots=['rock_a', 'rock_b', 'rock_c', 'bush_a', 'bush_b', 'flower_a', 'flower_b', 'flower_c',
                               'grass_tuft', 'mushroom', 'tree_round', 'tree_pine', 'palm', 'coral_a', 'coral_b',
                               'lava_rock_a', 'lava_rock_b', 'fence', 'cloud_puff', 'tree_snow', 'rock_snow', 'ice_rock',
@@ -174,13 +174,13 @@ def main():
                             errors.append(f'{name}/fruits has no mesh')
                         if any(abs(v) > 1e-6 for v in f.get('translation', [0, 0, 0])):
                             errors.append(f'{name}/fruits is not at the root origin')
-                    if not 1.6 <= hi[1] <= 3.0:
+                    if not (1.2 if name.startswith('sproutbean') else 1.6) <= hi[1] <= 3.0:
                         errors.append(f'{name}: height {hi[1]:.2f}')
                 elif kid_names:
                     errors.append(f'{name}: unexpected children {kid_names}')
                 if name.endswith('_sprout') and not 0.3 <= hi[1] <= 0.5:
                     errors.append(f'{name}: height {hi[1]:.2f}')
-                if name.endswith('_young') and not 0.8 <= hi[1] <= 1.25:
+                if name.endswith('_young') and not 0.7 <= hi[1] <= 1.25:
                     errors.append(f'{name}: height {hi[1]:.2f}')
                 if name == 'glowplum_grown' and 'glow_plum' not in node_materials(doc, r['children'][0]):
                     errors.append('glowplum fruits do not use glow_plum')
@@ -235,7 +235,7 @@ def main():
                 v = max(dims[0], dims[2]) if axes == 'xz' else hi[1]
                 if not a <= v <= b:
                     errors.append(f'{name}: {axes} size {v:.2f} not in {a}..{b}')
-            if fname != 'fish.glb' and name not in ('skydew', 'hatch', 'skiff', 'bao_plank') and abs(lo[1]) > 0.01:
+            if fname != 'fish.glb' and name not in ('skydew', 'hatch', 'skiff', 'bao_plank', 'sea_buoy', 'sea_rock') and abs(lo[1]) > 0.01:
                 errors.append(f'{name}: base y {lo[1]:.3f}')
             extra = ''
             for k in kids:

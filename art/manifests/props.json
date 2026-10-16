@@ -1,6 +1,6 @@
 {
   "file": "props.glb",
-  "bytes": 663832,
+  "bytes": 663388,
   "roots": {
     "hut": {
       "tris": 1291,
@@ -530,6 +530,34 @@
         "pal_snow",
         "pal_wood",
         "pal_wood_dark"
+      ],
+      "children": []
+    },
+    "sea_buoy": {
+      "tris": 160,
+      "size": [
+        0.48,
+        0.831,
+        0.457
+      ],
+      "materials": [
+        "glow_lantern",
+        "pal_red",
+        "pal_white"
+      ],
+      "children": []
+    },
+    "sea_rock": {
+      "tris": 228,
+      "size": [
+        1.946,
+        1.188,
+        1.773
+      ],
+      "materials": [
+        "pal_cloud",
+        "pal_moss",
+        "pal_stone"
       ],
       "children": []
     }

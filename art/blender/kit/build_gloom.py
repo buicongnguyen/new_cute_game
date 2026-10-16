@@ -608,7 +608,7 @@ def gentle_eye(c, d, r, F, lid, segs=(12, 8, 10, 6, 6, 4, 10, 5)):
     return g
 
 
-def deck_planks(g, half_w, zmin, zmax, count, F, rng, y=0.0):
+def deck_planks(g, half_w, zmin, zmax, count, F, rng, y=0.0, curved=False):
     """Lengthwise planks at y, inside |x| < half_w(z), with two staggered joints each and a dark base under the seams."""
     w = 2 * half_w(0.0) / count
     for i in range(count):
@@ -626,7 +626,14 @@ def deck_planks(g, half_w, zmin, zmax, count, F, rng, y=0.0):
             za = edges[k] + (0.03 if k else 0.0)
             zb = edges[k + 1] - (0.03 if k + 1 < len(edges) - 1 else 0.0)
             mm = F['wood'] if rng.random() < 0.34 else F['wood_light']
-            flat_up(g, [(xa, y, za), (xa, y, zb), (xb, y, zb), (xb, y, za)], mm)
+            if curved:   # outer ends follow the oval, each side separately
+                def zend(x):
+                    return zmax * math.sqrt(max(0.0, 1 - (x / half_w(0.0)) ** 2)) * 0.995
+                za_a, za_b = (za, za) if k else (-zend(xa), -zend(xb))
+                zb_a, zb_b = (zb, zb) if k + 1 < len(edges) - 1 else (zend(xa), zend(xb))
+                flat_up(g, [(xa, y, za_a), (xa, y, zb_a), (xb, y, zb_b), (xb, y, za_b)], mm)
+            else:
+                flat_up(g, [(xa, y, za), (xa, y, zb), (xb, y, zb), (xb, y, za)], mm)
     outline = []
     for k in range(48):
         a = math.tau * k / 48
@@ -654,13 +661,43 @@ def hatch(g, centre, half, F):
 
 
 BEAST = Pchip([  # z, half-width, waist height, top and bottom half-heights (before the deck flattens the back)
-    (-12.6, 0.9, -1.3, 0.6, 0.6), (-11.5, 1.3, -1.4, 0.9, 0.95), (-10.0, 2.6, -1.6, 2.0, 1.8),
-    (-8.0, 4.2, -1.8, 3.0, 2.4), (-4.0, 5.4, -1.9, 3.4, 2.7), (0.0, 5.7, -1.9, 3.5, 2.8), (4.0, 5.6, -1.9, 3.5, 2.7),
-    (8.0, 5.1, -1.9, 3.4, 2.5), (10.5, 4.7, -1.85, 3.2, 2.4), (14.0, 4.4, -1.7, 3.0, 2.2),
+    (-13.6, 0.9, -1.3, 0.6, 0.6), (-12.5, 1.4, -1.4, 0.9, 0.95), (-11.0, 3.6, -1.7, 2.2, 1.9),
+    (-8.0, 6.4, -2.0, 3.4, 2.6), (-4.0, 7.6, -2.1, 3.8, 2.9), (0.0, 7.9, -2.1, 3.9, 3.0), (4.0, 7.8, -2.1, 3.9, 2.9),
+    (8.0, 7.0, -2.1, 3.7, 2.7), (10.5, 6.3, -2.0, 3.4, 2.6), (14.0, 5.8, -1.8, 3.2, 2.4),
 ])
-B_ZT, B_ZC, B_ZN, B_E, B_N = -11.5, 10.0, 13.2, 2 / 2.6, 28
-B_GAPS = (-6.0, 0.0, 6.0)
-B_POSTS = [(-9.0, -7.0), (-5.0, -3.0, -1.0), (1.0, 3.0, 5.0), (7.0, 9.0)]
+B_ZT, B_ZC, B_ZN, B_E, B_N = -12.5, 11.0, 14.4, 2 / 2.6, 26
+DECK_A, DECK_B = 6.8, 10.0                      # the oval deck's semi-axes (x, z)
+B_GAPS = (40.0, 90.0, 140.0, -40.0, -90.0, -140.0)   # rail gaps, degrees from +Z toward +X, 2 m wide
+
+
+def oval_pt(a, inset=0.15):
+    return Vector(((DECK_A - inset) * math.sin(a), 0.0, (DECK_B - inset) * math.cos(a)))
+
+
+def rail_spans(gap=2.0, step=2.6):
+    """Post angles for each rail span between the gaps (arc-length spaced, at most `step` m apart)."""
+    n = 2000
+    ang = [math.tau * i / n - math.pi for i in range(n + 1)]
+    s = [0.0]
+    for i in range(1, n + 1):
+        s.append(s[-1] + (oval_pt(ang[i]) - oval_pt(ang[i - 1])).length)
+    gaps = []
+    for g in B_GAPS:
+        i = min(range(n + 1), key=lambda k: abs(ang[k] - math.radians(g)))
+        gaps.append((s[i] - gap / 2, s[i] + gap / 2))
+    gaps.sort()
+    total = s[-1]
+    spans = []
+    for k, (g0, g1) in enumerate(gaps):
+        a0, a1 = g1, gaps[(k + 1) % len(gaps)][0] + (total if k == len(gaps) - 1 else 0.0)
+        cnt = max(1, int(math.ceil((a1 - a0) / step)))
+        pts = []
+        for j in range(cnt + 1):
+            sv = (a0 + (a1 - a0) * j / cnt) % total
+            i = min(range(n + 1), key=lambda q: abs(s[q] - sv))
+            pts.append(ang[i])
+        spans.append(pts)
+    return spans
 
 
 def b_section(z):
@@ -673,11 +710,11 @@ def b_section(z):
 
 
 def b_clamp(x, z):
-    q = (abs(x) / 4.5) ** 4 + (abs(z) / 9.8) ** 4
-    y = -0.06
+    q = (x / 7.1) ** 2 + (z / 10.4) ** 2
+    y = -0.03
     if q > 1:
-        y -= 1.5 * (q - 1) ** 1.2
-    return y + 6.0 * smoothstep(-9.9, -11.3, z)
+        y -= 3.0 * (q - 1) ** 1.2
+    return y + 6.0 * smoothstep(-10.9, -12.3, z)
 
 
 def BP(z, th):
@@ -700,8 +737,7 @@ def BN(z, th, eps=1e-3):
 
 def deck_w(z):
     """Half-width of the beast's deck: 8 m wide, rounding off toward bow and stern (about 18.4 m long)."""
-    a = abs(z)
-    return 4.0 if a <= 7.0 else 4.0 * math.sqrt(max(0.0, 1 - ((a - 7.0) / 2.2) ** 2))
+    return DECK_A * math.sqrt(max(0.0, 1 - (z / DECK_B) ** 2))
 
 
 def beast_body(F):
@@ -739,8 +775,7 @@ def gloom_beast(cast, m):
     rng = random.Random(71)
     body = beast_body(F)
     for side in (1, -1):   # teal spots on the flanks
-        for z, deg, rr in ((-7.0, 98, 0.7), (-3.5, 104, 0.9), (0.5, 100, 0.8), (4.5, 105, 0.85), (8.0, 100, 0.6),
-                           (-5.5, 118, 0.5), (2.5, 120, 0.55)):
+        for z, deg, rr in ((-7.0, 98, 0.9), (-2.5, 104, 1.1), (2.5, 102, 1.0), (7.0, 100, 0.8)):
             A = b_section(z)[0]
             body.add(beast_patch(z, side * math.radians(deg), rr, rr / A * 1.1, F['teal']))
     smile = []
@@ -757,13 +792,14 @@ def gloom_beast(cast, m):
         body.add(tube(pts, [0.5, 0.45, 0.35, 0.22, 0.1], 7, F['rose']))
     # the deck: lengthwise planks, a flush hatch, rope-and-post rails with three gaps a side
     body_deck = Geo()
-    deck_planks(body_deck, deck_w, -9.2, 9.2, 16, F, rng)
-    hatch(body_deck, Vector((0, 0, 4.5)), 0.8, F)
-    for side in (1, -1):
-        for span in B_POSTS:
+    deck_planks(body_deck, deck_w, -DECK_B, DECK_B, 17, F, rng, curved=True)
+    hatch(body_deck, Vector((0, 0, 5.0)), 0.8, F)
+    for side in (1,):
+        for span in rail_spans():
             tops = []
-            for z in span:
-                x = side * (deck_w(z) - 0.15)
+            for ang_ in span:
+                pp = oval_pt(ang_)
+                x, z = pp.x, pp.z
                 ring0 = [Vector((x + 0.09 * math.cos(math.tau * k / 4 + 0.785), y, z + 0.09 * math.sin(math.tau * k / 4 + 0.785)))
                          for y, k in ((-0.02, k) for k in range(4))]
                 ring1 = [Vector((p.x, 0.62, p.z)) for p in ring0]
@@ -777,7 +813,7 @@ def gloom_beast(cast, m):
     cast.part(root, 'body', body, (0, 0, 0))
     # eyes: big and gentle, with soft rose lids
     for side, name in ((1, 'eye_l'), (-1, 'eye_r')):
-        z, th = 10.9, side * math.radians(76)
+        z, th = 12.0, side * math.radians(76)
         n = BN(z, th)
         d = (n * 0.6 + FWD * 0.6 + UP * 0.08).normalized()
         c = BP(z, th) - d * 0.32
@@ -798,7 +834,7 @@ def gloom_beast(cast, m):
         for s_ in (-0.06, 0.0, 0.12, 0.25, 0.38, 0.5, 0.62, 0.72, 0.8, 0.88, 0.94, 0.97, 1.0):
             c_, t_, sw, up_ = span(s_)
             st.append((rootp - n * 0.5 + out * (s_ * 10.5) - chord * sw + thick * up_, chord, thick, c_, t_))
-        fin = wing(st, 14, F['teal'])
+        fin = wing(st, 11, F['teal'])
         for i, f in enumerate(fin.f):
             if fin.normal(f).dot(thick) < -0.3:
                 fin.m[i] = F['belly']
@@ -820,24 +856,25 @@ def gloom_beast(cast, m):
     specs = []
     for side in (1, -1):
         for z, ln in ((-8.0, 1.0), (-3.5, 1.2), (2.0, 1.1), (6.5, 1.0)):
-            base = Vector((side * 5.0, -0.45, z))
+            base = Vector((side * (deck_w(z) + 0.6), -0.45, z))
             specs.append((base, (side * 1.0, 0.8, 0.1), ln, 0.24))
         for z in (-6.0, -1.0, 4.0, 8.2):
             specs.append((BP(z, side * math.radians(108)), (side * 1.0, -0.15, 0.1), 1.3, 0.26))
-        for z in (-8.9, 8.9):   # on the deck's rounded ends, outside the rails
-            specs.append((Vector((side * (deck_w(z) + 0.05), -0.02, z)), (side * 0.6, 0.6, math.copysign(0.6, z)), 0.45, 0.12))
-        specs.append((Vector((side * 2.6, -0.4, 11.4)), (side * 0.4, 1.0, 0.4), 0.9, 0.2))
+        for a in (25.0, 155.0):   # on the deck's rounded ends, outside the rails
+            pp = oval_pt(math.radians(a) * side, -0.15)
+            specs.append((pp + Vector((0, -0.02, 0)), (pp.x * 0.1, 0.6, pp.z * 0.06), 0.45, 0.12))
+        specs.append((Vector((side * 2.6, -0.6, 12.6)), (side * 0.4, 1.0, 0.4), 0.9, 0.2))
         for z, deg, ln in ((-4.8, 92, 1.4), (-0.4, 90, 1.5), (3.2, 91, 1.3), (9.6, 96, 0.9)):
             specs.append((BP(z, side * math.radians(deg)), (side * 1.0, 0.45, 0.15), ln, 0.3))
 
-        specs.append((Vector((side * 0.8, -0.9, -10.6)), (side * 0.6, 1.0, -0.4), 0.8, 0.18))
+        specs.append((Vector((side * 0.8, -0.9, -11.6)), (side * 0.6, 1.0, -0.4), 0.8, 0.18))
     for z in (-7.0, -3.0, 1.0, 5.0, 8.5):
         specs.append((Vector((0.25 * math.sin(z), -BEAST(z)[1] * 0 - (1.9 + BEAST(z)[3]) + 0.25, z)), (0.1 * math.sin(z), -1.0, 0.1),
                       1.6 + 0.4 * math.cos(z), 0.32))
     for k, (base, d, ln, r) in enumerate(specs):
         crust.add(lean_shard(Vector(base), Vector(d), ln, r, 4, 0.45, cr, 1300 + k))
-    for k, (x, z) in enumerate(((5.1, -6.0), (-5.1, 0.6), (5.0, 4.0), (-4.9, -4.5))):
-        crust.add(facet_blob((x, -0.7, z), (0.55, 0.35, 0.6), 1, 0.15, 1400 + k, cr))
+    for k, (sd, z) in enumerate(((1, -6.0), (-1, 0.6))):
+        crust.add(facet_blob((sd * (deck_w(z) + 0.7), -0.8, z), (0.55, 0.35, 0.6), 1, 0.15, 1400 + k, cr))
     cast.part(root, 'crust', crust, (0, 0, 0))
 
 

@@ -757,6 +757,18 @@ def repack_glb(path):
     new_bin = bytes(vert + idx)
     new_bin += b'\0' * ((4 - len(new_bin) % 4) % 4)
     doc['buffers'] = [dict(byteLength=len(new_bin))]
+
+    def f32(x):  # shortest decimal that reads back as the same float32 (accessor data is float32): lossless
+        t = struct.unpack('<f', struct.pack('<f', x))[0]
+        for d in range(6, 10):
+            y = float(f'{t:.{d}g}')
+            if struct.pack('<f', y) == struct.pack('<f', t):
+                return y
+        return t
+    for acc in doc['accessors']:
+        for k in ('min', 'max'):
+            if k in acc and acc.get('componentType') == 5126:
+                acc[k] = [f32(v) for v in acc[k]]
     js = json.dumps(doc, separators=(',', ':')).encode('utf-8')
     js += b' ' * ((4 - len(js) % 4) % 4)
     total = 12 + 8 + len(js) + 8 + len(new_bin)
