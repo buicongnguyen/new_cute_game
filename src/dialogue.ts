@@ -98,6 +98,8 @@ export const SCENES: Record<string, Line[]> = {
   faint: [{ who: 'nana', text: 'Up you come! Bao pulled you back. Rest, eat something, and try again. A better mallet or coat from the Workbench helps; sell spare goods if you are short of glimmer.' }],
   faint_hive: [{ who: 'nana', text: 'Bao hummed at that foe while you climbed up. Its crust is cracked now: it will be a little weaker next time.' }],
   nana_gift: [{ who: 'nana', text: 'Out of seeds? Here, I always keep one in my pocket.' }],
+  spark_first: [{ who: 'nana', text: 'A Sky Spark! They drift out of happy trees, and float in the sky round us too. Your grandpa built a little Sky Scooter from sparks like that: five sparks and three Fibre at the Workbench.' }],
+  drone_first: [{ who: 'nana', text: 'Look at you fly! The tether keeps you near Bao. Catch the sparks out there, and the sky dew. Tap Land when you want to come home.' }],
   conch_hush: [{ who: 'nana', text: 'I can’t hear the conch, child! The hush near that foe swallows it. Step away first.' }],
 };
 

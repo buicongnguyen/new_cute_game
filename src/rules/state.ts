@@ -58,13 +58,13 @@ export interface GameState {
   /** `freshUntil`: the bath's buff (separate from meal buffs, so both can be on). */
   hero: { level: number; xp: number; hp: number; buff: 'power' | 'guard' | null; buffUntil: number; freshUntil: number };
   /** `deck`: deck extensions built (0–3). */
-  gear: { mallet: number; coat: number; rope: boolean; line: boolean; bait: boolean; deck: number };
+  gear: { mallet: number; coat: number; rope: boolean; line: boolean; bait: boolean; deck: number; drone: number };
   /** Rooms of Nana's cottage that have been repaired (chapter 2). */
   rooms: Record<RoomId, boolean>;
   /** Life-skill XP. */
   skills: Record<SkillId, number>;
   /** Fractions toward the next bonus fruit and second portion (skill perks pay out exactly, without dice). */
-  bank: { fruit: number; portion: number };
+  bank: { fruit: number; portion: number; spark: number };
   /** Chime Post spot indices that hold a post. */
   posts: number[];
   /** Keepsakes made at the Workbench (they only decorate). */
@@ -111,10 +111,10 @@ export function newGame(seed = 'cloudback', now = Date.now()): GameState {
     items: { seed_sproutbean: 2, seed_puffberry: 2, seed_ropevine: 2, cloudpear: 3 },
     glimmer: 20,
     hero: { level: 1, xp: 0, hp: 100, buff: null, buffUntil: 0, freshUntil: 0 },
-    gear: { mallet: 1, coat: 1, rope: false, line: false, bait: false, deck: 0 },
+    gear: { mallet: 1, coat: 1, rope: false, line: false, bait: false, deck: 0, drone: 0 },
     rooms: all(ROOM_IDS, false),
     skills: all(SKILL_IDS, 0),
-    bank: { fruit: 0, portion: 0 },
+    bank: { fruit: 0, portion: 0, spark: 0 },
     posts: [],
     keepsakes: [],
     schools: Object.fromEntries(PLACE_IDS.map(p => [p, { left: FISHING.school, t: 0 }])) as Record<PlaceId, { left: number; t: number }>,

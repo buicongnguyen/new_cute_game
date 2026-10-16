@@ -13,7 +13,7 @@ export interface HudActions {
   open(panel: 'bag' | 'bao' | 'map' | 'journal' | 'settings'): void;
   grow(): void;
 }
-export interface HudView { mode: 'deck' | 'isle' | 'house' | 'skiff'; combat: boolean; context: string | null; contextIcon: string; fishing: 'off' | 'wait' | 'bite'; cooldowns: { spin: number; hop: number }; eat: string | null; bossName?: string; boss?: number; bossShield?: boolean; bossStatus?: string | null; raid?: string | null; place: string; conch?: boolean; pull?: boolean;
+export interface HudView { mode: 'deck' | 'isle' | 'house' | 'skiff'; combat: boolean; context: string | null; contextIcon: string; fishing: 'off' | 'wait' | 'bite'; cooldowns: { spin: number; hop: number }; eat: string | null; bossName?: string; boss?: number; bossShield?: boolean; bossStatus?: string | null; raid?: string | null; place: string; conch?: boolean; pull?: boolean; pullLabel?: string;
   /** Zoo Garden's fishing game: the phase, the line's tension and how far the fish is reeled in. */
   reel?: { phase: string; tension: number; progress: number; strained: boolean } | null }
 
@@ -151,6 +151,7 @@ export class Hud {
     toggle($('#b-eat', r), view.mode === 'isle' || view.combat);
     toggle($('#b-conch', r), !!view.conch);
     toggle($('#b-pull', r), !!view.pull);
+    if (view.pull) { const pl = $('#b-pull small', r); if (pl) setText(pl, t(view.pullLabel ?? 'Pull the rope')); const ic = $('#b-pull .ico', r); if (ic) setText(ic, view.pullLabel === 'Land' ? '🛬' : '🪢'); }
     setText($('#b-eat-n', r), view.eat ? '✓' : '–');
     $('#b-eat', r)!.classList.toggle('empty', !view.eat);
     const ctx = $('#b-ctx', r)!;

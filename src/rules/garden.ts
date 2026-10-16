@@ -1,4 +1,4 @@
-import { CRUST_RINGS, GARDENER_EVERY, GARDENER_SPEED, ITEMS, TREES, moodFactor, seedOf, type ProduceId, type TreeId } from './content.ts';
+import { CRUST_RINGS, DRONE, GARDENER_EVERY, GARDENER_SPEED, ITEMS, TREES, moodFactor, seedOf, type ProduceId, type TreeId } from './content.ts';
 import { count, emptyPlot, give, hasCrew, take, type GameState, type Plot } from './state.ts';
 import { payout, perks, train, SKILL_GAIN } from './home.ts';
 
@@ -48,7 +48,7 @@ export function uproot(s: GameState, index: number): Result {
   return { ok: true };
 }
 
-export function harvest(s: GameState, index: number): Result<{ item: ProduceId; n: number; skill: number }> {
+export function harvest(s: GameState, index: number): Result<{ item: ProduceId; n: number; sparks: number; skill: number }> {
   const plot = s.plots[index];
   if (!plot?.tree) return no('Nothing grows here');
   if (plot.crust > 0) return no('Ring the crust off first');
@@ -59,11 +59,14 @@ export function harvest(s: GameState, index: number): Result<{ item: ProduceId; 
   // Gardening: now and then a bonus fruit (banked exactly, no dice).
   const n = base + payout(s, 'fruit', perks(s).bonusFruit);
   give(s, item, n);
+  // Now and then a Sky Spark drifts out of the leaves (banked, so exactly one every four harvests).
+  const sparks = payout(s, 'spark', DRONE.sparkChance);
+  if (sparks) give(s, 'spark', sparks);
   plot.phase = 'regrow'; plot.progress = 0;
   s.stats.harvested += n;
   s.story.flags.harvested = true;
   if (ITEMS[item].kind === 'craft') s.story.flags.craftHarvest = true;
-  return { ok: true, item, n, skill: train(s, 'garden', SKILL_GAIN.harvest) };
+  return { ok: true, item, n, sparks, skill: train(s, 'garden', SKILL_GAIN.harvest) };
 }
 
 /** Harvests every ripe tree; returns what was picked. */

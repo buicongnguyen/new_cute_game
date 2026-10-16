@@ -1,6 +1,6 @@
 {
   "file": "props.glb",
-  "bytes": 663388,
+  "bytes": 711112,
   "roots": {
     "hut": {
       "tris": 1291,
@@ -560,6 +560,60 @@
         "pal_stone"
       ],
       "children": []
+    },
+    "drone": {
+      "tris": 1314,
+      "size": [
+        1.613,
+        0.55,
+        1.598
+      ],
+      "materials": [
+        "glow_lantern",
+        "pal_gold",
+        "pal_honey",
+        "pal_iron",
+        "pal_red",
+        "pal_sun",
+        "pal_teal",
+        "pal_white",
+        "pal_wood_dark"
+      ],
+      "children": [
+        "rotor_0",
+        "rotor_1",
+        "rotor_2",
+        "rotor_3"
+      ]
+    },
+    "sky_spark": {
+      "tris": 100,
+      "size": [
+        0.483,
+        0.54,
+        0.459
+      ],
+      "materials": [
+        "glow_gold",
+        "glow_gold_halo"
+      ],
+      "children": []
+    },
+    "drone_pad": {
+      "tris": 272,
+      "size": [
+        2.12,
+        1.342,
+        1.8
+      ],
+      "materials": [
+        "pal_red",
+        "pal_sun",
+        "pal_white",
+        "pal_wood",
+        "pal_wood_dark"
+      ],
+      "children": []
     }
   },
   "generator": "art/blender/kit/build_props.py",
@@ -608,6 +662,26 @@
       0.0,
       0.62,
       0.02
+    ],
+    "drone/rotor_0": [
+      0.509,
+      0.36,
+      -0.509
+    ],
+    "drone/rotor_1": [
+      -0.509,
+      0.36,
+      -0.509
+    ],
+    "drone/rotor_2": [
+      -0.509,
+      0.36,
+      0.509
+    ],
+    "drone/rotor_3": [
+      0.509,
+      0.36,
+      0.509
     ]
   },
   "notes": "windmill/blades: pivot at the hub, spin about local +Z (the front axis); rod: origin at the butt, tip marker at the end; skydew: origin at its underside centre; market awning uses pal_awning; lanterns/windows use glow_lantern (set emissive 0 for unlit); hatch/door pivots on the hinge at the back edge, open with door.rotation.x -> -1.9; planter/soil: empty marker at the soil top; the hatch shaft reaches below y = 0; gong/disc pivots at its top hanging point, wobble it with disc.rotation.x; lift/platform pivots at its top centre (lower it in y), lift/rope hangs 1.0 m from its pivot (scale y = drop / 1.0); crate/lid hinges at the back (rotation.x negative opens); chime_cannon/barrel pivots at the trunnions (aim with rotation.x); skiff floor and bao_plank top at y = 0"

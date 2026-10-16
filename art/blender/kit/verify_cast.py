@@ -24,7 +24,7 @@ PERSON = ['body', 'head', 'arm_l', 'arm_r', 'leg_l', 'leg_r']
 CREW = ['nana', 'pip', 'olla', 'kai', 'mina', 'coal', 'tam', 'ria', 'juno', 'bram']
 FOLK = ['folk_a', 'folk_b']
 EXPECT = {
-    'whale.glb': {'whale': (14000, {'body': None, 'tail': None, 'fin_l': None, 'fin_r': None, 'eye_l': None,
+    'whale.glb': {'whale': (14000, {'body': None, 'rim': None, 'tail': None, 'fin_l': None, 'fin_r': None, 'eye_l': None,
                                     'eye_r': None, 'mouth': None, 'blowhole': None, 'tailtip': 'tail'})},
     'keeper.glb': {'keeper': (3000, dict({p: None for p in PERSON}, mallet='arm_r'))},
     'crew.glb': dict({n: (2500, {p: None for p in PERSON}) for n in CREW}, **{n: (2000, {p: None for p in PERSON}) for n in FOLK}),

@@ -48,6 +48,7 @@ def mats():
     m['glow_moss'] = K.G('moss', 'moss_light', 1.2)
     m['sky_light'] = K.M('sky_light', 0.6)
     m['snow'] = K.M('snow', 0.85)
+    m['halo'] = K.mat('glow_gold_halo', '#FFE7A0', 0.5, emit='#FFD66B', emit_strength=0.6, alpha=0.35)
     return m
 
 
@@ -1135,8 +1136,60 @@ def sea_rock(m):
     return dict(body=p, children=[], markers=[])
 
 
-BATCH5 = ['lift', 'skiff', 'crate', 'chime_cannon', 'bao_plank', 'snow_lantern', 'ice_hut', 'sea_buoy', 'sea_rock']
-BATCH5_BUDGET = {'sea_buoy': 300, 'sea_rock': 500, 'lift': 1500, 'skiff': 1500, 'crate': 800, 'chime_cannon': 1200, 'bao_plank': 300, 'snow_lantern': 500,
+def drone(m):
+    """The Sky Scooter: a cute quadcopter with a padded saddle (seat top y 0.55). Children rotor_0..3 pivot at the
+    rotor hubs and spin about their local Y."""
+    p = Piece('drone')
+    p.add(lathe([(0.0, 0.08), (0.3, 0.1), (0.42, 0.22), (0.44, 0.32), (0.38, 0.42), (0.2, 0.46), (0.0, 0.47)], 12,
+                tag=lambda b, s2: 'honey' if b <= 1 else 'teal'), {'honey': m['honey'], 'teal': m['teal']})
+    p.add(torus(0.43, 0.03, 12, 4), m['gold'], xf((0, 0, 0.27)))
+    p.add(rbox((0.36, 0.5, 0.1), 0.05, 1), m['red'], xf((0, 0.03, 0.5)))
+    for x in (-0.24, 0.24):
+        p.add(tube([(x, -0.2, 0.0), (x, -0.25, 0.1), (x, 0.25, 0.1), (x, 0.2, 0.0)], 0.025, sides=4), m['iron'])
+    paper_lantern(p, m['lantern'], m['red'], (0, -0.5, 0.36), 0.08, 0.15, 8, tassel=False)
+    p.add(tube([(0, -0.38, 0.38), (0, -0.5, 0.4)], 0.015, sides=3), m['iron'])
+    rotors = []
+    for k in range(4):
+        a = RAD(45 + 90 * k)
+        d = Vector((math.cos(a), math.sin(a), 0))
+        hub = d * 0.72 + Vector((0, 0, 0.36))
+        p.add(tube([d * 0.36 + Vector((0, 0, 0.3)), hub - Vector((0, 0, 0.04))], 0.035, sides=5), m['wood_dark'])
+        p.add(rcyl(0.07, 0.08, 0.02, 8, z0=-0.08, arc=1), m['gold'], xf(hub))
+        r = Piece(f'drone_rotor_{k}')
+        r.add(ico0(0.04, hub + Vector((0, 0, 0.02))), m['sun'])
+        for j in (0, 1):
+            b = RAD(90 * j + 20 * k)
+            e = Vector((math.cos(b), math.sin(b), 0))
+            r.add(K.cbox((0.6, 0.09, 0.015), 0.006), m['white'], xf(hub + Vector((0, 0, 0.015)), (0, 0, b)))
+        rotors.append((f'rotor_{k}', r, hub))
+    return dict(body=p, children=rotors, markers=[])
+
+
+def sky_spark(m):
+    """A glowing golden star crystal (0.45 m) in a soft paler halo; origin at its centre."""
+    p = Piece('sky_spark')
+    star = slab(star_outline(5, 0.22, 0.1), [(0.5, -0.07), (1.0, -0.02), (1.0, 0.02), (0.5, 0.07)], -0.09, 0.09)
+    p.add(star, m['glow_gold'], xf((0, 0, 0), (RAD(90), 0, 0)))
+    p.add(K.ico(0.27, (0, 0, 0), 1), m['halo'])
+    return dict(body=p, children=[], markers=[])
+
+
+def drone_pad(m):
+    """A round wooden landing pad 1.8 m across, 0.12 m tall, with a painted ring and a windsock pole at its edge."""
+    p = Piece('drone_pad')
+    p.add(rcyl(0.9, 0.12, 0.03, 20, arc=1), m['wood'])
+    ring = lathe([(0.55, 0.121), (0.68, 0.121)], 20)
+    ring.faces = [tuple(reversed(f)) for f in ring.faces]
+    p.add(ring, m['sun'])
+    p.add(disc(star_outline(4, 0.22, 0.07), dome=0.0), m['white'], xf((0, 0, 0.122)))
+    post(p, m['wood_dark'], 0.82, 0.3, 1.3, 0.03, 5)
+    sock = lathe([(0.07, 0.0), (0.05, 0.3), (0.03, 0.42)], 6, tag=lambda b, s2: 'red' if b == 0 else 'white')
+    p.add(sock, {'red': m['red'], 'white': m['white']}, xf((0.82, 0.3, 1.24), (0, RAD(80), RAD(20))))
+    return dict(body=p, children=[], markers=[])
+
+
+BATCH5 = ['lift', 'skiff', 'crate', 'chime_cannon', 'bao_plank', 'snow_lantern', 'ice_hut', 'sea_buoy', 'sea_rock', 'drone', 'sky_spark', 'drone_pad']
+BATCH5_BUDGET = {'drone': 2000, 'sky_spark': 300, 'drone_pad': 600, 'sea_buoy': 300, 'sea_rock': 500, 'lift': 1500, 'skiff': 1500, 'crate': 800, 'chime_cannon': 1200, 'bao_plank': 300, 'snow_lantern': 500,
                  'ice_hut': 1500}
 
 
@@ -1199,10 +1252,10 @@ def check(stats):
         limit = NEW_BUDGET[n] if n in NEW_IDS else BATCH5_BUDGET[n] if n in BATCH5 else BUDGET
         if s['tris'] > limit:
             errors.append(f'{n}: {s["tris"]} tris > {limit}')
-        if n not in ('skydew', 'hatch', 'skiff', 'bao_plank', 'sea_buoy', 'sea_rock') and abs(s['min_y']) > 0.01:
+        if n not in ('skydew', 'hatch', 'skiff', 'bao_plank', 'sea_buoy', 'sea_rock', 'sky_spark') and abs(s['min_y']) > 0.01:
             errors.append(f'{n}: base {s["min_y"]}')
     want = {'hatch': ['door'], 'planter': ['soil'], 'gong': ['disc'], 'lift': ['platform', 'rope'], 'crate': ['lid'],
-            'chime_cannon': ['barrel']}
+            'chime_cannon': ['barrel'], 'drone': ['rotor_0', 'rotor_1', 'rotor_2', 'rotor_3']}
     for n, kids in want.items():
         if sorted(stats[n]['children']) != kids:
             errors.append(f'{n}: children {stats[n]["children"]} (want {kids})')
@@ -1283,7 +1336,7 @@ def main():
         out = globals()[n](m)
         if isinstance(out, dict):
             body = out['body']
-            if n not in ('hatch', 'skiff', 'bao_plank', 'sea_buoy', 'sea_rock'):
+            if n not in ('hatch', 'skiff', 'bao_plank', 'sea_buoy', 'sea_rock', 'sky_spark'):
                 body.deform(lambda v: (v.x, v.y, max(0.0, v.z)))
             obj = body.build(sharp=50, name=n)
             for cname, piece, pivot in out['children']:
@@ -1336,7 +1389,7 @@ def main():
                  'kitchen', 'workbench', 'maptable', 'fishspot', 'ropepost', 'pantry',
                  'chimepost', 'lantern', 'ore_rock', 'postspot', 'rod', 'speck', 'skydew']
         new_small = ['hatch', 'planter', 'gong', 'lift', 'skiff', 'crate', 'chime_cannon', 'bao_plank', 'snow_lantern',
-                     'ice_hut', 'sea_buoy', 'sea_rock']
+                     'ice_hut', 'sea_buoy', 'sea_rock', 'drone', 'sky_spark', 'drone_pad']
         cells = [(roots[n], f'{n}  {stats[n]["tris"]}') for n in order + new_small]
         placed = K.contact_sheet(cells, os.path.join(K.PREVIEWS, 'props.png'), cols=6, pitch=(4.4, 4.7),
                                  width_px=2400, label_size=0.26, label_dy=2.15)

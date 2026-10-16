@@ -48,6 +48,8 @@ export class Bao {
   cannon: T.Object3D | null = null;
   plank: T.Object3D | null = null;
   plankOut = false;
+  /** The scooter is flying (its parked copy is hidden). */
+  droneOut = false;
   private liftK = 0; private liftTarget = 0; private crateOpen = 0; private recoil = 0;
   /** Keepsakes (they only decorate) and Tam's anvil. */
   private lanterns: T.Object3D[] = [];
@@ -82,6 +84,9 @@ export class Bao {
     make('maptable', () => standIn('box', '#8a4b25', .9));
     make('ropepost', () => standIn('pillar', '#c77a3a', .5));
     make('crate', () => standIn('box', '#c98a4a', .9));
+    make('drone_pad', () => standIn('box', '#e3a05a', .5));
+    // The Sky Scooter parked on its pad (the game flies its own copy).
+    make('drone', () => standIn('box', '#2fb0a8', .6));
     make('lift', () => standIn('pillar', '#c77a3a', .6));
     make('pantry', () => standIn('box', '#f2b33d', .8));
     for (let i = 0; i < DECK.posts.length; i++) {
@@ -125,8 +130,10 @@ export class Bao {
     for (let i = 1; i <= tier; i++) {
       const a0 = DECK.half[0] + EXTENSIONS[i - 1].half[0], b0 = DECK.half[1] + EXTENSIONS[i - 1].half[1];
       const a1 = DECK.half[0] + EXTENSIONS[i].half[0] + .15, b1 = DECK.half[1] + EXTENSIONS[i].half[1] + .15;
-      this.extGroup.add(deckRing(a0 - .3, b0 - .3, a1, b1, i === tier));
+      this.extGroup.add(deckRing(a0 - .1, b0 - .1, a1, b1, i === tier, i));
     }
+    // The whale's own gunwale and weed sit inside the first extension: hide them, so the planks run on unbroken.
+    const rim = findChild(this.model, 'rim'); if (rim) rim.visible = tier === 0;
     this.layout();
   }
   private extGroup = new T.Group();
@@ -140,6 +147,7 @@ export class Bao {
   private layout() {
     this.whale.scale.setScalar(this.scale);
     const put = (name: string, p: readonly [number, number], rot = 0) => { const o = this.props[name]; if (o) { this.at(p, o.position); o.rotation.y = rot; } };
+    put('drone_pad', DECK.dronePad, 0); put('drone', DECK.dronePad, Math.PI); if (this.props.drone) this.props.drone.position.y = .12;
     put('hatch', DECK.hatch, .4); put('workbench', DECK.workbench, -Math.PI / 2); put('crate', DECK.crate, -Math.PI / 2);
     put('maptable', DECK.maptable, .3); put('ropepost', DECK.ropepost, -Math.PI / 2); put('lift', this.liftCalf(), 0); put('pantry', DECK.pantry, Math.PI / 2);
     this.extGroup.scale.set(this.scale, 1, this.scale);
@@ -160,6 +168,7 @@ export class Bao {
   sync(s: GameState, raidActive: boolean) {
     if (this.anvil) this.anvil.visible = s.crew.includes('tam');
     if (this.cannon) this.cannon.visible = s.crew.includes('juno');
+    this.props.drone_pad.visible = s.gear.drone > 0; this.props.drone.visible = s.gear.drone > 0 && !this.droneOut;
     if (this.plank) this.plank.visible = this.plankOut;
     for (const l of this.lanterns) l.visible = s.keepsakes.includes('lanterns');
     this.crown.visible = s.keepsakes.includes('crown');
@@ -175,7 +184,8 @@ export class Bao {
   lowerLift(k: number) { this.liftTarget = k; }
   get liftDown() { return this.liftK; }
   setLift(k: number) { this.liftK = this.liftTarget = k; this.poseLift(); }
-  private liftDrop = LIFT.drop;
+  /** The skiff hangs 4 m under Bao's belly (deeper as Bao grows), so the whale shows overhead with the rope to it. */
+  get liftDrop() { return LIFT.drop + 6.6 * this.scale; }
   private poseLift() {
     const lift = this.props.lift, platform = lift ? findChild(lift, 'platform') : null, rope = lift ? findChild(lift, 'rope') : null;
     const drop = this.liftK * this.liftDrop;
@@ -359,27 +369,70 @@ function crustShards() {
 }
 
 /**
- * One deck extension: a ring of warm planks between two ovals (calf metres), its top flush with the deck at y = 0, a
- * darker skirt under its outer edge, and (on the outermost ring) a low rail of posts with a rope. One draw call.
+ * One deck extension, built to continue Bao's own deck (build_whale.py): lengthwise planks 0.44 m wide on the same
+ * columns as the deck's planks, honey and caramel (pal_wood_light / pal_wood) over dark seams, joints staggered from
+ * plank to plank, nail dots at the joints, and on the outermost ring the same rounded dark gunwale with weed growing
+ * over it. Everything is between the oval (a0, b0) and the oval (a1, b1), in calf metres; one draw call.
  */
-function deckRing(a0: number, b0: number, a1: number, b1: number, rail: boolean) {
-  const seg = 72, pos: number[] = [], col: number[] = [], c = new T.Color();
-  const tri = (p: number[][], hex: string) => { c.set(hex); for (const v of p) { pos.push(v[0], v[1], v[2]); col.push(c.r, c.g, c.b); } };
+const PLANK_W = 2 * 4.4 / 20, PLANK_GAP = .04, JOINT_GAP = .035;
+function deckRing(a0: number, b0: number, a1: number, b1: number, outer: boolean, tier: number) {
+  const pos: number[] = [], col: number[] = [], c = new T.Color();
+  const quad = (p: number[][], hex: string) => { c.set(hex); for (const i of [0, 1, 2, 0, 2, 3]) { pos.push(...p[i]); col.push(c.r, c.g, c.b); } };
+  const rng = makeRng(`deck-ext-${tier}`);
+  const zIn = (x: number) => Math.abs(x) < a0 ? b0 * Math.sqrt(1 - (x / a0) ** 2) : 0;
+  const zOut = (x: number) => Math.abs(x) < a1 ? b1 * Math.sqrt(1 - (x / a1) ** 2) : 0;
+  // The dark wood under the planks (it shows in the seams), and a skirt down the outer edge.
+  const seg = 96;
   for (let i = 0; i < seg; i++) {
-    const t0 = i / seg * Math.PI * 2, t1 = (i + 1) / seg * Math.PI * 2;
-    const p = (a: number, b: number, t: number, y: number) => [Math.cos(t) * a, y, Math.sin(t) * b];
-    const wood = i % 2 ? '#c98a4a' : '#b9783d';
-    const i0 = p(a0, b0, t0, -.01), i1 = p(a0, b0, t1, -.01), o0 = p(a1, b1, t0, -.01), o1 = p(a1, b1, t1, -.01);
-    tri([i0, o1, o0], wood); tri([i0, i1, o1], wood);
-    const d0 = p(a1, b1, t0, -.45), d1 = p(a1, b1, t1, -.45);
-    tri([o0, o1, d1], '#7a4424'); tri([o0, d1, d0], '#7a4424');
-    if (rail && i % 3 === 0) {
-      const [x, , z] = p(a1 - .12, b1 - .12, t0, 0), w = .07;
-      const q = (dx: number, dz: number, y: number) => [x + dx, y, z + dz];
-      const faces: [number, number][][] = [[[w, w], [-w, w]], [[-w, w], [-w, -w]], [[-w, -w], [w, -w]], [[w, -w], [w, w]]];
-      for (const [[ax, az], [bx, bz]] of faces) { tri([q(ax, az, 0), q(bx, bz, 0), q(bx, bz, .6)], '#8a4b25'); tri([q(ax, az, 0), q(bx, bz, .6), q(ax, az, .6)], '#8a4b25'); }
+    const t0 = i / seg * Math.PI * 2, t1 = (i + 1) / seg * Math.PI * 2, p = (a: number, b: number, t: number, y: number) => [Math.cos(t) * a, y, Math.sin(t) * b];
+    quad([p(a0, b0, t0, -.03), p(a0, b0, t1, -.03), p(a1, b1, t1, -.03), p(a1, b1, t0, -.03)], '#8A4B25');
+    quad([p(a1, b1, t0, -.03), p(a1, b1, t1, -.03), p(a1, b1, t1, -.5), p(a1, b1, t0, -.5)], '#7a4424');
+  }
+  // Planks: each column covers the ring where it lies outside the old oval and inside the new one.
+  const first = Math.floor(-a1 / PLANK_W) - 1, last = Math.ceil(a1 / PLANK_W) + 1;
+  for (let i = first; i <= last; i++) {
+    const xa = i * PLANK_W + PLANK_GAP / 2, xb = (i + 1) * PLANK_W - PLANK_GAP / 2;
+    if (Math.max(Math.abs(xa), Math.abs(xb)) >= a1 * .995) continue;
+    for (const side of [-1, 1]) {
+      // From the old rim (or the middle, for columns beyond it) out to the new rim, following the curves at both edges.
+      const ia = zIn(xa), ib = zIn(xb), oa = zOut(xa), ob = zOut(xb);
+      const startA = Math.abs(xa) < a0 && Math.abs(xb) < a0 ? ia : 0, startB = Math.abs(xa) < a0 && Math.abs(xb) < a0 ? ib : 0;
+      if (startA === 0 && startB === 0 && side < 0) continue; // a full column is drawn once, from −z to +z
+      const z0a = startA === 0 && startB === 0 ? -oa : startA, z0b = startA === 0 && startB === 0 ? -ob : startB;
+      const len = Math.min(oa - z0a, ob - z0b);
+      if (len < .2) continue;
+      // Staggered joints, like the deck's own.
+      const cuts = len > 3.2 ? [z0a + len * (.35 + rng.next() * .3)] : [];
+      const edges = [0, ...cuts.map(z => z - z0a), len];
+      for (let k = 0; k < edges.length - 1; k++) {
+        const s0 = edges[k] + (k > 0 ? JOINT_GAP / 2 : 0), s1 = edges[k + 1] - (k < edges.length - 2 ? JOINT_GAP / 2 : 0);
+        const last = k === edges.length - 2;
+        const za0 = z0a + s0, zb0 = z0b + s0, za1 = last ? oa : z0a + s1, zb1 = last ? ob : z0b + s1;
+        const sg = side < 0 && !(startA === 0 && startB === 0) ? -1 : 1;
+        const hex = rng.next() < .34 ? '#C77A3A' : '#E3A05A';
+        quad([[xa, 0, sg * za0], [xb, 0, sg * zb0], [xb, 0, sg * zb1], [xa, 0, sg * za1]], hex);
+        if (k > 0) for (const xx of [xa + PLANK_W * .24, xb - PLANK_W * .24]) { const zz = sg * (za0 + .09), q = .028; quad([[xx - q, .004, zz - q], [xx + q, .004, zz - q], [xx + q, .004, zz + q], [xx - q, .004, zz + q]], '#4a4a55'); }
+      }
     }
-    if (rail) { const r0 = p(a1 - .12, b1 - .12, t0, .52), r1 = p(a1 - .12, b1 - .12, t1, .52), r2 = p(a1 - .12, b1 - .12, t1, .58), r3 = p(a1 - .12, b1 - .12, t0, .58); tri([r0, r1, r2], '#e3c27a'); tri([r0, r2, r3], '#e3c27a'); }
+  }
+  // The gunwale and the weed at the new edge (the whale's own rim is hidden while an extension is on).
+  if (outer) {
+    const ga = a1 * 1.005, gb = b1 * 1.005, r = .11, n = 128;
+    for (let i = 0; i < n; i++) {
+      const t0 = i / n * Math.PI * 2, t1 = (i + 1) / n * Math.PI * 2;
+      for (let k = 0; k < 4; k++) {
+        const u0 = k / 4 * Math.PI, u1 = (k + 1) / 4 * Math.PI;
+        const v = (t: number, u: number) => { const nx = Math.cos(t) / ga, nz = Math.sin(t) / gb, L = Math.hypot(nx, nz); return [Math.cos(t) * ga + Math.cos(u) * r * nx / L, .02 + Math.sin(u) * r, Math.sin(t) * gb + Math.cos(u) * r * nz / L]; };
+        quad([v(t0, u0), v(t1, u0), v(t1, u1), v(t0, u1)], '#8A4B25');
+      }
+    }
+    const weed = ['#5fcb45', '#3e9e36', '#9be36a'];
+    for (let i = 0; i < 90; i++) {
+      const t = i / 90 * Math.PI * 2 + rng.next() * .05; if (rng.next() < .3) continue;
+      const x = Math.cos(t) * ga, z = Math.sin(t) * gb, s = .16 + rng.next() * .14, dir = Math.atan2(z / gb, x / ga);
+      const ox = Math.cos(dir), oz = Math.sin(dir), tx = -oz, tz = ox;
+      quad([[x - tx * s - ox * s * .4, .14, z - tz * s - oz * s * .4], [x + tx * s - ox * s * .4, .14, z + tz * s - oz * s * .4], [x + tx * s * .6 + ox * s * 1.2, -.05, z + tz * s * .6 + oz * s * 1.2], [x - tx * s * .6 + ox * s * 1.2, -.05, z - tz * s * .6 + oz * s * 1.2]], weed[i % 3]);
+    }
   }
   const g = new T.BufferGeometry();
   g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new T.Float32BufferAttribute(col, 3));

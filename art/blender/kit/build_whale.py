@@ -648,16 +648,20 @@ def build():
     shell = body_geo()
     belly_paint(shell)
     surf = Surf(shell)
-    deck = Geo().add(deck_base(surf), planks_geo(surf), gunwale_geo(surf))
+    planks = Geo().add(deck_base(surf), planks_geo(surf))
+    gunwale = gunwale_geo(surf)
+    deck = Geo().add(planks, gunwale)
     band, rows = weed_band(Surf(Geo().add(shell, deck)))
     weed = Geo().add(band, tufts_geo(rows), rosettes_geo(rows), weed_flowers(rows))
     for name, part in (('shell', shell), ('deck', deck), ('weed', weed)):
         print(f'   {name}: {part.tris()} tris')
-    body = Geo().add(shell, deck, weed, spots_geo(), mouth_geo(surf), cheeks_geo(surf), blowhole_geo(surf))
+    body = Geo().add(shell, planks, spots_geo(), mouth_geo(surf), cheeks_geo(surf), blowhole_geo(surf))
+    rim = Geo().add(gunwale, weed)   # the code hides this when deck extensions are bolted on outside the rim
     for side in (1, -1):
         body.add(brow_geo(side))
     cast.part(root, 'body', body, (0, 0, 0))
-    cast.deck = Surf(body)
+    cast.part(root, 'rim', rim, (0, 0, 0))
+    cast.deck = Surf(Geo().add(body, rim))
     tail, pivot = tail_geo()
     t = cast.part(root, 'tail', tail, pivot)
     cast.marker(t, 'tailtip', (0, axis_y(-10.9) + 0.05, -12.3))

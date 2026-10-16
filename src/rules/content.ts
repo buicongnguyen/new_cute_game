@@ -19,7 +19,7 @@ export type Stage = 0 | 1 | 2 | 3;
 export type TreeId = 'sproutbean' | 'puffberry' | 'ropevine' | 'cloudpear' | 'chimewood' | 'honeybun' | 'glowplum' | 'starfig' | 'golden';
 export type FishId = 'puff_minnow' | 'sun_carp' | 'star_ray' | 'cloud_koi';
 export type MealId = 'pear_tart' | 'fish_bun' | 'sky_stew';
-export type ProduceId = 'bean' | 'puffberry' | 'glowplum' | 'starfig' | 'cloudpear' | 'honeybun' | 'fibre' | 'chimewood' | 'ore';
+export type ProduceId = 'spark' | 'bean' | 'puffberry' | 'glowplum' | 'starfig' | 'cloudpear' | 'honeybun' | 'fibre' | 'chimewood' | 'ore';
 export type SeedId = `seed_${TreeId}`;
 export type ItemId = ProduceId | FishId | MealId | SeedId | 'cocoa';
 export type ItemKind = 'whale' | 'people' | 'craft' | 'fish' | 'meal' | 'seed';
@@ -74,6 +74,8 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   cocoa: { name: 'Warm Cocoa', kind: 'people', sell: 6, eat: { heal: 70 } },
   /** The quick early crop: no food, only coin (the crate, the markets) and the first deck extension. */
   bean: { name: 'Sprout Bean', kind: 'craft', sell: 3 },
+  /** Glowing bits that drop now and then at a harvest and float in the sky round Bao: they build the Sky Scooter. */
+  spark: { name: 'Sky Spark', kind: 'craft', sell: 4 },
   fibre: { name: 'Fibre', kind: 'craft', sell: 3 },
   chimewood: { name: 'Chimewood', kind: 'craft', sell: 6 },
   ore: { name: 'Ore', kind: 'craft', sell: 6 },
@@ -192,12 +194,15 @@ export const SKILL_PERK = {
 } as const;
 
 // -------------------------------------------------------------- workbench
-export type RecipeId = 'deck1' | 'deck2' | 'deck3' | 'rope' | 'mallet2' | 'mallet3' | 'coat2' | 'coat3' | 'line' | 'post' | 'lanterns' | 'crown' | 'goldbell';
+export type RecipeId = 'drone' | 'drone2' | 'deck1' | 'deck2' | 'deck3' | 'rope' | 'mallet2' | 'mallet3' | 'coat2' | 'coat3' | 'line' | 'post' | 'lanterns' | 'crown' | 'goldbell';
 export interface RecipeDef { name: string; cost: Partial<Record<ItemId, number>>; glimmer: number; needsTam: boolean; effect: string; needsRope?: boolean; needsRoom?: RoomId; keepsake?: boolean }
 export const RECIPES: Record<RecipeId, RecipeDef> = {
   // Building out the ship (the owner): wooden decks bolted round Bao's rim, more room and more planter boxes.
   deck1: { name: 'Side decks', cost: { bean: 6 }, glimmer: 20, needsTam: false, effect: 'Wider deck, +2 planter boxes' },
   deck2: { name: 'Bow and stern decks', cost: { chimewood: 4, fibre: 4 }, glimmer: 90, needsTam: false, effect: 'Longer deck, +2 planter boxes' },
+  // The Sky Scooter (the owner): a little drone to fly freely round Bao, on a tether so never too far.
+  drone: { name: 'Sky Scooter', cost: { spark: 5, fibre: 3 }, glimmer: 30, needsTam: false, effect: 'Fly around Bao (not too far)' },
+  drone2: { name: 'Long-range Scooter', cost: { spark: 12, chimewood: 3 }, glimmer: 120, needsTam: false, effect: 'Fly twice as far from Bao' },
   deck3: { name: 'Grand deck', cost: { ore: 4, chimewood: 4 }, glimmer: 250, needsTam: false, effect: 'The biggest deck, +2 planter boxes' },
   rope: { name: 'Climbing Rope', cost: { fibre: 3 }, glimmer: 0, needsTam: false, effect: 'Go down to the lands' },
   mallet2: { name: 'Mallet II', cost: { chimewood: 4 }, glimmer: 30, needsTam: false, effect: 'Damage ×1.4' },
@@ -272,7 +277,8 @@ export const HELPER = { every: 1.6, reach: 2.4, healEvery: 10, follow: 2.2, spee
 /** Juno's chime cannon fires a ringing bell at the thickest crowd of Gloom forms (raids and boardings). */
 export const CANNON = { every: 7, radius: 2.8, push: 2.6, damage: .8, soften: .1 } as const;
 /** The lift down to the skiff (twice as fast with Juno). */
-export const LIFT = { seconds: 2.4, juno: .5, drop: 16 } as const;
+/** `drop`: metres under Bao's belly (the belly is 6.6 m × the stage scale below the deck). */
+export const LIFT = { seconds: 2.4, juno: .5, drop: 4 } as const;
 /** Nana's conch calls the rope down where you stand, except near a boss: its hush swallows the sound. */
 export const CONCH = { arena: 13 } as const;
 
@@ -507,6 +513,13 @@ export const EXTENSIONS = [
   { half: [3.2, 2.0], plots: 6 },
 ] as const;
 export const SAFE_AREA = 18;
+
+// ------------------------------------------------------------- the Sky Scooter
+/**
+ * A harvest drops a Sky Spark now and then (banked: one every 4 harvests). Sky Sparks also float in the sky round Bao,
+ * where only the scooter reaches them. The tether keeps it within `range` metres of Bao (by scooter tier).
+ */
+export const DRONE = { speed: 9, height: 3, range: [0, 30, 55] as const, sparks: 10, respawn: 25, catch: 1.5, sparkChance: .25 } as const;
 export const plotCount = (stage: Stage, deck: number) => STAGES[stage].plots + EXTENSIONS[Math.max(0, Math.min(3, deck))].plots;
 
 // ------------------------------------------------------------- Bao's deck
@@ -526,6 +539,8 @@ export const DECK = {
   ropepost: [3.3, -2.9] as [number, number],
   /** The fishing lift on the starboard rail, down to the skiff. */
   lift: [3.75, 4.6] as [number, number],
+  /** The Sky Scooter's landing pad on the port bow. */
+  dronePad: [-2.4, -5.6] as [number, number],
   /** Juno's chime cannon at the stern. */
   cannon: [0, 6.5] as [number, number],
   /** Where Bao's boarding plank leaves the starboard rail when a Gloom ship is alongside. */

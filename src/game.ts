@@ -5,9 +5,9 @@ import { RngStreams } from './core/rng.ts';
 import { damp } from './core/feel.ts';
 import { verticalFovForAspect } from './core/camera.ts';
 import { t } from './i18n.ts';
-import { BELOW, CANNON, CONCH, CREW, DECK, BEAST, HELPER, HELPERS, HIVES, HOME, ISLE_MAPS, ITEMS, KEEPER, LIFT, LIST, MARKETS, PLACES, POST, RAID, RECIPES, ROOMS, SKILL_NAMES, UPGRADES, VOYAGE, isLand, isShip,
+import { BELOW, CANNON, CONCH, DRONE, CREW, DECK, BEAST, HELPER, HELPERS, HIVES, HOME, ISLE_MAPS, ITEMS, KEEPER, LIFT, LIST, MARKETS, PLACES, POST, RAID, RECIPES, ROOMS, SKILL_NAMES, UPGRADES, VOYAGE, isLand, isShip,
   type CrewId, type FishId, type HelperId, type IsleId, type ItemId, type LandId, type MealId, type PlaceId, type RecipeId, type RoomId, type ShipId, type SkillId, type TreeId, type UpgradeId } from './rules/content.ts';
-import { count, hasCrew, newGame, type GameState } from './rules/state.ts';
+import { count, give, hasCrew, newGame, type GameState } from './rules/state.ts';
 import { tickRules, catchUp } from './rules/tick.ts';
 import { crustStored, harvest, plant, ringCrust, uproot } from './rules/garden.ts';
 import { brush, canGrow, feed, feedAll, grow, pet } from './rules/whale.ts';
@@ -41,7 +41,7 @@ import { play, setMusic } from './sfx.ts';
 import { saveGame, exportCode, importCode, saves } from './save-game.ts';
 import { Governor } from './graphics.ts';
 
-type Mode = 'deck' | 'isle' | 'house' | 'skiff' | 'ride' | 'cut';
+type Mode = 'deck' | 'isle' | 'house' | 'skiff' | 'ride' | 'drone' | 'cut';
 type PlaceView = IsleView | BeastShipView;
 interface Ship { ship: T.Object3D; plank: T.Object3D; out: T.Vector3; rim: T.Vector3; dock: T.Vector3; centre: T.Vector3; k: number; leaving: boolean }
 interface Interactable { id: string; pos: T.Vector3; radius: number; label: string; icon: string; act: () => void; auto?: boolean }
@@ -54,7 +54,7 @@ interface Family { actors: Actor[]; cage: number; t: number }
 interface Shell { mesh: T.Object3D; from: T.Vector3; to: T.Vector3; t: number; deck: boolean }
 
 /** Portrait screens use a wider lens and a little more distance (as Zoo Garden does), never the full horizontal-FOV rule, which went past 100°. */
-const CAMERA = { fov: 40, portraitFov: 47, pitch: 47, deck: 19, isle: 22, house: 19, ship: 21, skiff: 13, skiffPitch: 17, portrait: 1.22 };
+const CAMERA = { fov: 40, portraitFov: 47, pitch: 47, deck: 19, isle: 22, house: 19, ship: 21, skiff: 15, skiffPitch: 6, portrait: 1.22 };
 /** Where a land floats while Bao hovers over it: below and off to the side, so it shows past the whale. */
 const ISLE_BELOW = new T.Vector3(30, -28, -18);
 
@@ -159,7 +159,7 @@ export class Game {
       hop: () => this.live() && this.keeper.hop(this.hud.stick.x || this.keeper.vel.x, this.hud.stick.z || this.keeper.vel.z),
       eat: () => this.live() && this.quickEat(), reel: (held: boolean) => { if (this.live() || !held) this.reel(held); },
       conch: () => this.live() && this.blowConch(),
-      pull: () => this.live() && this.pullRope(),
+      pull: () => this.live() && (this.mode === 'drone' ? this.landDrone() : this.pullRope()),
       open: p => this.openPanel(p),
       grow: () => this.doGrow(),
     });
@@ -257,6 +257,7 @@ export class Game {
   leaveHouse() { this.cut(() => this.enterDeck(false, 'hatch')); }
 
   enterDeck(first = false, from: 'rope' | 'hatch' | 'lift' | 'plank' = 'rope') {
+    this.hideSparks();
     this.cabin.group.visible = false;
     this.skiff.visible = false; this.ride = null; this.bao.setLift(0);
     this.mode = 'deck';
@@ -481,7 +482,7 @@ export class Game {
       const puff = part('nature', 'cloud_puff') ?? new T.Mesh(new T.IcosahedronGeometry(2, 1), PUFF);
       puff.traverse(o => { const m = o as T.Mesh; if (m.isMesh) m.material = PUFF; });
       const a = i / 12 * Math.PI * 2 + rng.next() * .4, r = 22 + rng.next() * 30;
-      puff.position.set(Math.cos(a) * r, 9 + rng.next() * 4, Math.sin(a) * r); puff.scale.setScalar(2.4 + rng.next() * 2); puff.rotation.y = rng.next() * 6;
+      puff.position.set(Math.cos(a) * (r + 10), 1 + rng.next() * 3, Math.sin(a) * (r + 10)); puff.scale.setScalar(2.4 + rng.next() * 2); puff.rotation.y = rng.next() * 6;
       this.skiff.add(puff);
     }
     // The school: a few fish swimming in loops under the surface; one of them comes to the bobber.
@@ -494,7 +495,7 @@ export class Game {
     this.skiff.visible = false;
   }
   private swimmers: { o: T.Object3D; id: FishId; a: number; r: number; speed: number; y: number }[] = [];
-  private skiffAt() { const p = this.bao.at(this.bao.liftCalf()); return new T.Vector3(p.x + 1.6, -LIFT.drop, p.z); }
+  private skiffAt() { const p = this.bao.at(this.bao.liftCalf()); return new T.Vector3(p.x + 1.6, -this.bao.liftDrop, p.z); }
   private skiffGround(): Ground {
     const c = this.skiffAt();
     return { height: () => c.y, clamp: p => { const dx = (p.x - c.x) / 1.15, dz = (p.z - c.z) / .42, k = dx * dx + dz * dz; if (k > 1) { const s = 1 / Math.sqrt(k); p.x = c.x + (p.x - c.x) * s; p.z = c.z + (p.z - c.z) * s; } }, blockers: [] } as Ground;
@@ -504,9 +505,11 @@ export class Game {
     if (this.raid) { this.hud.toast(t('Not now: the Gloom is aboard!'), 'warn'); return; }
     if (this.mode !== 'deck') return;
     this.skiff.position.copy(this.skiffAt()).setY(0); this.skiff.visible = true;
-    this.skiff.position.y = -LIFT.drop;
+    this.skiff.position.y = -this.bao.liftDrop;
     this.ride = { t: 0, dur: LIFT.seconds * (hasCrew(this.state, 'juno') ? LIFT.juno : 1), up: false };
     this.mode = 'ride'; this.nearby = null;
+    // Clear the cloud layer round the skiff, so Bao and the rope show overhead.
+    { const c = this.skiffAt(); this.sky.hole = { x: c.x, z: c.z, r: 34 }; }
     this.keeper.place(this.bao.liftSpot().x, this.bao.liftSpot().z);
     play('sail');
   }
@@ -877,6 +880,7 @@ export class Game {
     // The Gloom comes aboard: whoever is in the cottage or the skiff comes up to defend Bao.
     if (this.mode === 'house') { this.cabin.group.visible = false; this.enterDeck(false, 'hatch'); }
     if (this.mode === 'skiff' || this.mode === 'ride') { this.stopFishing(); this.enterDeck(false, 'lift'); }
+    if (this.mode === 'drone') this.landDrone(true);
     const small = !this.state.voyage?.scripted;
     const plan = raidPlan(this.state, small);
     if (!plan) { if (this.state.voyage) this.state.voyage.raidState = 'done'; return; }
@@ -1020,6 +1024,89 @@ export class Game {
     if (this.keeper.alive()) { this.keeper.pos.x += push; this.keeper.bounds.clamp(this.keeper.pos); }
     for (const f of this.combat.forms) if (!f.dead && !f.boarding) f.pos.x += push * 1.2;
   }
+
+  // ----------------------------------------------------------- Sky Scooter
+  /**
+   * The Sky Scooter (the owner): ride a little drone off the deck and fly freely round Bao, on a tether so never too
+   * far. Sky Sparks float out there (they build and upgrade the scooter), and sky dew and treasure clouds can be caught.
+   */
+  private drone: { obj: T.Object3D; vel: T.Vector3; rotors: T.Object3D[]; tether: T.Line } | null = null;
+  private sparks: { o: T.Object3D; alive: boolean; t: number; phase: number }[] = [];
+  private startDrone() {
+    const s = this.state;
+    if (s.gear.drone <= 0 || this.raid || this.mode !== 'deck') return;
+    const obj = part('props', 'drone', { shadows: true }) ?? (() => { const m = new T.Mesh(new T.CylinderGeometry(.7, .8, .35, 16), makeToon('#2fb0a8')); const g = new T.Group(); g.add(m); return g; })();
+    const rotors = [0, 1, 2, 3].map(i => findChild(obj, `rotor_${i}`)).filter((r): r is T.Object3D => !!r);
+    const tether = new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(), new T.Vector3()]), new T.LineBasicMaterial({ color: '#fff3d6' }));
+    tether.frustumCulled = false;
+    this.scene.add(obj, tether);
+    const pad = this.bao.at(DECK.dronePad);
+    obj.position.set(pad.x, .12, pad.z);
+    this.drone = { obj, vel: new T.Vector3(), rotors, tether };
+    this.bao.droneOut = true; this.syncDeck();
+    this.mode = 'drone'; this.nearby = null;
+    if (!this.sparks.length) this.makeSparks();
+    play('sail');
+    this.scene_('drone_first');
+  }
+  private droneRange() { return DRONE.range[Math.min(2, this.state.gear.drone)] + this.bao.half()[1] * .5; }
+  private updateDrone(dt: number, stick: { x: number; z: number }) {
+    const d = this.drone; if (!d) return;
+    const want = new T.Vector3(stick.x, 0, stick.z).multiplyScalar(DRONE.speed);
+    d.vel.x = damp(d.vel.x, want.x, 4, dt); d.vel.z = damp(d.vel.z, want.z, 4, dt);
+    const p = d.obj.position;
+    p.x += d.vel.x * dt; p.z += d.vel.z * dt;
+    // The tether: it stops at its length, and the scooter leans back against it.
+    const r = Math.hypot(p.x, p.z), max = this.droneRange();
+    if (r > max) { p.x *= max / r; p.z *= max / r; if (!this.tetherWarned) { this.tetherWarned = true; this.hud.toast(t('The tether is at its end: this is as far as the scooter goes.'), 'info'); } } else if (r < max - 4) this.tetherWarned = false;
+    p.y = damp(p.y, DRONE.height + Math.sin(this.loop.gameTime * 1.6) * .25, 3, dt);
+    const speed = Math.hypot(d.vel.x, d.vel.z);
+    if (speed > .4) d.obj.rotation.y = Math.atan2(d.vel.x, d.vel.z);
+    d.obj.rotation.x = d.vel.z / DRONE.speed * .2; d.obj.rotation.z = -d.vel.x / DRONE.speed * .2;
+    for (const rot of d.rotors) rot.rotation.y += dt * 40;
+    // The Captain sits in the saddle.
+    this.keeper.pos.set(p.x, p.y + .5, p.z); this.keeper.actor.facing = d.obj.rotation.y; this.keeper.actor.speed = 0; this.keeper.actor.update(dt);
+    const pad = this.bao.at(DECK.dronePad);
+    (d.tether.geometry as T.BufferGeometry).setFromPoints([pad.setY(.2), p.clone().setY(p.y - .1)]);
+    // Sky dew and treasure clouds can be caught on the wing.
+    for (const dw of this.dews) if (dw.alive && dw.o.position.distanceTo(p) < 2) this.catchDew(dw);
+  }
+  private tetherWarned = false;
+  /** Back to the pad (at once in a raid). */
+  landDrone(now = false) {
+    const d = this.drone; if (!d) return;
+    const finish = () => { this.scene.remove(d.obj, d.tether); this.drone = null; this.bao.droneOut = false; const pad = this.bao.at(DECK.dronePad); this.mode = 'deck'; this.keeper.place(pad.x + 1.3, pad.z); this.syncDeck(); play('hop'); };
+    if (now) { finish(); return; }
+    this.cut(finish);
+  }
+  private makeSparks() {
+    const rng = this.rng.stream('sparks');
+    for (let i = 0; i < DRONE.sparks; i++) {
+      const o = part('props', 'sky_spark') ?? new T.Mesh(new T.OctahedronGeometry(.25, 0), makeToon('#ffd23a', { emissive: '#ffb000' }));
+      this.scene.add(o);
+      const s = { o, alive: false, t: rng.next() * 3, phase: rng.next() * 6 };
+      this.sparks.push(s);
+    }
+  }
+  /** Sparks float round Bao (only while the scooter flies); a caught one comes back somewhere else later. */
+  private updateSparks(dt: number) {
+    const d = this.drone, rng = this.rng.stream('sparks'), max = this.droneRange();
+    for (const sp of this.sparks) {
+      if (!sp.alive) {
+        sp.t -= dt; sp.o.visible = false;
+        if (sp.t > 0) continue;
+        const a = rng.next() * Math.PI * 2, r = this.bao.half()[1] * .9 + rng.next() * (max - this.bao.half()[1] * .9);
+        sp.o.position.set(Math.cos(a) * r, 1.5 + rng.next() * 4, Math.sin(a) * r); sp.alive = true; sp.o.visible = true;
+      }
+      sp.phase += dt; sp.o.rotation.y += dt * 2; sp.o.position.y += Math.sin(sp.phase * 2) * dt * .3;
+      if (d && sp.o.position.distanceTo(d.obj.position) < DRONE.catch + .5) {
+        sp.alive = false; sp.t = DRONE.respawn; sp.o.visible = false;
+        give(this.state, 'spark');
+        this.fx.sparkle(sp.o.position.clone(), '#ffe28a', 14); this.fx.text(sp.o.position, `+1 ${t('Sky Spark')}`, 'gain'); play('dew');
+      }
+    }
+  }
+  private hideSparks() { for (const sp of this.sparks) sp.o.visible = false; }
 
   // --------------------------------------------------------------- fishing
   private makeFishing() {
@@ -1172,6 +1259,7 @@ export class Game {
       if (isShip(s.place) && !s.voyage) add('plank', at(this.bao.plankCalf()), 1.7, 'Board the ship', '⚔️', () => this.board());
       else add('rope', at(DECK.ropepost), 1.5, s.place === 'dawnreach' || s.voyage ? 'Rope' : 'Go down', '🪢', () => this.descend());
       add('lift', at(this.bao.liftCalf()), 1.6, 'Go fishing', '🎣', () => this.goFishing());
+      if (s.gear.drone > 0) add('drone', at(DECK.dronePad), 1.6, 'Fly the scooter', '🛸', () => this.startDrone());
       for (const [id, a] of this.bao.crew) if (s.crew.includes(id) && a.root.visible) add(`crew-${id}`, a.root.position, 1.4, 'Talk', '💬', () => this.talk(id));
       for (const d of this.dews) if (d.alive) add('dew', d.o.position, 0, 'Catch', '✨', () => this.catchDew(d));
     } else if (this.mode === 'skiff') {
@@ -1275,6 +1363,7 @@ export class Game {
     const at = this.bao.at(DECK.plots[i]).setY(1.2);
     this.fx.sparkle(at, '#ffe28a', 8); this.fx.text(at, `+${r.n} ${t(ITEMS[r.item].name)}`, 'gain');
     play('harvest');
+    if (r.sparks) { this.fx.text(at.clone().setY(at.y + .6), `+1 ${t('Sky Spark')}`, 'crit'); this.fx.sparkle(at, '#fff3a0', 16); play('dew'); this.scene_('spark_first'); }
     this.skillUp('garden', r.skill);
     if (ITEMS[r.item].kind === 'whale') this.scene_('harvested');
     this.syncDeck();
@@ -1412,7 +1501,7 @@ export class Game {
   /** Test hook: run `seconds` of game steps without rendering each one (fights, voyages, raids). */
   simulate(seconds: number) { for (let i = 0; i < seconds * 60; i++) this.step(1 / 60); }
 
-  private where(): Where { return this.mode === 'isle' ? 'isle' : this.mode === 'house' ? 'house' : this.mode === 'skiff' || this.mode === 'ride' ? 'skiff' : 'deck'; }
+  private where(): Where { if (this.mode === 'drone') return 'deck'; return this.mode === 'isle' ? 'isle' : this.mode === 'house' ? 'house' : this.mode === 'skiff' || this.mode === 'ride' ? 'skiff' : 'deck'; }
 
   private step(dt: number) {
     const s = this.state, now = Date.now();
@@ -1442,7 +1531,8 @@ export class Game {
     GLOOM.value = damp(GLOOM.value, this.gloomTarget, 1.4, dt);
     if (Math.abs(GLOOM.value - this.gloomTarget) < .002) GLOOM.value = this.gloomTarget;
     this.updateList(dt);
-    this.keeper.update(dt, stick);
+    if (this.mode === 'drone') this.updateDrone(dt, kx || kz ? { x: kx, z: kz } : this.hud.stick);
+    else this.keeper.update(dt, stick);
     this.fx.stepGame(dt);
     this.combat.update(dt);
     if (combatOn) this.hive?.update(dt);
@@ -1452,10 +1542,11 @@ export class Game {
     this.updateFollowers(dt);
     this.updateHelpers(dt);
     if (this.mode === 'deck') { this.updateCrew(dt); this.updateDew(dt); }
+    if (this.mode === 'drone') { this.updateDew(dt); this.updateSparks(dt); }
     this.updateFishing(dt);
     // First meetings with each boss's trick.
     if (this.hive?.awake && !this.hive.broken && !this.hive.shielded) { const key = ({ hushbell: 'hush_first', barnacle: 'barnacle_first', coilwyrm: 'wyrm_first' } as Record<string, string>)[this.hive.id]; if (key) this.scene_(key); }
-    const ev = tickRules(s, dt, this.mode === 'deck' || this.mode === 'house' || this.mode === 'skiff', now, !this.raid);
+    const ev = tickRules(s, dt, this.mode === 'deck' || this.mode === 'house' || this.mode === 'skiff' || this.mode === 'drone', now, !this.raid);
     if (ev.ripened.length && this.mode === 'deck') { play('harvest', .2); }
     if (ev.picked) this.hud.toast(t('Pip picked {list}', { list: Object.entries(ev.picked).map(([k, n]) => `${n} ${t(ITEMS[k as ItemId].name)}`).join(', ') }), 'info');
     if (ev.meal) this.hud.toast(t('Mina left a Fish Bun in your bag.'), 'good');
@@ -1517,7 +1608,7 @@ export class Game {
     // Camera: follow the Captain (low and close in the skiff, so Bao's belly shows overhead).
     const aspect = this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight);
     const skiff = this.mode === 'skiff' || this.mode === 'ride';
-    const base = skiff ? CAMERA.skiff : this.mode === 'isle' ? (this.isle?.kind === 'ship' ? CAMERA.ship : CAMERA.isle) : this.mode === 'house' ? CAMERA.house : CAMERA.deck * (1 + .38 * Math.max(0, this.bao.half()[1] / 8 - 1));
+    const base = this.mode === 'drone' ? CAMERA.deck * 1.1 : skiff ? CAMERA.skiff : this.mode === 'isle' ? (this.isle?.kind === 'ship' ? CAMERA.ship : CAMERA.isle) : this.mode === 'house' ? CAMERA.house : CAMERA.deck * (1 + .38 * Math.max(0, this.bao.half()[1] / 8 - 1));
     const dist = base * this.zoom * (aspect < .8 ? CAMERA.portrait : 1);
     const k = this.keeper.pos;
     this.focus.x = damp(this.focus.x, k.x, 7, realDt); this.focus.z = damp(this.focus.z, k.z, 7, realDt); this.focus.y = damp(this.focus.y, k.y, this.mode === 'ride' ? 12 : 4, realDt);
@@ -1528,8 +1619,14 @@ export class Game {
       this.camera.lookAt(0, -3, 0);
     } else {
       const pr = (skiff ? CAMERA.skiffPitch : CAMERA.pitch) * Math.PI / 180, lift = skiff ? 1.6 : .6;
-      this.camera.position.set(this.focus.x - (skiff ? Math.cos(pr) * dist * .55 : 0), this.focus.y + Math.sin(pr) * dist + lift, this.focus.z + Math.cos(pr) * dist * (skiff ? .85 : 1));
-      this.camera.lookAt(this.focus.x + (skiff ? 1.5 : 0), this.focus.y + lift + (skiff ? 1.2 : 0), this.focus.z);
+      if (skiff) {
+        // Low and outboard, looking up past the skiff at Bao's belly and the lift rope that holds the boat to the ship.
+        this.camera.position.set(this.focus.x + dist * .55, this.focus.y + Math.sin(pr) * dist + lift, this.focus.z + dist * .8);
+        this.camera.lookAt(this.focus.x - 2.5, this.focus.y + 4.2, this.focus.z);
+      } else {
+        this.camera.position.set(this.focus.x, this.focus.y + Math.sin(pr) * dist + lift, this.focus.z + Math.cos(pr) * dist);
+        this.camera.lookAt(this.focus.x, this.focus.y + lift, this.focus.z);
+      }
     }
     const sh = this.fx.trauma.offset(this.loop.realTime);
     this.camera.rotateY(sh.yaw * Math.PI / 180); this.camera.rotateX(sh.pitch * Math.PI / 180); this.camera.rotateZ(sh.roll * Math.PI / 180);
@@ -1573,7 +1670,7 @@ export class Game {
       eat: quickEatItem(s), place: PLACES[s.place].name,
       raid: this.raid ? (this.raid.wave < 0 ? t('Gloom ships in {n}…', { n: Math.ceil(this.raid.warn - this.raid.t) }) : t('Ship battle! {n}s', { n: Math.max(0, Math.ceil(RAID.timeout - this.raid.total)) })) : null,
       conch: this.mode === 'isle' && !!s.story.flags.conch,
-      pull: this.mode === 'skiff',
+      pull: this.mode === 'skiff' || this.mode === 'drone', pullLabel: this.mode === 'drone' ? 'Land' : 'Pull the rope',
     };
     if (hive) { view.boss = hive.hp / hive.max; view.bossName = HIVES[hive.id].name; view.bossShield = hive.shielded; view.bossStatus = hive.status(); }
     this.hud.update(s, g, view);

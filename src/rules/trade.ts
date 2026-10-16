@@ -47,7 +47,7 @@ export function buyUpgrade(s: GameState, isle: IsleId, id: UpgradeId): Result {
 }
 
 // --------------------------------------------------------------- workbench
-const TRACK: Partial<Record<RecipeId, ['mallet' | 'coat' | 'deck', number]>> = { mallet2: ['mallet', 2], mallet3: ['mallet', 3], coat2: ['coat', 2], coat3: ['coat', 3], deck1: ['deck', 1], deck2: ['deck', 2], deck3: ['deck', 3] };
+const TRACK: Partial<Record<RecipeId, ['mallet' | 'coat' | 'deck' | 'drone', number]>> = { mallet2: ['mallet', 2], mallet3: ['mallet', 3], coat2: ['coat', 2], coat3: ['coat', 3], deck1: ['deck', 1], deck2: ['deck', 2], deck3: ['deck', 3], drone: ['drone', 1], drone2: ['drone', 2] };
 /** Glimmer a recipe costs now: the craft room takes 20% off, and every Crafting level 3% more. */
 export const recipeGlimmer = (s: GameState, id: RecipeId) => Math.round(RECIPES[id].glimmer * (s.rooms.craft ? HOME.craftDiscount : 1) * perks(s).craftCost);
 export type RecipeState = 'owned' | 'ready' | 'missing' | 'locked' | 'full';

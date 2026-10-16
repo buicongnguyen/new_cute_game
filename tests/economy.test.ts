@@ -19,6 +19,7 @@ function sources() {
   if (Object.values(ISLE_MAPS).some(m => m.ore.length)) add('ore', 'ore rocks');
   for (const id of Object.keys(newGame().items) as ItemId[]) add(id, 'start');
   add('seed_golden', 'Grand Hana');
+  add('spark', 'harvest bonus and the sky');
   return from;
 }
 
