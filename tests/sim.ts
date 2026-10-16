@@ -187,7 +187,8 @@ export function simulate(seed = 'sim', limitMinutes = 300, profile: Profile = 'a
     progress.spires.forEach((b, i) => { if (!b) spireBroken(s, isle, i); });
     walk();
     const hive = HIVES[HIVE_OF[isle]];
-    const factor = isle === 'reef' ? .61 : isle === 'star' ? .65 : 1;
+    // Clamhive: open 1.9 s of a ~4.3 s cycle (×1) and shut the rest (×0.15); the Heart: 5 s at ×1.4, 15 s at ×0.4.
+    const factor = isle === 'reef' ? .53 : isle === 'star' ? .65 : 1;
     const seconds = P.isleSlow * hiveMaxHp(s, isle) / (ringDamage(s) / KEEPER.ringEvery * UPTIME * factor);
     const moves = HIVE_PATTERNS[HIVE_OF[isle]].map(m => (HIVE_MOVES[m] as { damage?: number }).damage ?? 0).filter(d => d > 0);
     const pattern = HIVE_PATTERNS[HIVE_OF[isle]];

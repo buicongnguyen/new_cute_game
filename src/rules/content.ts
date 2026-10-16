@@ -124,7 +124,8 @@ export const LEVEL_XP = [40, 100, 190, 300, 440, 600, 800, 1040, 1320, 1650, 208
 export const MAX_LEVEL = LEVEL_XP.length + 1;
 export const KEEPER = {
   baseHp: 100, hpPerLevel: 15, baseDamage: 10, damagePerLevel: 2,
-  ringEvery: .55, ringReach: 2.0, autoRange: 2.2,
+  // Auto-ring fires only when the blow can land (logic review 17).
+  ringEvery: .55, ringReach: 2.0, autoRange: 1.95,
   spin: { radius: 2.8, mult: 1.6, cooldown: 6 },
   hop: { distance: 4.5, invuln: .3, cooldown: 3.5 },
   mercy: .8, deckRegen: 2, speed: 5.2,
@@ -145,7 +146,7 @@ export const RECIPES: Record<RecipeId, RecipeDef> = {
   line: { name: 'Good Line', cost: { fibre: 4 }, glimmer: 20, needsTam: false, effect: 'Longer bites, rarer fish', needsRope: true },
   post: { name: 'Chime Post', cost: { chimewood: 3 }, glimmer: 15, needsTam: false, effect: 'A raid tower on a post spot' },
   // Keepsakes only look lovely: a glimmer sink for the late game and after the ending.
-  lanterns: { name: 'Lantern string', cost: { fibre: 4 }, glimmer: 80, needsTam: false, effect: 'Paper lanterns around Bao’s back', keepsake: true },
+  lanterns: { name: 'Lantern string', cost: { fibre: 4 }, glimmer: 80, needsTam: false, effect: 'Paper lanterns around Bao’s back', keepsake: true, needsRope: true },
   crown: { name: 'Flower crown for Bao', cost: { cloudpear: 2 }, glimmer: 150, needsTam: false, effect: 'Bao wears flowers', keepsake: true },
   goldbell: { name: 'Golden bell', cost: { ore: 4, chimewood: 4 }, glimmer: 300, needsTam: true, effect: 'Your mallet shines gold', keepsake: true },
 };
@@ -231,7 +232,8 @@ export const HIVE_PATTERNS: Record<HiveId, HiveMove[]> = {
 };
 /** Seconds between Hive moves. */
 export const HIVE_PACE = 3.4;
-export const CLAM = { closedTaken: .15, openSeconds: 4 } as const;
+/** The Clamhive gapes for 1.9 s after each move and shuts at the next wind-up (logic review 8: it was open 94% of the time). */
+export const CLAM = { closedTaken: .15, openSeconds: 1.9 } as const;
 /** Each faint at a Hive cracks its crust a little (Bao hums from above): it comes back 10% weaker, at most 30%. */
 export const HIVE_CRACK = { perFaint: .1, most: 3 } as const;
 /** Bao sings every 20 s during the finale: the Heart's shield cracks for 5 s and the song heals the Keeper. */
@@ -239,8 +241,17 @@ export const HEART = { shieldTaken: .4, songTaken: 1.4, songEvery: 20, songSecon
 export const RESCUE = { rings: 3, xp: 25, glimmer: 15 } as const;
 export const FAINT = { groupsReset: true } as const;
 /** Forms per raid wave: base + perIsle × isles freed; tier factor of the newest freed isle. */
-/** Scripted raids: 2 waves of base + perIsle × isles freed. Random raids: 1 wave of smallBase + perIsle × isles freed. */
-export const RAID = { waves: 2, base: 4, perIsle: 2, smallBase: 2, tierFactor: .8, warn: 3, warnLookout: 10, drop: 1.2, crustAfter: 5, aggro: 3, spitterAggro: 7, timeout: 100, winPerWave: 25 } as const;
+/**
+ * Raids are ship battles (the owner, 2026-10-16): Gloom ships come alongside from different sides and raiders walk
+ * over planks. Bao's battle stations sink every tree and fitting below the deck (fewer things to draw in a fight),
+ * leaving only the tools: two gongs and any Chime Posts. Raiders head for the hatch; one standing on it for
+ * `crustAfter` s crusts a tree stored below. Knocking a raider off the deck edge sends it overboard (it is freed as it
+ * falls), the best way to win. Scripted raids: 2 waves of base + perIsle × isles freed; random raids: 1 wave of
+ * smallBase + perIsle × isles freed.
+ */
+export const RAID = { waves: 2, base: 4, perIsle: 2, smallBase: 2, tierFactor: .8, warn: 3, warnLookout: 10, ships: 2, boardEvery: .9, crustAfter: 5, aggro: 3, spitterAggro: 7, timeout: 100, winPerWave: 25,
+  /** Knockback on the deck in a raid (metres per ring), Spin, and a rung gong's blast. */
+  push: 1.15, spinPush: 2.1, gong: { radius: 4.8, push: 3.4, damage: .6, cooldown: 6 } } as const;
 export const LEFTOVER = { every: 1800 } as const;
 export const ORE = { perRock: 2, back: 600 } as const;
 export const WILD = { back: 300 } as const;
@@ -333,5 +344,7 @@ export const DECK = {
   ropepost: [3.3, -2.9] as [number, number],
   fishspot: [0, 7.0] as [number, number],
   posts: [[-2.8, -3.9], [-3.1, -1.6], [2.1, 4.6], [-1.9, 5.3]] as [number, number][],
+  /** Battle stations: two gongs rise from the deck in a raid (ring one to blast raiders toward the edge). */
+  gongs: [[-1.9, -2.6], [1.9, 2.4]] as [number, number][],
   crewSpots: { nana: [-1.3, 4.6], pip: [0, -1.5], mina: [2.1, 3.3], tam: [1.9, 1.2], ria: [1.4, -5.2], olla: [0, 0], kai: [0, 0], coal: [0, 0] } as Record<CrewId, [number, number]>,
 };

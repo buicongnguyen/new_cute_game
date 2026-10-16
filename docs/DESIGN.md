@@ -17,7 +17,7 @@ This is the rule book for the code. `src/rules/content.ts` holds the same number
   - the story takes about 35–60 min for a real player. The scripted players in `tests/progression.test.ts` take about 25 min (attentive) and 49 min (casual, the worst case).
 - **Fail and retry:** a fainted Keeper is pulled back up by Bao at full health. Nothing is lost. The Hive heals, but every faint in a Hive fight cracks its crust: it comes back 10% weaker, up to 30%. Groups that were not cleared come back.
 - **Platforms:** phones first (upright and sideways), and desktop.
-- **Camera:** a perspective follow camera, FOV 40, pitch 47°. It sits 19 m from the Keeper on Bao and 22 m on isles, and 1.28 times farther back on upright phones.
+- **Camera:** a perspective follow camera, FOV 40, pitch 47°. It sits 19 m from the Keeper on Bao and 22 m on isles, and on upright phones it uses a wider lens (47°) and sits 1.22 times farther back.
 - **Speed:** the Keeper walks at 5.2 m/s.
 
 ## 2. Places and gates
@@ -166,7 +166,7 @@ The pantry and the bag are the same inventory. `tests/economy.test.ts` checks th
 - **Level** comes from XP, up to level 15. Cumulative XP for levels 2–15: 40, 100, 190, 300, 440, 600, 800, 1040, 1320, 1650, 2080, 2600, 3200, 3900.
 - **Max HP** = 100 + 15 × (level − 1) + Coat.
 - **Damage per ring** = (10 + 2 × (level − 1)) × Mallet × buffs.
-- **Ring:** every 0.55 s, in a 2.0 m arc in front. It fires by itself when a Gloom form is within 2.2 m. Space and the Ring button also ring.
+- **Ring:** every 0.55 s, in a 2.0 m arc in front. It fires by itself when a Gloom form is within 1.95 m, so it never swings at nothing. Space and the Ring button also ring.
 - **Chime Spin:** 2.8 m all around, ×1.6 damage, 6 s cooldown.
 - **Hop:** a 4.5 m dash, invulnerable for 0.3 s, 3.5 s cooldown.
 - **After a hit:** invulnerable for 0.8 s.
@@ -198,10 +198,10 @@ Base numbers; the isle's tier multiplies them.
 
 | Hive | HP | Moves (base damage) | XP / glimmer |
 |---|---|---|---|
-| Thornhive (Clover) | 480 | Thorn ring (14; stand inside 2.4 m or outside 7.5 m), spike lines ×3 (12), wakes 2 Gloomlings | 150 / 80 |
-| Clamhive (Reef) | 1500 | Pearl volley (5 shards, 10), tide ring (16; inside 3.4 m or outside 9 m). Blows barely scratch it while closed (15%); right after each move it gapes open for 4 s, so hit it then. | 300 / 160 |
+| Thornhive (Clover) | 480 | Thorn ring (14; safe right beside the Hive, within its radius + 1.15 m, or outside 7.5 m), spike lines ×3 (12), wakes 2 Gloomlings | 150 / 80 |
+| Clamhive (Reef) | 1500 | Pearl volley (5 shards, 10, flying where the wind-up pointed), tide ring (16; safe within its radius + 1.15 m or outside 9 m). Blows barely scratch it while closed (15%). It shuts as it winds up and gapes open for 1.9 s right after each move, so hit it then. | 300 / 160 |
 | Forgehive (Ember) | 3000 | Ground slam on your spot (20, radius 3.4), violet crystal cracks ×2 (18), calls 2 Flyers | 520 / 280 |
-| Grey Heart (Star) | 5000 | All of the above. Takes 40% damage, except for 5 s after each of Bao's songs (every 20 s), when it takes 140%. Each song heals the Keeper by 40. | 900 / 500 |
+| Grey Heart (Star) | 5000 | Thorn rings, pearl volleys, slams, spike lines and tide rings (it calls no helpers: it is alone). Takes 40% damage, except for 5 s after each of Bao's songs (every 20 s), when it takes 140%. Each song heals the Keeper by 40. | 900 / 500 |
 
 ## 9. Isles
 
@@ -239,16 +239,24 @@ Each isle is an irregular disc about 70 m across, with cliffs you cannot fall of
   - a scripted raid has 2 waves of `4 + 2 × isles freed`;
   - a random raid has 1 wave of `2 + 2 × isles freed`.
   - Raiders are forms already met on the newest freed isle, at that isle's tier × 0.8.
-- **Warning:** 3 s, or 10 s with Ria the Lookout. Drop spots are marked 1.2 s before each wave lands.
-- **What they do:**
-  - Raiders walk to the nearest clean tree, and crust it after 5 s of touching it.
+- **It is a ship battle** (the owner's design, 2026-10-16):
+  - **Gloom ships** come alongside: 2 for a scripted raid, 1 for a random one, each on a different side (bow, stern, port or starboard). Each lays a boarding plank to Bao's rim.
+  - **Battle stations:** every planter, tree and fitting sinks below the deck and is not drawn during the fight (fewer things on screen while fighting). The hatch, any Chime Posts and two **gongs** stay up.
+  - **The crew** climb down the hatch, banging pots and ringing bells. Hiding is fine; keeping still is not. A Keeper in the cottage is sent up on deck.
+- **Warning:** the ships glide in for 3 s, or 10 s with Ria the Lookout. Then the raiders walk over the planks one after another (every 0.9 s per ship).
+- **What raiders do:**
+  - They head for the **hatch**. One standing on it for 5 s crusts a tree stored below deck (the first clean one), and keeps doing so while it stays there.
   - They attack the Keeper when the Keeper is closer than 3 m (Spitters from 7 m).
-  - The crew climb down the hatch to Nana's cabin, banging pots and ringing bells. Hiding is fine; keeping still is not.
-  - A Keeper who is in the cabin when a raid starts is sent up on deck.
+- **Fighting back:**
+  - **Overboard is the best way.** A ring pushes a raider 1.15 m, a Chime Spin 2.1 m (Rammers half as far). A raider pushed past the gunwale falls overboard: its crystal bursts in the air, and the animal drifts down into the clouds, free. It counts as freed, plus 1 glimmer.
+  - **Gongs:** ring one (step up and press F or tap it). It deals 0.6 × your ring damage and throws every raider within 4.8 m 3.4 m toward the edge. Each gong then needs 6 s to stop humming.
+  - **Chime Posts** ring by themselves, and slow raiders, including their charges and dives.
+  - **No healing** on deck during a raid.
 - **Endings:**
-  - **Win:** all waves freed, +25 glimmer per wave.
-  - **Lose:** after 100 s the rest pop in the sunlight and float off as animals. Crusted trees stay crusted, and mood −12.
+  - **Win:** all waves freed or overboard, +25 glimmer per wave.
+  - **Lose:** after 100 s the ships give up. The raiders left aboard pop in the sunlight and float off as animals. Crusted trees stay crusted until rung clean, and mood −12.
   - **The Keeper faints:** the raid is lost.
+- **After the raid:** the ships sail away and the garden and fittings rise again.
 
 ## 11. Sailing extras
 
@@ -299,7 +307,7 @@ The Good Line makes Ray and Koi 1.5 times as likely.
    - A Hive you fainted at comes back cracked (up to −30% HP).
 5. **No glimmer:** sell fruit at any market, or brush specks.
 6. **Every stage gate** (XP plus a Note) can be met: each Note comes from an isle the stage before can reach.
-7. **Loading** always starts on Bao, hovering where you were. A voyage in progress finishes.
+7. **Loading** always starts on Bao, hovering where you were. A voyage in progress carries on, and a raid it was in starts again (the scripted raid is only paid off when it ends).
 8. **Saves** are written every 10 s, when the tab is hidden, and after every important event. Old saves are migrated, never thrown away.
 
 ## 14. Controls

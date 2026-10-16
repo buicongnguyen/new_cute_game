@@ -33,7 +33,9 @@ EXPECT = {
         spire=(1200, {'shell': None, 'eye': None}),
         puffbun=(1500, {'body': None}), hopfrog=(1500, {'body': None}), rockgoat=(1500, {'body': None}),
         skylark=(1500, {'body': None, 'wing_l': None, 'wing_r': None}),
-        cage=(900, {'shell': None})),
+        cage=(900, {'shell': None}),
+        gloom_ship=(4000, {'shell': None, 'eye': None, 'sail': None}),
+        plank=(300, {'body': None})),
     'hives.glb': dict(
         thornhive=(6000, {'shell': None, 'eye': None}),
         clamhive=(6000, {'shell_top': None, 'shell_bottom': None, 'pearl': None}),
@@ -48,10 +50,11 @@ SIZE = {  # root: (axis index, lo, hi) in glTF metres
     'rockgoat': [(1, 0.85, 1.0)], 'skylark': [(2, 0.35, 0.55)], 'cage': [(1, 1.95, 2.05), (0, 1.35, 1.5)],
     'thornhive': [(1, 4.8, 5.3)], 'clamhive': [(0, 4.8, 5.3)], 'forgehive': [(1, 4.8, 5.2)],
     'greyheart': [(1, 5.4, 6.4)], 'note': [(1, 0.55, 0.65)],
+    'gloom_ship': [(2, 6.8, 7.8), (0, 2.9, 4.0)], 'plank': [(2, 3.2, 3.5), (0, 0.78, 1.05)],
 }
 for n in CREW:
     SIZE[n] = [(1, 0.95, 1.2)]
-TOTAL_LIMIT = 1_400_000
+TOTAL_LIMIT = 1_450_000
 FAIL = []
 
 
@@ -194,6 +197,23 @@ def deck_check(objs):
         fail(f'whale deck outside y = 0 +- 0.15 (min {lo:.3f}, max {hi:.3f}, {n} hits)')
 
 
+def top_check(objs, root, part, xs, zs, want=0.0, tol=0.012):
+    """Ray-cast a node from above at glTF (x, z) points; its top must sit at y = want."""
+    o = find(objs, root, part)
+    bpy.context.view_layer.update()
+    inv = o.matrix_world.inverted()
+    ys = []
+    for x in xs:
+        for z in zs:
+            ok, loc, _, _ = o.ray_cast(inv @ Vector((x, -z, 30.0)), (inv.to_3x3() @ Vector((0, 0, -1))).normalized())
+            if ok:
+                ys.append((o.matrix_world @ loc).z)
+    lo, hi = (min(ys), max(ys)) if ys else (None, None)
+    print(f'== {root}/{part} top over {len(ys)} rays: min {lo} max {hi} (want {want})')
+    if not ys or abs(lo - want) > tol or abs(hi - want) > tol:
+        fail(f'{root}/{part} top is not at y = {want}: {lo}..{hi}')
+
+
 def pose(o, rx=0.0, ry=0.0, rz=0.0, sy=None):
     """Rotate a node by glTF Euler angles (glTF X = Blender X, glTF Y = Blender Z, glTF Z = Blender -Y)."""
     o.rotation_mode = 'XYZ'
@@ -271,6 +291,8 @@ def main():
         imported[f] = objs
         print(f'   imported {f}: {len(objs)} objects')
     deck_check(imported['whale.glb'])
+    top_check(imported['gloom.glb'], 'gloom_ship', 'shell', (-0.8, -0.3, 0.3, 0.8), (-2.0, -1.0, 1.0, 2.0))
+    top_check(imported['gloom.glb'], 'plank', 'body', (-0.3, -0.05, 0.2), (0.6, 1.6, 2.4))
     if '--render' in args():
         pose_render(imported)
     print('RESULT', 'FAIL' if FAIL else 'OK', len(FAIL))

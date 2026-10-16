@@ -131,8 +131,9 @@ The game code depends on everything in this file. Generators live in `art/blende
 |---|---|---|---|
 | `hatch` | Round hole in the deck with a raised brass rim, a dark shaft and the top rungs of a ladder; a little lantern post beside it | Child `door`: the planked lid with iron straps, pivot on the hinge at the back edge (−Z). The code opens it by rotating `door.rotation.x` negative, to about −1.9 rad (the lid then stands up behind the hole). | Hole 1.6 m across, rim 0.12 m high; origin at the hole centre, deck surface y = 0 (the shaft goes down to y −0.75) |
 | `planter` | Rounded square planter of wooden planks, filled with moss soil, with a thin `glow_moss` rim line | Empty marker `soil` at the centre of the soil top (y 0.27); trees are placed there | 1.5 m wide, 0.3 m tall |
+| `gong` | Raid gong. During a Gloom raid everything else on the deck sinks below and only battle tools stay up. A golden gong (`pal_gold` face, bronze `pal_tangerine` rim, a thin `glow_gold` ring) hangs on red cords in a chunky `pal_wood_dark` frame with feet; a red-headed striker mallet hangs on a side peg | Child `disc`: the gong with its cords, pivot at the top hanging point (0, 1.7, 0), just under the crossbar. The code wobbles it with `disc.rotation.x` when it is rung. At rest the face leans about 12° up toward the camera; the lean is in the mesh, so the node rests at identity. | 1.9 m tall, 2.25 m wide; origin at the frame's foot centre, deck y = 0 |
 
-- **Budget:** ≤ 2,000 triangles each. Exceptions: `hatch` ≤ 1,500 and `planter` ≤ 600.
+- **Budget:** ≤ 2,000 triangles each. Exceptions: `hatch` ≤ 1,500, `planter` ≤ 600 and `gong` ≤ 900.
 
 ### `nature.glb` (isle scenery, drawn instanced)
 

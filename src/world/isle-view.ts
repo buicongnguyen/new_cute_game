@@ -1,6 +1,6 @@
 import * as T from 'three';
 import { ISLE_MAPS, type IsleId } from '../rules/content.ts';
-import { bakedParts, part, standIn } from './assets.ts';
+import { bakedParts, findChild, part, standIn } from './assets.ts';
 import { addGloom, makeToon } from './look.ts';
 import { blobShadow } from './actors.ts';
 import { makeRng, type Rng } from '../core/rng.ts';
@@ -244,7 +244,7 @@ export class IsleView {
 
   update(dt: number) {
     this.t += dt;
-    for (const w of this.windmills) { const b = w.getObjectByName('blades'); if (b) b.rotation.z += dt * .9; }
+    for (const w of this.windmills) { const b = (w.userData.blades ??= findChild(w, 'blades')) as T.Object3D | null; if (b) b.rotation.z += dt * .9; }
     // Bao's shadow slides gently around above the landing.
     const map = ISLE_MAPS[this.isle];
     this.shadow.position.set(map.landing[0] + Math.sin(this.t * .07) * 6, this.height(map.landing[0], map.landing[1] - 8) + .05, map.landing[1] - 8 + Math.cos(this.t * .05) * 4);

@@ -1,5 +1,5 @@
 import type { Rng } from '../core/rng.ts';
-import { FISHING, ISLE_IDS, PLACES, VOYAGE, WHALE, type IsleId, type PlaceId } from './content.ts';
+import { ISLE_IDS, PLACES, VOYAGE, WHALE, type IsleId, type PlaceId } from './content.ts';
 import { hasCrew, type GameState } from './state.ts';
 import type { Result } from './garden.ts';
 
@@ -64,13 +64,11 @@ export function tickVoyage(s: GameState, dt: number): VoyageEvent {
   if (v.raidState === 'active') return null;
   if (v.raidState === 'pending' && v.raidAt !== null && v.elapsed >= v.raidAt) {
     v.raidState = 'active';
-    if (v.scripted) s.raidsOwed.shift();
     return 'raid';
   }
   v.elapsed += dt;
   if (v.elapsed >= v.duration) {
     s.place = v.to; s.voyage = null; s.stats.voyages++;
-    s.school = { left: FISHING.school, t: 0 };
     if (s.place !== 'dawnreach') s.isles[s.place as IsleId].visited = true;
     return 'arrive';
   }
@@ -93,6 +91,8 @@ export function collectTreasure(s: GameState) {
 
 /** Ends the raid of the current voyage. */
 export function endRaid(s: GameState, won: boolean, waves: number) {
+  // The scripted raid is paid off only when it is over (a raid cut off by a reload comes back).
+  if (s.voyage?.scripted && s.voyage.raidState === 'active') s.raidsOwed.shift();
   if (s.voyage) s.voyage.raidState = 'done';
   if (won) { s.glimmer += waves * 25; s.stats.raidsWon++; }
   else s.whale.mood = Math.max(0, s.whale.mood + WHALE.lostRaidMood);

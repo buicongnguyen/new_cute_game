@@ -1,6 +1,6 @@
 {
   "file": "props.glb",
-  "bytes": 479380,
+  "bytes": 503104,
   "roots": {
     "hut": {
       "tris": 1291,
@@ -381,6 +381,26 @@
       "children": [
         "soil"
       ]
+    },
+    "gong": {
+      "tris": 836,
+      "size": [
+        2.248,
+        1.9,
+        0.86
+      ],
+      "materials": [
+        "glow_gold",
+        "pal_gold",
+        "pal_red",
+        "pal_sun",
+        "pal_tangerine",
+        "pal_wood_dark",
+        "pal_wood_light"
+      ],
+      "children": [
+        "disc"
+      ]
     }
   },
   "generator": "art/blender/kit/build_props.py",
@@ -404,7 +424,12 @@
       0.0,
       0.27,
       -0.0
+    ],
+    "gong/disc": [
+      0.0,
+      1.7,
+      -0.0
     ]
   },
-  "notes": "windmill/blades: pivot at the hub, spin about local +Z (the front axis); rod: origin at the butt, tip marker at the end; skydew: origin at its underside centre; market awning uses pal_awning; lanterns/windows use glow_lantern (set emissive 0 for unlit); hatch/door pivots on the hinge at the back edge, open with door.rotation.x -> -1.9; planter/soil: empty marker at the soil top; the hatch shaft reaches below y = 0"
+  "notes": "windmill/blades: pivot at the hub, spin about local +Z (the front axis); rod: origin at the butt, tip marker at the end; skydew: origin at its underside centre; market awning uses pal_awning; lanterns/windows use glow_lantern (set emissive 0 for unlit); hatch/door pivots on the hinge at the back edge, open with door.rotation.x -> -1.9; planter/soil: empty marker at the soil top; the hatch shaft reaches below y = 0; gong/disc pivots at its top hanging point, wobble it with disc.rotation.x"
 }

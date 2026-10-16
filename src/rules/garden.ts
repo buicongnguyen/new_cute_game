@@ -115,5 +115,11 @@ export function ringCrust(s: GameState, index: number) {
   return plot.crust === 0;
 }
 
+/** A raider stood on the hatch long enough: one tree stored below deck gets crusted (the first clean one). */
+export function crustStored(s: GameState) {
+  const i = s.plots.findIndex(p => p.tree && p.crust === 0);
+  return i >= 0 && crustTree(s, i) ? i : -1;
+}
+
 export const plantedCount = (s: GameState, tree: TreeId) => s.plots.filter(p => p.tree === tree).length;
 export const ownsTreeOrSeed = (s: GameState, tree: TreeId) => plantedCount(s, tree) > 0 || count(s, seedOf(tree)) > 0;

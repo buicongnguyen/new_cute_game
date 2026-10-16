@@ -3,6 +3,7 @@ import { CLAM, HEART, HIVES, HIVE_MOVES, HIVE_OF, HIVE_PACE, HIVE_PATTERNS, PLAC
 import { findChild, part, standIn } from './assets.ts';
 import { makeToon } from './look.ts';
 import type { Fx } from './fx.ts';
+import { t } from '../i18n.ts';
 import { flat, type Combat, type KeeperLink } from './combat.ts';
 
 export interface HiveEvents { broken(at: T.Vector3): void; song(): void; sound(name: string): void; freeze(s: number): void }
@@ -31,9 +32,17 @@ export class HiveFight {
     combat.group.add(this.view, this.shieldMesh);
   }
   get radius() { return HIVES[this.id].radius; }
+  /** Inside this distance the rings cannot reach you: a step outside the Hive's own body (logic review 7). */
+  get safe() { return this.radius + 1.15; }
 
-  setShield(on: boolean) {
-    if (this.shielded && !on) { this.fx.burst(this.shieldMesh.position, '#c9b8ff', 30, { speed: 6, up: 4, size: .15, life: .9 }); this.fx.ring(this.pos, '#b26bff', 1, 9, .8); this.events.sound('shield'); }
+  /** Removes the Hive and its shield from the scene (code review 5: the dome was left behind). */
+  dispose() {
+    this.combat.group.remove(this.view, this.shieldMesh);
+    this.shieldMesh.geometry.dispose(); (this.shieldMesh.material as T.Material).dispose();
+  }
+  /** `quiet`: the state on landing, without the shattering show (code review 19). */
+  setShield(on: boolean, quiet = false) {
+    if (this.shielded && !on && !quiet) { this.fx.burst(this.shieldMesh.position, '#c9b8ff', 30, { speed: 6, up: 4, size: .15, life: .9 }); this.fx.ring(this.pos, '#b26bff', 1, 9, .8); this.events.sound('shield'); }
     this.shielded = on; this.shieldMesh.visible = on;
   }
 
@@ -50,7 +59,7 @@ export class HiveFight {
     const dx = this.pos.x - origin.x, dz = this.pos.z - origin.z, d = Math.hypot(dx, dz);
     if (d > reach + this.radius) return 0;
     if (!spin && d > .8 && (dx * Math.sin(facing) + dz * Math.cos(facing)) / d < .2) return 0;
-    if (this.shielded) { this.fx.ring(this.pos, '#c9b8ff', 2, 4.5, .3, .6); this.events.sound('glance'); this.fx.text(this.pos.clone().setY(3), 'Shielded', 'info'); return 0; }
+    if (this.shielded) { this.fx.ring(this.pos, '#c9b8ff', 2, 4.5, .3, .6); this.events.sound('glance'); this.fx.text(this.pos.clone().setY(3), t('Shielded'), 'info'); return 0; }
     this.awake = true;
     const dmg = Math.max(1, Math.round(damage * this.factor()));
     this.hp -= dmg; this.flash = .08;
@@ -103,14 +112,16 @@ export class HiveFight {
     const windup = m.windup ?? .8, dir = Math.atan2(k.x - this.pos.x, k.z - this.pos.z);
     const target = k.clone();
     switch (move) {
-      case 'thornRing': this.fx.telegraph('ring', this.pos, { radius: m.radius, inner: m.safe, seconds: windup }); break;
-      case 'tideRing': this.fx.telegraph('ring', this.pos, { radius: m.radius, inner: 3.4, seconds: windup, color: '#3cc8ff' }); break;
+      case 'thornRing': this.fx.telegraph('ring', this.pos, { radius: m.radius, inner: this.safe, seconds: windup }); break;
+      case 'tideRing': this.fx.telegraph('ring', this.pos, { radius: m.radius, inner: this.safe, seconds: windup, color: '#3cc8ff' }); break;
       case 'spikeLines': for (let i = 0; i < (m.count ?? 3); i++) this.fx.telegraph('line', this.pos, { length: m.length, width: m.width, angle: dir + (i - 1) * .45, seconds: windup }); break;
       case 'crackLines': for (let i = 0; i < (m.count ?? 2); i++) this.fx.telegraph('line', this.pos, { length: m.length, width: m.width, angle: dir + (i === 0 ? -.18 : .18), seconds: windup, color: '#b26bff' }); break;
       case 'slam': this.fx.telegraph('disc', new T.Vector3(k.x, k.y, k.z), { radius: m.radius, seconds: windup }); break;
       case 'pearlVolley': this.fx.telegraph('line', this.pos, { length: 6, width: 2.4, angle: dir, seconds: windup, color: '#ffffff' }); break;
       case 'wake': case 'callFlyers': this.fx.ring(this.pos, '#b26bff', 1, 5, .6); break;
     }
+    // The Clamhive shuts as it winds up, and gapes only after the blow (logic review 8).
+    if (this.id === 'clamhive') this.openT = 0;
     this.pending = { move, at: this.t + (move === 'wake' || move === 'callFlyers' ? .6 : windup), target, dir };
     this.events.sound('windup');
   }
@@ -126,12 +137,13 @@ export class HiveFight {
       return along > 0 && along < (m.length ?? 10) && across < (m.width ?? 1.2) / 2 + .3;
     };
     switch (p.move) {
-      case 'thornRing': if (d > (m.safe ?? 2) && d < (m.radius ?? 7)) this.keeper.hurt(dmg, this.pos); this.fx.ring(this.pos, '#b26bff', m.safe, m.radius, .5); break;
-      case 'tideRing': if (d > 3.4 && d < (m.radius ?? 9)) this.keeper.hurt(dmg, this.pos); this.fx.ring(this.pos, '#3cc8ff', 3.4, m.radius, .5); break;
+      case 'thornRing': if (d > this.safe && d < (m.radius ?? 7)) this.keeper.hurt(dmg, this.pos); this.fx.ring(this.pos, '#b26bff', this.safe, m.radius, .5); break;
+      case 'tideRing': if (d > this.safe && d < (m.radius ?? 9)) this.keeper.hurt(dmg, this.pos); this.fx.ring(this.pos, '#3cc8ff', this.safe, m.radius, .5); break;
       case 'spikeLines': if ([-1, 0, 1].some(i => onLine(p.dir + i * .45))) this.keeper.hurt(dmg, this.pos); this.fx.burst(this.pos, '#9a8cc8', 14, { speed: 9, up: 2 }); break;
       case 'crackLines': if ([-.18, .18].some(a => onLine(p.dir + a))) this.keeper.hurt(dmg, this.pos); this.fx.burst(this.pos, '#b26bff', 16, { speed: 9, up: 2 }); break;
       case 'slam': if (flat(k, p.target) < (m.radius ?? 3)) this.keeper.hurt(dmg, p.target); this.fx.ring(p.target, '#ffffff', .5, (m.radius ?? 3) * 1.4, .4); this.fx.shake(.35); break;
-      case 'pearlVolley': this.combat.volley(this.pos, k, m.count ?? 5, m.spread ?? .9, m.speed ?? 10, dmg); break;
+      // The volley flies where the wind-up pointed, so dodging the white line works (logic review 21).
+      case 'pearlVolley': this.combat.volley(this.pos, p.target, m.count ?? 5, m.spread ?? .9, m.speed ?? 10, dmg); break;
       case 'wake': for (let i = 0; i < (m.count ?? 2); i++) this.summon('gloomling', i); break;
       case 'callFlyers': for (let i = 0; i < (m.count ?? 2); i++) this.summon('flyer', i); break;
     }
@@ -145,14 +157,17 @@ export class HiveFight {
     this.combat.spawn(kind, at, this.tier, { alert: true, reward: false });
   }
 
+  /** Animated parts, found once (code review 15). */
+  private parts = new Map<string, T.Object3D | null>();
+  private node(name: string) { if (!this.parts.has(name)) this.parts.set(name, findChild(this.view, name)); return this.parts.get(name) ?? null; }
   private animate(dt: number) {
     const v = this.view, t = this.t, winding = !!this.pending;
     if (this.id === 'thornhive') { v.rotation.y += dt * (winding ? 1.6 : .25); v.scale.setScalar(1 + (winding ? Math.sin(t * 20) * .02 : 0)); }
-    if (this.id === 'clamhive') { const top = findChild(v, 'shell_top'); if (top) top.rotation.x += ((this.openT > 0 ? -.75 : -.08) - top.rotation.x) * (1 - Math.exp(-8 * dt)); }
-    if (this.id === 'forgehive') { for (const n of ['arm_l', 'arm_r']) { const a = findChild(v, n); if (a) a.rotation.x = winding ? -2.2 : Math.sin(t * 1.4) * .15; } v.position.y = this.pos.y + Math.sin(t * 1.2) * .05; }
+    if (this.id === 'clamhive') { const top = this.node('shell_top'); if (top) top.rotation.x += ((this.openT > 0 ? -.75 : -.08) - top.rotation.x) * (1 - Math.exp(-8 * dt)); }
+    if (this.id === 'forgehive') { for (const n of ['arm_l', 'arm_r']) { const a = this.node(n); if (a) a.rotation.x = winding ? -2.2 : Math.sin(t * 1.4) * .15; } v.position.y = this.pos.y + Math.sin(t * 1.2) * .05; }
     if (this.id === 'greyheart') {
-      for (let i = 0; i < 6; i++) { const s = findChild(v, `shard_${i}`); if (s) { const a = t * .6 + i * Math.PI / 3; s.position.set(Math.cos(a) * 4, 2.6 + Math.sin(t * 1.3 + i) * .5, Math.sin(a) * 4); } }
-      const core = findChild(v, 'core'); if (core) core.scale.setScalar(1 + Math.sin(t * 4) * .06 + (this.songWindow > 0 ? .2 : 0));
+      for (let i = 0; i < 6; i++) { const s = this.node(`shard_${i}`); if (s) { const a = t * .6 + i * Math.PI / 3; s.position.set(Math.cos(a) * 4, 2.6 + Math.sin(t * 1.3 + i) * .5, Math.sin(a) * 4); } }
+      const core = this.node('core'); if (core) core.scale.setScalar(1 + Math.sin(t * 4) * .06 + (this.songWindow > 0 ? .2 : 0));
     }
   }
 }

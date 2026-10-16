@@ -1,4 +1,4 @@
-import { CREW, ISLE_IDS, ISLE_MAPS, STAGES, WHALE, type CrewId, type IsleId, type ItemId, type NoteIsle, type PlaceId, type RecipeId, type Stage, type TreeId } from './content.ts';
+import { CREW, FISHING, ISLE_IDS, ISLE_MAPS, STAGES, WHALE, type CrewId, type IsleId, type ItemId, type NoteIsle, type PlaceId, type RecipeId, type Stage, type TreeId } from './content.ts';
 
 /** One moss patch on Bao's back. `progress` counts seconds of growth toward `need`. */
 export interface Plot {
@@ -59,8 +59,8 @@ export interface GameState {
   posts: number[];
   /** Keepsakes made at the Workbench (they only decorate). */
   keepsakes: string[];
-  /** Bites left in the sky-fish school where Bao is, and the refill timer. */
-  school: { left: number; t: number };
+  /** Bites left in each place's sky-fish school, and their refill timers (logic review 24: one school per place). */
+  schools: Record<PlaceId, { left: number; t: number }>;
   /** Everyone rescued (crew and camp people). */
   rescued: CrewId[];
   /** Crew living on Bao (Nana from the start). */
@@ -100,7 +100,7 @@ export function newGame(seed = 'cloudback', now = Date.now()): GameState {
     gear: { mallet: 1, coat: 1, rope: false, line: false },
     posts: [],
     keepsakes: [],
-    school: { left: 6, t: 0 },
+    schools: Object.fromEntries((['dawnreach', 'clover', 'reef', 'ember', 'star'] as PlaceId[]).map(p => [p, { left: FISHING.school, t: 0 }])) as Record<PlaceId, { left: number; t: number }>,
     rescued: [],
     crew: ['nana'],
     isles,
@@ -135,7 +135,12 @@ export function repair(s: GameState): GameState {
   out.story = { ...fresh.story, ...(s.story ?? {}), flags: { ...(s.story?.flags ?? {}) } };
   out.stats = { ...fresh.stats, ...(s.stats ?? {}) };
   out.timers = { ...fresh.timers, ...(s.timers ?? {}) };
-  out.school = { ...fresh.school, ...(s.school ?? {}) };
+  const oldSchool = (s as unknown as { school?: { left: number; t: number } }).school;
+  out.schools = { ...fresh.schools, ...(s.schools ?? {}) };
+  if (oldSchool && !s.schools) out.schools[out.place] = { ...oldSchool };
+  delete (out as unknown as { school?: unknown }).school;
+  // A save made mid-raid: the raid lives only in the scene, so it starts again on load (logic review 2).
+  if (out.voyage?.raidState === 'active') out.voyage = { ...out.voyage, raidState: 'pending', raidAt: out.voyage.elapsed };
   out.keepsakes = [...(s.keepsakes ?? [])];
   out.gear.mallet = Math.min(3, out.gear.mallet); out.gear.coat = Math.min(3, out.gear.coat);
   out.items = { ...(s.items ?? {}) };
@@ -146,5 +151,11 @@ export function repair(s: GameState): GameState {
   const plots = STAGES[out.whale.stage]?.plots ?? 4;
   out.plots = Array.from({ length: plots }, (_, i) => ({ ...emptyPlot(), ...(s.plots?.[i] ?? {}) }));
   if (!out.crew.includes('nana')) out.crew = ['nana', ...out.crew];
+  // Numbers a hand-edited or damaged save could break (code review 26).
+  out.gear.mallet = Math.max(1, Math.min(3, Math.round(out.gear.mallet) || 1));
+  out.gear.coat = Math.max(1, Math.min(3, Math.round(out.gear.coat) || 1));
+  out.whale.stage = Math.max(0, Math.min(3, Math.round(out.whale.stage) || 0)) as Stage;
+  out.whale.specks = Math.max(0, Math.min(WHALE.specksCrusted[1], Math.round(out.whale.specks) || 0));
+  out.hero.level = Math.max(1, Math.round(out.hero.level) || 1);
   return out;
 }

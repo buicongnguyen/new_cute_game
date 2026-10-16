@@ -32,6 +32,18 @@ export class Bao {
   posts: T.Object3D[] = [];
   specks: T.Object3D[] = [];
   crew = new Map<CrewId, Actor>();
+  /**
+   * Battle stations (the owner's ship-battle raids): the garden and every fitting sink below the deck and are then not
+   * drawn at all while the fight lasts; the gongs rise in their place. The hatch, posts and specks stay.
+   */
+  stow = new T.Group();
+  gongs: T.Object3D[] = [];
+  private battleK = 0;
+  private battleTarget = 0;
+  battle(on: boolean) { this.battleTarget = on ? 1 : 0; }
+  get stowed() { return this.battleK > .97; }
+  /** Wobbles a gong's disc after it is rung. */
+  ringGong(i: number) { const g = this.gongs[i]; if (g) g.userData.ring = 1; }
   /** Keepsakes (they only decorate) and Tam's anvil. */
   private lanterns: T.Object3D[] = [];
   private crown = new T.Group();
@@ -50,6 +62,7 @@ export class Bao {
     if (bh) bh.getWorldPosition(this.blowhole);
     if (mo) mo.getWorldPosition(this.mouth);
     this.model.traverse(o => { const m = o as T.Mesh; if (m.isMesh) { m.receiveShadow = true; m.castShadow = false; } });
+    this.deck.add(this.stow);
     this.root.add(this.whale, this.deck);
     this.buildProps();
   }
@@ -57,7 +70,7 @@ export class Bao {
   private buildProps() {
     const make = (name: string, fallback: () => T.Object3D, shadows = true) => {
       const o = part('props', name, { shadows }) ?? fallback();
-      this.deck.add(o); this.props[name] = o; return o;
+      (name === 'hatch' ? this.deck : this.stow).add(o); this.props[name] = o; return o;
     };
     make('hatch', fallbackHatch, false);
     make('workbench', () => standIn('box', '#c77a3a', 1.1));
@@ -74,13 +87,14 @@ export class Bao {
       const sp = part('props', 'speck') ?? standIn('blob', '#8c86a8', .35);
       sp.visible = false; this.deck.add(sp); this.specks.push(sp);
     }
-    for (let i = 0; i < 10; i++) { const pv = new PlotView(); this.plots.push(pv); this.deck.add(pv.group); }
-    for (let i = 0; i < 8; i++) { const l = part('props', 'lantern') ?? standIn('box', '#ffb13b', .35); l.visible = false; this.deck.add(l); this.lanterns.push(l); }
+    for (let i = 0; i < 10; i++) { const pv = new PlotView(); this.plots.push(pv); this.stow.add(pv.group); }
+    for (let i = 0; i < 8; i++) { const l = part('props', 'lantern') ?? standIn('box', '#ffb13b', .35); l.visible = false; this.stow.add(l); this.lanterns.push(l); }
+    for (let i = 0; i < DECK.gongs.length; i++) { const g = part('props', 'gong', { shadows: true }) ?? fallbackGong(); g.visible = false; this.deck.add(g); this.gongs.push(g); }
     const kinds = ['flower_a', 'flower_b', 'flower_c'];
     for (let i = 0; i < 7; i++) { const f = part('nature', kinds[i % 3]) ?? standIn('blob', '#ff5c8a', .4); f.position.set((i - 3) * .55, 0, Math.abs(i - 3) * .18); this.crown.add(f); }
-    this.crown.visible = false; this.deck.add(this.crown);
+    this.crown.visible = false; this.stow.add(this.crown);
     this.anvil = part('props', 'forge', { shadows: true });
-    if (this.anvil) { this.anvil.scale.setScalar(.55); this.anvil.visible = false; this.deck.add(this.anvil); }
+    if (this.anvil) { this.anvil.scale.setScalar(.55); this.anvil.visible = false; this.stow.add(this.anvil); }
   }
 
   /** Deck metres at the current stage for a calf-size position. */
@@ -103,6 +117,7 @@ export class Bao {
     this.plots.forEach((pv, i) => this.at(DECK.plots[i], pv.group.position));
     this.lanterns.forEach((l, i) => { const a = i / this.lanterns.length * Math.PI * 2 + .2; l.position.set(Math.cos(a) * DECK.half[0] * .93 * this.scale, 0, Math.sin(a) * DECK.half[1] * .93 * this.scale); });
     this.at([0, -7.3], this.crown.position);
+    this.gongs.forEach((g, i) => { this.at(DECK.gongs[i], g.position); g.rotation.y = i ? Math.PI : 0; });
     if (this.anvil) { this.at([DECK.workbench[0] - .2, DECK.workbench[1] - 1.35], this.anvil.position); this.anvil.rotation.y = -Math.PI / 2; }
     const rng = makeRng('specks');
     this.specks.forEach(sp => { const a = rng.next() * Math.PI * 2, r = .3 + rng.next() * .55; sp.position.set(Math.cos(a) * DECK.half[0] * r * this.scale, 0, Math.sin(a) * DECK.half[1] * r * this.scale); sp.rotation.y = rng.next() * 6; });
@@ -125,6 +140,7 @@ export class Bao {
   /** Opens the hatch's gate for a moment (entering or leaving the cabin, the crew hiding in a raid). */
   openHatch(seconds = 1.2) { this.hatchOpen = seconds; }
   private hatchOpen = 0;
+  private hatchDoor: T.Object3D | null | undefined;
 
   update(dt: number, mood: number) {
     this.t += dt;
@@ -145,8 +161,23 @@ export class Bao {
     const eyeY = this.happyFor > 0 ? .35 : mood < 25 ? .7 : 1;
     for (const e of this.eyes) e.scale.y = Math.min(blink, eyeY);
     for (const [, a] of this.crew) a.update(dt);
+    // Battle stations: sink and hide the stowed deck, raise the gongs (and the reverse after the raid).
+    if (Math.abs(this.battleK - this.battleTarget) > .001) {
+      this.battleK += (this.battleTarget - this.battleK) * (1 - Math.exp(-4.5 * dt));
+      if (Math.abs(this.battleK - this.battleTarget) < .01) this.battleK = this.battleTarget;
+      this.stow.position.y = -1.6 * this.battleK;
+      this.stow.visible = this.battleK < .97;
+      for (const g of this.gongs) { g.position.y = -2.4 * (1 - this.battleK); g.visible = this.battleK > .03; }
+    }
+    for (const g of this.gongs) {
+      const ring = g.userData.ring as number | undefined;
+      if (!ring) continue;
+      g.userData.ring = Math.max(0, ring - dt * 1.4);
+      const disc = findChild(g, 'disc');
+      if (disc) disc.rotation.x = Math.sin(ring * 30) * .25 * ring;
+    }
     this.hatchOpen = Math.max(0, this.hatchOpen - dt);
-    const door = findChild(this.props.hatch, 'door');
+    const door = this.hatchDoor ??= findChild(this.props.hatch, 'door');
     if (door) door.rotation.x += ((this.hatchOpen > 0 ? -1.9 : 0) - door.rotation.x) * (1 - Math.exp(-9 * dt));
     for (const pv of this.plots) pv.update(dt, t);
   }
@@ -230,6 +261,17 @@ export class PlotView {
       this.tree.rotation.z = Math.sin(t * 1.4 + this.group.position.x) * .02;
     }
   }
+}
+
+/** A gong on a frame (before props.glb has one). */
+function fallbackGong() {
+  const g = new T.Group(), wood = makeToon('#8a4b25');
+  for (const side of [-1, 1]) { const post = new T.Mesh(new T.BoxGeometry(.14, 1.9, .14), wood); post.position.set(side * .75, .95, 0); g.add(post); }
+  const top = new T.Mesh(new T.BoxGeometry(1.7, .16, .16), wood); top.position.y = 1.85; g.add(top);
+  const disc = new T.Group(); disc.name = 'disc'; disc.position.y = 1.75;
+  const face = new T.Mesh(new T.CylinderGeometry(.6, .6, .08, 28).rotateX(Math.PI / 2), makeToon('#f5b21e', { emissive: '#4a2a00' })); face.position.y = -.68; disc.add(face);
+  g.add(disc);
+  return g;
 }
 
 /** A round hatch with a hinged wooden gate (before props.glb has one). */

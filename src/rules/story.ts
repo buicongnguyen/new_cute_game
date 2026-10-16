@@ -8,13 +8,21 @@ export type Where = 'deck' | 'isle';
 export type GoalTarget = 'plot' | 'ripe' | 'feed' | 'workbench' | 'maptable' | 'ropepost' | 'grow' | 'cage' | 'spire' | 'hive' | 'rope' | 'raid' | null;
 export interface Goal { text: string; vars?: Record<string, string | number>; target: GoalTarget; index?: number }
 
+/** The Spire a cage stands beside (the nearest one), or -1 when the isle has none. */
+export function nearestSpire(isle: IsleId, cage: number) {
+  const map = ISLE_MAPS[isle], at = map.cages[cage].at;
+  let best = -1, bd = Infinity;
+  map.spires.forEach((sp, i) => { const d = Math.hypot(sp[0] - at[0], sp[1] - at[1]); if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+
 /** The next isle of the story (the first one not yet freed), or null after the ending. */
 export const storyIsle = (s: GameState): IsleId | null => ISLE_IDS.find(id => !s.isles[id].freed) ?? null;
 
 /** The one next step, shown on the goal card. `where` is where the Keeper stands. */
 export function goal(s: GameState, where: Where): Goal {
   if (s.voyage) {
-    if (s.voyage.raidState === 'active') return { text: 'Defend Bao’s trees from the Gloom!', target: 'raid' };
+    if (s.voyage.raidState === 'active') return { text: 'Knock the raiders overboard and keep them off the hatch!', target: 'raid' };
     return { text: 'Bao is flying to {place}…', vars: { place: PLACES[s.voyage.to].name }, target: null };
   }
   if (!s.story.flags.planted) return { text: 'Plant a seed on a glowing moss patch', target: 'plot' };
@@ -24,6 +32,8 @@ export function goal(s: GameState, where: Where): Goal {
     if (count(s, 'fibre') < 3) return { text: 'Grow Ropevine for Fibre ({n}/3)', vars: { n: count(s, 'fibre') }, target: 'ripe' };
     return { text: 'Make a Climbing Rope at the Workbench', target: 'workbench' };
   }
+  // Standing on an isle that is already free: the next step is always up the rope (logic review 6).
+  if (where === 'isle' && s.place !== 'dawnreach' && s.isles[s.place].freed && !s.isles[s.place].leftover) return { text: 'Climb the rope back up to Bao', target: 'rope' };
   const isle = storyIsle(s);
   if (!isle) {
     const leftover = (['clover', 'reef', 'ember'] as IsleId[]).find(id => s.isles[id].leftover);
@@ -39,14 +49,18 @@ export function goal(s: GameState, where: Where): Goal {
   if (s.place !== isle) return { text: 'Sail to {place} from the map table', vars: { place: place.name }, target: 'maptable' };
   if (where === 'deck') return { text: 'Slide down the rope to {place}', vars: { place: place.name }, target: 'ropepost' };
   const progress = s.isles[isle], map = ISLE_MAPS[isle];
-  const cage = progress.cages.findIndex(c => !c);
-  if (cage >= 0 && cage === 0) return { text: 'Free {who} from the crystal cage', vars: { who: CREW[map.cages[cage].who].name }, target: 'cage', index: cage };
+  const free = (i: number): Goal => ({ text: 'Free {who} from the crystal cage', vars: { who: CREW[map.cages[i].who].name }, target: 'cage', index: i });
+  // The camp person by the landing first; then each Spire in turn, and right after it the cage that stands by it
+  // (logic review 20: no walking back for Pip or Tam after the far Spire).
+  if (!progress.cages[0] && map.cages.length) return free(0);
   const spiresLeft = progress.spires.filter(b => !b).length;
+  for (let i = 1; i < map.cages.length; i++) if (!progress.cages[i] && progress.spires[nearestSpire(isle, i)]) return free(i);
   if (spiresLeft > 0) {
     const index = progress.spires.findIndex(b => !b);
     return { text: 'Break the Spires ({done}/{all})', vars: { done: progress.spires.length - spiresLeft, all: progress.spires.length }, target: 'spire', index };
   }
-  if (cage >= 0) return { text: 'Free {who} from the crystal cage', vars: { who: CREW[map.cages[cage].who].name }, target: 'cage', index: cage };
+  const cage = progress.cages.findIndex(c => !c);
+  if (cage >= 0) return free(cage);
   return { text: 'Break the {hive}!', vars: { hive: HIVES[HIVE_OF[isle]].name }, target: 'hive' };
 }
 

@@ -13,20 +13,28 @@ Roots and children:
     puffbun, hopfrog, rockgoat         body
     skylark                            body, wing_l, wing_r
     cage                               shell (gloom_crystal_clear, alpha 0.55)
+    gloom_ship                         shell (hull, deck, crystals, chains), eye (the figurehead), sail (mast, yard and
+                                       sail; pivot at the mast foot so the code can sway it). Origin = deck centre.
+    plank                              body (boarding plank; origin at its near end, runs along +Z, top at y = 0)
 """
 import math
 import os
 import random
 import sys
 
+import bpy
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from kit_cast import (FWD, UP, Cast, Geo, Matrix, Vector, args, decal, ell_dir, ellipsoid, facet_blob, frame, gem,  # noqa: E402
-                      glow, gloom_crystal, loft, pal, sheet, shard, style, surface_curve, torus, tube)
+from kit_cast import PREVIEWS  # noqa: E402
+from kit_cast import (FWD, UP, Cast, Geo, Matrix, Pchip, Vector, args, camera, decal, ell_dir, ellipsoid,  # noqa: E402
+                      facet_blob, frame, gem, glow, gloom_crystal, label, loft, pal, setup_render, sheet, shard,
+                      smoothstep, sp, style, surface_curve, to_b, torus, tube)
 
 FILE = 'gloom'
 BUDGETS = dict(gloomling=1500, spitter=1500, brute=1500, flyer=1500, spire=1200, puffbun=1500, hopfrog=1500,
-               rockgoat=1500, skylark=1500, cage=900)
-ORDER = ['gloomling', 'spitter', 'brute', 'flyer', 'spire', 'cage', 'puffbun', 'hopfrog', 'rockgoat', 'skylark']
+               rockgoat=1500, skylark=1500, cage=900, gloom_ship=4000, plank=300)
+ORDER = ['gloomling', 'spitter', 'brute', 'flyer', 'spire', 'cage', 'puffbun', 'hopfrog', 'rockgoat', 'skylark',
+         'gloom_ship', 'plank']
 SHEET_ROWS = [['puffbun', 'hopfrog', 'rockgoat', 'skylark', 'gloomling', 'spitter', 'flyer'], ['brute', 'spire', 'cage']]
 GLOOM_EYE = '#B26BFF'
 
@@ -371,12 +379,246 @@ def skylark(cast, m):
         cast.part(root, name, w, piv)
 
 
+# ------------------------------------------------------------------ raid ship and boarding plank
+SHIP = Pchip([  # z, hull half-width, keel depth below the deck, sheer (extra rail height toward bow and stern)
+    (-3.3, 1.05, 0.85, 0.42),
+    (-2.8, 1.3, 1.05, 0.3),
+    (-1.5, 1.47, 1.28, 0.12),
+    (0.2, 1.5, 1.38, 0.0),
+    (1.8, 1.36, 1.28, 0.1),
+    (2.8, 0.95, 1.0, 0.32),
+    (3.35, 0.4, 0.62, 0.55),
+    (3.55, 0.08, 0.38, 0.66),
+])
+SHIP_RAIL = 0.34
+SHIP_K = 12          # points around the hull's outer U
+
+
+def ship_rail_top(z):
+    """The bulwark's top: low amidships (a gangway notch where boarding planks go), rising to bow and stern."""
+    gang = smoothstep(0.8, 0.45, abs(z))
+    return SHIP_RAIL + SHIP(z)[2] - 0.3 * gang
+
+
+def ship_ring(z):
+    W, D, _ = SHIP(z)
+    top = ship_rail_top(z)
+    pts = []
+    for k in range(SHIP_K + 1):
+        a = math.pi * k / SHIP_K
+        pts.append(Vector((-W * sp(math.cos(a), 0.6), top - (top + D) * abs(math.sin(a)) ** 0.85, z)))
+    T = min(0.11, W * 0.4)
+    Wi = W - T
+    pts += [Vector((Wi, top, z)), Vector((Wi, -0.03, z)), Vector((-Wi, -0.03, z)), Vector((-Wi, top, z))]
+    return pts
+
+
+def ship_inner_w(z):
+    W = SHIP(z)[0]
+    return W - min(0.11, W * 0.4)
+
+
+def chain(top, length, m, seed, links=5):
+    """A dangling chain of crystal links ending in a little shard."""
+    rng = random.Random(seed)
+    g = Geo()
+    p = Vector(top)
+    for k in range(links):
+        R = Matrix.Rotation(math.pi / 2, 3, 'X') @ Matrix.Rotation((k % 2) * math.pi / 2, 3, 'Y')
+        g.add(torus(p, 0.085, 0.028, 6, 3, Matrix.Rotation((k % 2) * math.pi / 2, 3, 'Y') @ Matrix.Rotation(math.pi / 2, 3, 'Z'),
+                    m, smooth=False))
+        p = p + Vector((rng.uniform(-0.01, 0.01), -length / links, rng.uniform(-0.01, 0.01)))
+    g.add(shard(p + Vector((0, 0.04, 0)), Vector((0, -1, 0)), 0.3, 0.07, 4, 0.6, m, seed + 7))
+    return g
+
+
+def gloom_ship(cast, m):
+    """A small crusted sky-boat for raids: grey-violet planked hull overgrown with crystal, a tattered violet sail,
+    a glowing eye for a figurehead and dangling crystal chains. y = 0 is its deck."""
+    root = cast.root('gloom_ship')
+    hull_m = [pal('gloom_dark', 0.7), pal('iron', 0.7)]
+    rail_m, floor_m = pal('charcoal', 0.6), pal('charcoal', 0.7)
+    zs = [-3.3, -3.05, -2.7, -2.2, -1.6, -1.0, -0.6, -0.3, 0.0, 0.3, 0.6, 1.0, 1.6, 2.2, 2.7, 3.05, 3.3, 3.45, 3.55]
+    rings = [ship_ring(z) for z in zs]
+    n = len(rings[0])
+    hull = loft(rings, None, cap=True)
+    for i in range(len(hull.f)):
+        j = i % n if i < (len(rings) - 1) * n else 0
+        if i >= (len(rings) - 1) * n:
+            hull.m[i] = hull_m[0]
+        elif j < SHIP_K:
+            hull.m[i] = rail_m if j in (5, 6) else hull_m[(j // 2) % 2]   # strakes; a dark keel band
+        elif j in (SHIP_K, n - 1):
+            hull.m[i] = rail_m                                              # the rail's cap
+        elif j == SHIP_K + 2:
+            hull.m[i] = floor_m                                             # under the deck planks
+        else:
+            hull.m[i] = hull_m[0]
+    sh = Geo().add(hull)
+    # deck planks, flat at y = 0
+    deck_m = [pal('gloom', 0.75), pal('stone_dark', 0.75)]
+    rng = random.Random(41)
+    PN, half = 6, 1.3
+    w = 2 * half / PN
+    for i in range(PN):
+        xa, xb = -half + i * w + 0.02, -half + (i + 1) * w - 0.02
+        xo = max(abs(xa), abs(xb))
+        zin = [z / 20.0 for z in range(-66, 72) if ship_inner_w(z / 20.0) - 0.03 > xo]
+        if not zin:
+            continue
+        z0, z1 = zin[0], zin[-1]
+        cut = z0 + (z1 - z0) * (0.35 + 0.3 * ((i * 0.618) % 1.0))
+        for za, zb in ((z0, cut - 0.02), (cut + 0.02, z1)):
+            mm = deck_m[1] if rng.random() < 0.3 else deck_m[0]
+            v = [sh.vert((xa, 0.0, za)), sh.vert((xa, 0.0, zb)), sh.vert((xb, 0.0, zb)), sh.vert((xb, 0.0, za))]
+            sh.face(v, mm)
+            sh.f[-1] = tuple(v) if sh.normal(tuple(v)).y > 0 else tuple(reversed(v))
+    crystal = m['crystal']
+    # crust: clusters along the rails, on the hull sides, hanging under the keel, on the transom
+    specs = []
+    for s in (1, -1):
+        for z, ln in ((-2.3, 0.8), (-1.3, 0.55), (1.45, 0.75), (2.45, 0.6)):
+            W = SHIP(z)[0]
+            base = Vector((s * W * 0.95, ship_rail_top(z) - 0.05, z))
+            specs += [(base, (s * 0.6, 1.0, 0.15), ln, 0.14), (base + Vector((0, -0.05, 0.18)), (s * 1.0, 0.55, 0.45), ln * 0.6, 0.1),
+                      (base + Vector((0, -0.08, -0.16)), (s * 1.0, 0.3, -0.5), ln * 0.5, 0.09)]
+        for z, y, ln in ((-2.2, -0.35, 0.5), (-1.0, -0.6, 0.62), (0.4, -0.8, 0.5), (1.6, -0.5, 0.58), (2.6, -0.2, 0.45)):
+            W = SHIP(z)[0]
+            specs.append((Vector((s * W * 0.92, y, z)), (s * 1.0, 0.3, 0.15), ln, 0.12))
+        specs.append((Vector((s * 0.85, ship_rail_top(-3.3) - 0.05, -3.3)), (s * 0.4, 1.0, -0.5), 0.7, 0.13))
+    for k, (x, ln) in enumerate(((0.0, 1.25), (0.32, 0.95), (-0.32, 0.9), (0.5, 0.6), (-0.5, 0.65))):   # stern crown
+        specs.append((Vector((x, ship_rail_top(-3.25) - 0.1, -3.2)), (x * 1.2, 1.0, -0.45), ln, 0.16 - 0.015 * k))
+    for z in (-2.0, -0.9, 0.3, 1.5, 2.3):
+        specs.append((Vector((0, -SHIP(z)[1] + 0.05, z)), (0.15 * math.sin(z * 3), -1.0, 0.1), 0.6 + 0.15 * math.cos(z), 0.12))
+    for k, (base, d, ln, r) in enumerate(specs):
+        sh.add(shard(base, Vector(d), ln, r, 5, 0.45, crystal, 700 + k))
+    for s in (1, -1):   # crystals growing up the bow beside the eye
+        sh.add(shard(Vector((s * 0.18, 0.75, 3.3)), Vector((s * 0.5, 1.0, 0.35)), 0.85, 0.14, 5, 0.45, crystal, 760 + s))
+    for k, (x, z) in enumerate(((1.0, -1.8), (-1.0, -1.7), (1.05, 1.95), (-1.0, 2.05))):
+        W = SHIP(z)[0]
+        sh.add(chain(Vector((math.copysign(W + 0.04, x), ship_rail_top(z) - 0.08, z)), 0.6 + 0.12 * k, crystal, 800 + 10 * k))
+    ec, ef = Vector((0, 0.42, 3.6)), Vector((0, 0.18, 1))
+    sh.add(socket(ec, ef, 0.36, m, 9))
+    cast.part(root, 'shell', sh, (0, 0, 0))
+    cast.part(root, 'eye', gloom_eye(ec, ef, 0.36, m), ec)
+    # mast, yard and a tattered sail: one node so the code can sway it about the mast foot
+    foot = Vector((0, 0, 0.45))
+    sail_m, wood_m, line_m = pal('violet', 0.8), pal('gloom_dark', 0.7), pal('charcoal', 0.6)
+    sl = Geo()
+    sl.add(tube([foot + Vector((0, -0.03, 0)), foot + Vector((0, 4.25, 0))], [0.1, 0.075], 7, wood_m, round_caps=0.3))
+    sl.add(tube([foot + Vector((-1.4, 3.62, 0.02)), foot + Vector((0, 3.7, 0.02)), foot + Vector((1.4, 3.62, 0.02))], 0.06, 6,
+                wood_m, round_caps=0.6))
+    cols, rows_ = 7, 5
+    grid = []
+    for r in range(rows_ + 1):
+        v_ = r / rows_
+        row = []
+        for c in range(cols + 1):
+            u = c / cols
+            x = -1.28 + 2.56 * u
+            y = 3.6 - 2.3 * v_
+            if r == rows_:   # ragged, torn hem
+                y += 0.55 * abs(math.sin(u * math.pi * 3.5 + 0.4)) + 0.1 * math.sin(u * 17)
+            z = 0.06 + 0.42 * math.sin(math.pi * u) * math.sin(math.pi * min(1.0, v_ * 0.9 + 0.1))
+            row.append(foot + Vector((x, y, z)))
+        grid.append(row)
+    holes = {(2, 1), (3, 5), (4, 3)}
+    front, back = Geo(), Geo()
+    fi = [[front.vert(p) for p in row] for row in grid]
+    bi = [[back.vert(p - Vector((0, 0, 0.012))) for p in row] for row in grid]
+    for r in range(rows_):
+        for c in range(cols):
+            if (r, c) in holes:
+                continue
+            front.face((fi[r][c], fi[r + 1][c], fi[r + 1][c + 1], fi[r][c + 1]), sail_m)
+            back.face((bi[r][c], bi[r][c + 1], bi[r + 1][c + 1], bi[r + 1][c]), sail_m)
+    front.toward(lambda p: FWD)
+    back.toward(lambda p: -FWD)
+    sl.add(front, back)
+    ez = 0.06 + 0.42 * math.sin(math.pi * min(1.0, 0.36 * 0.9 + 0.1)) + 0.035
+    emblem, pupil = [], []
+    for k in range(12):
+        a = math.tau * k / 12
+        emblem.append(foot + Vector((0.5 * math.cos(a), 2.78 + 0.26 * math.sin(a) * abs(math.sin(a)) ** 0.2, ez)))
+        pupil.append(foot + Vector((0.11 * math.cos(a), 2.78 + 0.2 * math.sin(a), ez + 0.012)))
+    em = Geo()
+    em.face([em.vert(p) for p in emblem], pal('gloom_dark', 0.7))
+    em.face([em.vert(p) for p in pupil], pal('night', 0.3))
+    sl.add(em.toward(lambda p: FWD))
+    sl.add(gem(foot + Vector((0, 4.42, 0)), 0.16, 0.42, 6, crystal))
+    sl.add(plate([(0.0, 0.0), (0.0, 0.18), (-0.55, 0.1), (-0.35, 0.06), (-0.6, 0.0)], 0.02, sail_m,
+                 Matrix.Rotation(math.pi / 2, 3, 'X') @ Matrix.Rotation(0.0, 3, 'Y'), foot + Vector((0, 4.15, -0.02))))
+    for end in (Vector((0, 0.95, 3.25)), Vector((0, 0.72, -3.15))):
+        sl.add(tube([foot + Vector((0, 4.1, 0)), end], 0.02, 4, line_m, round_caps=0.2))
+    cast.part(root, 'sail', sl, foot)
+
+
+def plank(cast, m):
+    """A boarding plank: three weathered grey boards on two battens, crystal flecks, two hooks at the far end.
+    Origin at the near end (on the Gloom ship), running along +Z, top at y = 0."""
+    root = cast.root('plank')
+    board_m, dark_m, iron_m = pal('stone_dark', 0.8), pal('gloom_dark', 0.7), pal('iron', 0.4)
+    rng = random.Random(51)
+    g = Geo()
+
+    def box(x0, x1, y0, y1, z0, z1, mm):
+        rings = [[Vector((x0, y0, z)), Vector((x1, y0, z)), Vector((x1, y1, z)), Vector((x0, y1, z))] for z in (z0, z1)]
+        return loft(rings, mm, cap=True, smooth=False)
+    for k, xc in enumerate((-0.27, 0.0, 0.27)):
+        z0 = rng.uniform(0.0, 0.04)
+        z1 = 3.2 - rng.uniform(0.0, 0.07)
+        g.add(box(xc - 0.125, xc + 0.125, -0.07, 0.0, z0, z1, board_m if k != 1 else pal('gloom', 0.8)))
+    for zc in (0.4, 2.75):
+        g.add(box(-0.41, 0.41, -0.14, -0.07, zc - 0.08, zc + 0.08, dark_m))
+        for xc in (-0.27, 0.0, 0.27):
+            q = 0.022
+            v = [g.vert((xc - q, 0.002, zc - q)), g.vert((xc + q, 0.002, zc - q)), g.vert((xc + q, 0.002, zc + q)),
+                 g.vert((xc - q, 0.002, zc + q))]
+            g.face(v, iron_m)
+            g.f[-1] = tuple(v) if g.normal(tuple(v)).y > 0 else tuple(reversed(v))
+    for k, (x, z, d) in enumerate(((0.39, 0.9, (1, 0.6, 0.2)), (-0.39, 1.7, (-1, 0.7, -0.2)), (0.13, 2.25, (0.2, 1, 0.3)),
+                                   (-0.39, 2.9, (-1, 0.5, 0.3)), (0.39, 2.4, (1, 0.8, -0.1)))):
+        g.add(shard(Vector((x, -0.03, z)), Vector(d), 0.13, 0.035, 4, 0.6, m['crystal'], 900 + k))
+    for xc in (-0.27, 0.27):
+        pts = [Vector((xc, -0.035, 3.0)), Vector((xc, 0.03, 3.2)), Vector((xc, -0.04, 3.36)), Vector((xc, -0.2, 3.36)),
+               Vector((xc, -0.27, 3.26))]
+        g.add(tube(pts, [0.03, 0.032, 0.03, 0.028, 0.02], 5, iron_m, round_caps=0.6))
+    cast.part(root, 'body', g, (0, 0, 0))
+
+
+def ship_preview(cast):
+    """The raid ship at 45 degrees with a boarding plank resting in its starboard gangway notch."""
+    objs = {r.name: r for r in cast.roots}
+    keep = {n: (o.location.copy(), o.rotation_euler.copy()) for n, o in objs.items()}
+    for n, o in objs.items():
+        for c in cast.tree(o):
+            c.hide_render = n not in ('gloom_ship', 'plank')
+    objs['gloom_ship'].location = to_b((0, 0, 0))
+    objs['plank'].location = to_b((1.3, 0.05, 0.0))
+    objs['plank'].rotation_mode = 'XYZ'
+    objs['plank'].rotation_euler = (0, 0, math.pi / 2)    # glTF +Z -> +X: the plank reaches out to the side
+    setup_render((1600, 1100), '#7DD957')
+    ground = bpy.data.objects.get('Preview ground')
+    if ground is not None:
+        ground.location.z = -2.2
+    cam = camera(to_b((0.9, 1.0, 0.0)), 10.5, 45, 35)
+    bpy.context.view_layer.update()
+    label(cam, 'gloom_ship', to_b((-1.6, -1.6, 1.0)), 0.32)
+    label(cam, 'plank', to_b((3.4, -0.6, 1.0)), 0.32)
+    out = os.path.join(PREVIEWS, 'gloom-ship.png')
+    style.render(out)
+    print('preview', out)
+    for n, (loc, rot) in keep.items():
+        objs[n].location = loc
+        objs[n].rotation_euler = rot
+
+
 # ------------------------------------------------------------------ assemble
 def build():
     style.reset_scene()
     cast = Cast(FILE)
     m = M()
-    for fn in (gloomling, spitter, brute, flyer, spire, cage, puffbun, hopfrog, rockgoat, skylark):
+    for fn in (gloomling, spitter, brute, flyer, spire, cage, puffbun, hopfrog, rockgoat, skylark, gloom_ship, plank):
         fn(cast, m)
     return cast
 
@@ -385,9 +627,12 @@ def main():
     cast = build()
     cast.export(BUDGETS)
     if '--render' in args():
-        sheet(cast, 'gloom.png', rows=SHEET_ROWS, gap=0.6, row_gap=2.4, size=(2000, 1300), elev=45, yaw=0, ortho=11.0)
+        big = ['gloom_ship', 'plank']    # drawn on their own sheet (gloom-ship.png)
+        sheet(cast, 'gloom.png', rows=SHEET_ROWS, gap=0.6, row_gap=2.4, size=(2000, 1300), elev=45, yaw=0, ortho=11.0,
+              hide=big)
         sheet(cast, 'gloom-front.png', rows=SHEET_ROWS, gap=0.6, row_gap=2.4, size=(2000, 1100), elev=12, yaw=0,
-              ortho=10.0)
+              ortho=10.0, hide=big)
+        ship_preview(cast)
 
 
 if __name__ == '__main__':

@@ -5,17 +5,22 @@ import { findChild, part, standIn } from './assets.ts';
 import { blobShadow } from './actors.ts';
 import { makeToon } from './look.ts';
 import type { Fx } from './fx.ts';
+import { t } from '../i18n.ts';
 import type { Blocker } from './isle-view.ts';
 import { makeRng } from '../core/rng.ts';
 
 /** What the fight needs from the Keeper (the controller owns mercy frames, knockback and fainting). */
 export interface KeeperLink { pos: T.Vector3; alive(): boolean; hurt(raw: number, from: T.Vector3): void }
-export interface Ground { height(x: number, z: number): number; clamp(p: T.Vector3): void; blockers: Blocker[] }
+/** `outside`: on Bao's deck in a raid, past the gunwale (a raider pushed there goes overboard). */
+export interface Ground { height(x: number, z: number): number; clamp(p: T.Vector3): void; blockers: Blocker[]; outside?(p: T.Vector3): boolean }
 export interface CombatEvents {
   freed(form: FormId, at: T.Vector3, group: number, raid: boolean, reward: boolean): void;
   spire(index: number, at: T.Vector3): void;
   cage(index: number, at: T.Vector3): void;
-  crust(plot: number): void;
+  /** A raider stood on the hatch long enough (a tree stored below gets crusted). */
+  crust(at: T.Vector3): void;
+  /** A raider was knocked off the deck. */
+  overboard(at: T.Vector3): void;
   sound(name: string, at?: T.Vector3): void;
   freeze(seconds: number): void;
 }
@@ -33,6 +38,12 @@ export class Form {
   reward = true;
   /** Seconds left of a Chime Post slow. */
   slow = 0;
+  /** Walking over a boarding plank from a Gloom ship (raids). */
+  boarding: { from: T.Vector3; to: T.Vector3; t: number; len: number } | null = null;
+  /** The length of the charge it telegraphed. */
+  chargeLen = 0;
+  /** A Flyer's wing nodes, found once. */
+  wings?: (T.Object3D | null)[];
   private mats: T.MeshToonMaterial[] = [];
   static made = 0;
   constructor(kind: FormId, tier: number, scale: number, group: number, spire: number, raid: boolean) {
@@ -83,10 +94,10 @@ export class Combat {
   spires: Spire[] = [];
   cages: Cage[] = [];
   private shots: Shot[] = [];
-  private natives: { o: T.Object3D; v: T.Vector3; t: number }[] = [];
+  private natives: { o: T.Object3D; v: T.Vector3; t: number; fall?: boolean }[] = [];
   private rng = makeRng('combat');
-  /** Plots a raid can crust: position, and whether something grows there and is still clean. */
-  plots: { pos: T.Vector3; ok: boolean }[] = [];
+  /** Where raiders head (Bao's hatch, where the garden is stored during a raid). */
+  raidTarget: T.Vector3 | null = null;
   constructor(public fx: Fx, public keeper: KeeperLink, public ground: Ground, public events: CombatEvents) {
     const shardGeo = new T.OctahedronGeometry(.18, 0), shardMat = makeToon('#b26bff', { emissive: '#6a2dbf' });
     for (let i = 0; i < 24; i++) { const mesh = new T.Mesh(shardGeo, shardMat); mesh.scale.set(1, 1, 2.2); mesh.visible = false; this.group.add(mesh); this.shots.push({ mesh, vel: new T.Vector3(), life: 0, damage: 0, alive: false }); }
@@ -148,9 +159,9 @@ export class Combat {
       if (post) f.slow = POST.slowFor;
       this.fx.text(f.pos, String(dmg), 'hit');
       this.fx.burst(f.pos.clone().setY(f.pos.y + .6), '#c9b8ff', 6, { speed: 3, up: 3, size: .1, life: .45 });
-      const push = f.kind === 'brute' ? .15 : .55;
-      const d = flat(origin, f.pos) || 1;
-      f.pos.x += (f.pos.x - origin.x) / d * push; f.pos.z += (f.pos.z - origin.z) / d * push;
+      // Knockback slides the form away; on Bao's deck in a raid it is strong enough to send raiders overboard.
+      const base = f.raid ? (spin ? RAID.spinPush : RAID.push) : .55, push = base * (f.kind === 'brute' ? (f.raid ? .5 : .27) : 1);
+      this.knock(f, origin, push);
       if (f.state === 'windup' && f.kind !== 'brute') { f.state = 'recover'; f.t = 0; this.fx.text(f.pos, '!', 'info'); }
       if (f.hp <= 0) { this.free(f); freedAny = true; }
     }
@@ -176,10 +187,30 @@ export class Combat {
     return hits;
   }
 
+  /** A gong's blast: damage and a strong push away from `at` for every Gloom form in the circle. */
+  blast(at: T.Vector3, radius: number, metres: number, damage: number) {
+    let n = 0;
+    for (const f of this.forms) {
+      if (f.dead || f.boarding || flat(f.pos, at) > radius + f.radius) continue;
+      n++;
+      f.hp -= damage; f.hitFlash(); f.alert = true;
+      this.fx.text(f.pos, String(Math.round(damage)), 'hit');
+      this.knock(f, at, metres * (f.kind === 'brute' ? .6 : 1));
+      if (f.hp <= 0) this.free(f);
+    }
+    return n;
+  }
+
+  /** Pushes a form `metres` away from `from` (a slide over about 0.3 s). */
+  knock(f: Form, from: T.Vector3, metres: number) {
+    const d = flat(from, f.pos) || 1;
+    f.vel.x += (f.pos.x - from.x) / d * metres * 6; f.vel.z += (f.pos.z - from.z) / d * metres * 6;
+  }
+
   /** Bao's song (or the sunlight after a lost raid) frees every shell still standing: animals hop out, no rewards. */
   freeAll() { for (const f of this.forms) if (!f.dead) { f.reward = false; this.free(f); } }
 
-  private free(f: Form) {
+  private free(f: Form, overboard = false) {
     f.state = 'freed'; f.hp = 0; f.t = 0;
     f.body.visible = false;
     const at = f.pos.clone().setY(f.pos.y + .5);
@@ -191,12 +222,14 @@ export class Combat {
     native.position.copy(f.pos);
     const away = new T.Vector3(f.pos.x - this.keeper.pos.x, 0, f.pos.z - this.keeper.pos.z).normalize().multiplyScalar(3.2);
     if (!Number.isFinite(away.x)) away.set(3, 0, 0);
-    this.natives.push({ o: native, v: away, t: 0 });
+    this.natives.push({ o: native, v: away, t: 0, fall: overboard });
     this.group.add(native);
     this.events.freed(f.kind, f.pos, f.group, f.raid, f.reward);
   }
   private breakSpire(s: Spire) {
     s.broken = true; s.view.visible = false;
+    // The Gloomlings it woke fade with it (they were only napping).
+    for (const f of this.forms) if (f.spire === s.index && !f.dead) { f.reward = false; this.free(f); }
     const at = s.pos.clone().setY(s.pos.y + 1.4);
     this.fx.burst(at, '#9a8cc8', 30, { speed: 7, up: 7, size: .22, life: 1 });
     this.fx.ring(s.pos, '#b26bff', .5, 6, .7);
@@ -226,17 +259,20 @@ export class Combat {
     const k = this.keeper.pos, alive = this.keeper.alive();
     for (const f of this.forms) this.think(f, dt, k, alive);
     // Keep forms apart, out of rocks and on the isle.
+    const blockers = this.ground.blockers;
     for (let i = 0; i < this.forms.length; i++) {
-      const a = this.forms[i]; if (a.dead) continue;
+      const a = this.forms[i]; if (a.dead || a.boarding) continue;
       for (let j = i + 1; j < this.forms.length; j++) {
-        const b = this.forms[j]; if (b.dead) continue;
+        const b = this.forms[j]; if (b.dead || b.boarding) continue;
         const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, d = Math.hypot(dx, dz), min = a.radius + b.radius;
         if (d > 0 && d < min) { const push = (min - d) / 2 / d; a.pos.x -= dx * push; a.pos.z -= dz * push; b.pos.x += dx * push; b.pos.z += dz * push; }
       }
-      for (const bl of this.ground.blockers) {
+      for (const bl of blockers) {
         const dx = a.pos.x - bl.x, dz = a.pos.z - bl.z, d = Math.hypot(dx, dz), min = bl.r + a.radius;
         if (d > 0 && d < min) { a.pos.x = bl.x + dx / d * min; a.pos.z = bl.z + dz / d * min; }
       }
+      // On Bao's deck in a raid, a raider past the gunwale goes overboard; anywhere else the isle's edge holds.
+      if (a.raid && this.ground.outside?.(a.pos)) { this.overboard(a); continue; }
       this.ground.clamp(a.pos);
     }
     for (const f of this.forms) this.draw(f, dt);
@@ -250,6 +286,13 @@ export class Combat {
     }
     for (let i = this.natives.length - 1; i >= 0; i--) {
       const n = this.natives[i]; n.t += dt;
+      if (n.fall) {
+        // Freed overboard: the animal drifts down into the clouds, swaying.
+        n.o.position.x += n.v.x * dt * .4; n.o.position.z += n.v.z * dt * .4; n.o.position.y -= dt * 2.2;
+        n.o.rotation.z = Math.sin(n.t * 5) * .35; n.o.scale.setScalar(Math.max(.001, 1 - n.t / 2.9));
+        if (n.t > 2.9) { this.group.remove(n.o); this.natives.splice(i, 1); }
+        continue;
+      }
       n.o.position.addScaledVector(n.v, dt * Math.max(0, 1 - n.t / 2.6));
       n.o.position.y = this.ground.height(n.o.position.x, n.o.position.z) + Math.abs(Math.sin(n.t * 9)) * .35;
       n.o.rotation.y = Math.atan2(n.v.x, n.v.z);
@@ -263,6 +306,18 @@ export class Combat {
   private think(f: Form, dt: number, k: T.Vector3, alive: boolean) {
     f.t += dt; f.cd -= dt; f.updateFlash(dt);
     if (f.dead) return;
+    if (f.boarding) {
+      // Over the plank from the Gloom ship, onto the deck.
+      const b = f.boarding; b.t += dt * FORMS[f.kind].speed * .9 / b.len;
+      f.pos.lerpVectors(b.from, b.to, Math.min(1, b.t)); f.dir.subVectors(b.to, b.from).normalize();
+      if (b.t >= 1) f.boarding = null;
+      return;
+    }
+    if (f.vel.x || f.vel.z) {
+      f.pos.x += f.vel.x * dt; f.pos.z += f.vel.z * dt;
+      const keep = Math.exp(-6 * dt); f.vel.x *= keep; f.vel.z *= keep;
+      if (Math.hypot(f.vel.x, f.vel.z) < .05) f.vel.set(0, 0, 0);
+    }
     f.slow = Math.max(0, f.slow - dt);
     const slowK = f.slow > 0 ? POST.slow : 1;
     const d = flat(f.pos, k);
@@ -304,13 +359,13 @@ export class Combat {
         const A = ATTACKS.charge;
         if (f.state === 'chase') {
           if (d > 6) toward(k.x, k.z, def.speed);
-          if (f.cd <= 0 && d > 2 && d < A.length) { f.state = 'windup'; f.t = 0; f.dir.set(k.x - f.pos.x, 0, k.z - f.pos.z).normalize(); this.fx.telegraph('line', f.pos, { length: A.length + .5, width: 1.6, angle: Math.atan2(f.dir.x, f.dir.z), seconds: A.windup }); }
-          else if (d <= 2 && f.cd <= 0) { f.state = 'windup'; f.t = 0; f.dir.set(k.x - f.pos.x, 0, k.z - f.pos.z).normalize(); this.fx.telegraph('line', f.pos, { length: 4, width: 1.6, angle: Math.atan2(f.dir.x, f.dir.z), seconds: A.windup }); }
+          // The line on the ground is exactly the charge it will make (logic review 21).
+          if (f.cd <= 0 && d < A.length) { f.state = 'windup'; f.t = 0; f.chargeLen = d > 2 ? A.length : 4; f.dir.set(k.x - f.pos.x, 0, k.z - f.pos.z).normalize(); this.fx.telegraph('line', f.pos, { length: f.chargeLen + .5, width: 1.6, angle: Math.atan2(f.dir.x, f.dir.z), seconds: A.windup }); }
         } else if (f.state === 'windup' && f.t >= A.windup) { f.state = 'act'; f.t = 0; f.charged = 0; f.hitDone = false; this.events.sound('charge', f.pos); }
         else if (f.state === 'act') {
-          const step = A.speed * dt; f.pos.addScaledVector(f.dir, step); f.charged += step;
+          const step = A.speed * slowK * dt; f.pos.addScaledVector(f.dir, step); f.charged += step;
           if (!f.hitDone && flat(f.pos, k) < 1.15) { f.hitDone = true; this.keeper.hurt(f.damage, f.pos); }
-          if (f.charged >= A.length) { f.state = 'recover'; f.t = 0; f.cd = A.cooldown; this.fx.burst(f.pos, '#c9a07a', 8, { speed: 2, up: 2 }); }
+          if (f.charged >= f.chargeLen) { f.state = 'recover'; f.t = 0; f.cd = A.cooldown; this.fx.burst(f.pos, '#c9a07a', 8, { speed: 2, up: 2 }); }
         } else if (f.state === 'recover' && f.t >= 1) { f.state = 'chase'; f.t = 0; }
         break;
       }
@@ -323,7 +378,7 @@ export class Combat {
           if (f.cd <= 0 && d < 7) { f.state = 'windup'; f.t = 0; f.aim.copy(k); this.fx.telegraph('disc', new T.Vector3(k.x, this.ground.height(k.x, k.z), k.z), { radius: A.radius, seconds: A.windup }); }
         } else if (f.state === 'windup' && f.t >= A.windup) { f.state = 'act'; f.t = 0; f.dir.copy(f.pos); this.events.sound('dive', f.pos); }
         else if (f.state === 'act') {
-          const k2 = Math.min(1, f.t / .25);
+          const k2 = Math.min(1, f.t * slowK / .25);
           f.pos.lerpVectors(f.dir, f.aim, k2); f.hover = 2.2 * (1 - k2);
           if (k2 >= 1) { if (flat(f.aim, k) < A.radius) this.keeper.hurt(f.damage, f.aim); this.fx.ring(f.aim, '#ffffff', .4, 2, .3); f.state = 'recover'; f.t = 0; f.cd = A.cooldown; }
         } else if (f.state === 'recover') { f.hover = Math.min(2.2, f.hover + dt * 2.5); if (f.t >= .9) { f.state = 'chase'; f.t = 0; } }
@@ -334,17 +389,21 @@ export class Combat {
 
   private raidThink(f: Form, dt: number, k: T.Vector3, d: number, alive: boolean, toward: (x: number, z: number, s: number) => void, aggro: number) {
     if (alive && d < aggro) { f.state = 'chase'; f.t = 0; return; }
-    if (f.plot < 0 || !this.plots[f.plot]?.ok) {
-      let best = -1, bd = Infinity;
-      this.plots.forEach((p, i) => { if (!p.ok) return; const dd = flat(f.pos, p.pos); if (dd < bd) { bd = dd; best = i; } });
-      f.plot = best; f.crustT = 0;
-    }
-    if (f.plot < 0) { toward(k.x, k.z, FORMS[f.kind].speed); return; }
-    const p = this.plots[f.plot].pos;
-    if (flat(f.pos, p) > .95) { toward(p.x, p.z, FORMS[f.kind].speed); return; }
+    // Raiders head for the hatch, where the garden is stored below deck during a raid.
+    const p = this.raidTarget;
+    if (!p) { toward(k.x, k.z, FORMS[f.kind].speed); return; }
+    if (flat(f.pos, p) > .95) { f.crustT = 0; toward(p.x, p.z, FORMS[f.kind].speed); return; }
     f.crustT += dt;
     if (Math.floor(f.crustT * 4) !== Math.floor((f.crustT - dt) * 4)) this.fx.burst(p.clone().setY(.6), '#9a8cc8', 2, { speed: 1, up: 1.5, size: .08, life: .4 });
-    if (f.crustT >= RAID.crustAfter) { this.plots[f.plot].ok = false; this.events.crust(f.plot); f.plot = -1; f.crustT = 0; }
+    if (f.crustT >= RAID.crustAfter) { f.crustT = 0; this.events.crust(p); }
+  }
+
+  /** Knocked off Bao's deck: the crystal bursts in the air and the animal drifts down into the clouds, free. */
+  private overboard(f: Form) {
+    const at = f.pos.clone();
+    this.fx.text(at, t('Overboard!'), 'crit');
+    this.free(f, true);
+    this.events.overboard(at);
   }
 
   private alertGroup(group: number) { if (group < 0) return; for (const f of this.forms) if (f.group === group) f.alert = true; }
@@ -360,7 +419,7 @@ export class Combat {
     if (f.kind === 'gloomling') { lift = f.state === 'chase' ? hop * .25 : 0; sy = f.state === 'windup' ? .75 : 1 + hop * .05; }
     if (f.kind === 'spitter') sy = f.state === 'windup' ? 1 + Math.sin(f.t * 30) * .06 + f.t * .2 : 1;
     if (f.kind === 'brute') sy = f.state === 'windup' ? .9 : 1;
-    if (f.kind === 'flyer') { lift = f.hover + Math.sin(f.t * 5) * .15; const wl = findChild(f.body, 'wing_l'), wr = findChild(f.body, 'wing_r'); const flap = Math.sin(f.t * 16) * .7; if (wl) wl.rotation.z = flap; if (wr) wr.rotation.z = -flap; }
+    if (f.kind === 'flyer') { lift = f.hover + Math.sin(f.t * 5) * .15; const wings = f.wings ??= [findChild(f.body, 'wing_l'), findChild(f.body, 'wing_r')], wl = wings[0], wr = wings[1]; const flap = Math.sin(f.t * 16) * .7; if (wl) wl.rotation.z = flap; if (wr) wr.rotation.z = -flap; }
     f.body.position.y = lift;
     f.body.scale.set(1 / Math.sqrt(sy), sy, 1 / Math.sqrt(sy));
     void dt;

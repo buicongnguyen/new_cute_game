@@ -145,3 +145,40 @@ The reviewer read the draft before the rules code existed, so it checked the num
 |---|---|---|---|---|
 | Attentive | 24.6 min | 1 | 1.2, 1.2, 0 | 1 / 6 / 11 / 14 |
 | Casual (worst case) | 49 min | 6, each followed by an upgrade or a crack | 0.1, 0.1, 0.1 | 1 / 6 / 10 / 13 |
+
+## The owner's direction changes during the build (2026-10-16)
+
+1. **Bao's back is a little wooden ship.** It has a plank deck and a rounded gunwale, with green weed only at the edges ("like a hot-air balloon or a submarine"). The garden grows in wooden planter boxes.
+2. **The hut became a hatch with a gate.** It leads down into the owner's own cottage from Zoo Garden (its plan, furniture kit and view, ported). The cottage hangs under Bao in **blue sky with clouds**, never on a black background, and the crew spend time at home there.
+3. **Raids are ship battles.**
+   - Gloom ships come alongside from different sides and raiders cross planks.
+   - Battle stations sink the garden and fittings below the deck, so they are not drawn while you fight.
+   - Gongs rise, and knocking raiders **overboard** is the best way to win.
+
+## Code review and logic review of the build
+
+Two independent reviews read the whole game: one for code defects, one for logic (does the game keep the promises of STORY and DESIGN?). Each reproduced its main findings in a browser. All findings were fixed except where noted.
+
+| # | Finding | Fix |
+|---|---|---|
+| R1 | Open panels were rebuilt every 50 ms. Clicks were lost, scrolling reset, the save-code box emptied, and sliders dropped your finger. | Panels re-render only when the numbers they show change (a signature string). Never while a pointer is down or a field has focus; Settings only on its own buttons. The scroll position is kept, and the save-code box is a single element that persists. |
+| R2 | A save made mid-raid left the voyage stuck in a raid forever. | On load, a raid that was on starts again. The scripted raid is paid off only when it ends. Test: "a save made mid-raid loads with the raid starting again". |
+| R3 | "Start over" and "Load code" were undone, because the page saved the old game while unloading. | A reloading flag stops every save. |
+| R4 | The deck did not redraw on its own: trees stayed sprouts, Pip's picking left fruit, crust did not show, and hidden crew stayed hidden. | The deck follows the save four times a second. |
+| R5 | Colour baking merged parts the code animates (fruit, wings, shards). Ripe and unripe trees looked the same, and Flyers could not flap. | Named animated nodes keep their own meshes. |
+| R6 | The Hive's shield sphere stayed behind after leaving an isle. | `HiveFight.dispose()`. The first shield state is set quietly. |
+| R7 | Tap-to-walk never arrived at some props, because the target was inside the prop. | The walk arrives once the Keeper is pressed against it. |
+| R8 | The "Bao can grow" line used old thresholds. | It uses `canGrow`, and is checked on arrival and on deck too. |
+| R9 | On a freed isle, the goal card asked for things you cannot do there. | "Climb the rope back up to Bao". |
+| R10 | The goal sent you past a cage to the far Spire, then back. | A cage comes right after the Spire it stands by. |
+| R11 | The thorn ring's inner safe circle lay inside the Hive's own body. | Safe within the Hive's radius + 1.15 m, for both rings. |
+| R12 | The Clamhive was open 94% of the time. | It shuts at each wind-up and gapes for 1.9 s after each move. The simulation now uses 0.53. |
+| R13 | Toasts for keepsakes read "Made: Coat ", and the Workbench showed the wrong lock reason. | Recipe names, and `lockReason`. |
+| R14 | The arrival lines played when you slid down, not when Bao arrived. | They play on arrival. |
+| R15 | A reload during the ending lost it, and the Golden Seed with it. | The seed comes when the Heart breaks, and the ending card replays on load. |
+| R16 | HUD buttons worked while paused; Enter/Space did nothing on buttons; there was no key for the speech card. | Buttons act only while play runs. Keys on a focused button or field are left alone. F turns the speech page. |
+| R17 | Per-frame work: obstacles were rebuilt per form per step, nearby things every frame, and parts were looked up by name every frame. | Cached obstacles (rebuilt at most every 0.2 s), nearby things 10 times a second, and parts found once. Telegraph shapes are reused, and floating text uses `visibility`. |
+| R18 | Sound stayed off after an iPhone interruption. | Any touch or returning to the tab resumes it. |
+| R19 | A save from a newer build was overwritten. | It is backed up first under `cloudback:save:main:backup-<time>`. |
+| R20 | Smaller fixes. | Hop invulnerability now uses its own 0.3 s timer. Auto-ring fires only in reach. Cages are found by their index. The faint pose is cleared. Followers are copied before boarding. The Rammer's line matches its charge. Pearl volleys fly where they were aimed. Chime Post slows also slow charges and dives. Woken Gloomlings fade with their Spire. There is one fish school per place. Lanterns need the rope first. The heart_song line plays. Rescue lines play for people freed by the song. Coats heal their own extra health (crafting no longer heals 40). The sky dome is in the screen's colour space. `repair()` clamps damaged numbers. Tap targets are at least 44 px. The raid banner wraps, and "Shielded" and "Overboard!" are translated. |
+| R21 | Not fixed, kept as known limits. | Small material and geometry leaks remain when isles are re-entered (actor and form material clones). They are bounded by the number of descents and are harmless at this size. |

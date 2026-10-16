@@ -7,9 +7,15 @@ export const saves = new SaveStore<GameState>({ game: 'cloudback', version: SAVE
 
 export function loadGame(now = Date.now()) {
   const loaded = saves.load();
-  if (!loaded) return { state: newGame(`cb-${Math.floor(now % 1e9)}`, now), fresh: true, problem: saves.lastProblem, away: 0 };
+  if (!loaded) {
+    // A save from a newer build or a damaged one is kept aside, never silently overwritten (DESIGN §13).
+    if (saves.lastProblem === 'newer' || saves.lastProblem === 'corrupt') {
+      try { const raw = localStorage.getItem(saves.key); if (raw) localStorage.setItem(`${saves.key}:backup-${now}`, raw); } catch { /* storage blocked */ }
+    }
+    return { state: newGame(`cb-${Math.floor(now % 1e9)}`, now), fresh: true, problem: saves.lastProblem, away: 0 };
+  }
   const state = repair(loaded);
-  // A save made on an isle or mid-voyage loads on Bao (design §13.7): mid-voyage the trip simply finishes.
+  // A save made on an isle or mid-voyage loads on Bao (design §13.7): a voyage carries on, and a raid it was in starts again.
   const { away } = catchUp(state, now);
   return { state, fresh: false, problem: null, away };
 }

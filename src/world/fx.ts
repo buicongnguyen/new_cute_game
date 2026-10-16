@@ -42,7 +42,7 @@ export class Fx {
     }
     for (let i = 0; i < 18; i++) { const t = new Telegraph(); this.teles.push(t); this.group.add(t.group); }
     if (textLayer) for (let i = 0; i < 28; i++) {
-      const el = document.createElement('div'); el.className = 'float-text'; el.hidden = true; textLayer.append(el);
+      const el = document.createElement('div'); el.className = 'float-text'; el.style.visibility = 'hidden'; textLayer.append(el);
       this.texts.push({ el, p: new T.Vector3(), life: 0, alive: false });
     }
   }
@@ -71,7 +71,9 @@ export class Fx {
 
   text(at: T.Vector3, label: string, kind: 'hit' | 'crit' | 'gain' | 'heal' | 'info' = 'hit') {
     const t = this.texts.find(x => !x.alive); if (!t) return;
-    t.alive = true; t.life = 0; t.p.copy(at); t.el.textContent = label; t.el.className = `float-text ${kind}`; t.el.hidden = false;
+    t.alive = true; t.life = 0; t.p.copy(at); t.el.textContent = label;
+    const cls = `float-text ${kind}`; if (t.el.className !== cls) t.el.className = cls;
+    t.el.style.visibility = 'visible';
   }
 
   telegraph(shape: 'ring' | 'disc' | 'line', at: T.Vector3, opts: { radius?: number; inner?: number; length?: number; width?: number; angle?: number; seconds: number; color?: string }) {
@@ -113,9 +115,10 @@ export class Fx {
     for (const t of this.texts) {
       if (!t.alive) continue;
       t.life += dt;
-      if (t.life > .95) { t.alive = false; t.el.hidden = true; continue; }
+      if (t.life > .95) { t.alive = false; t.el.style.visibility = 'hidden'; continue; }
       v.copy(t.p); v.y += .8 + t.life * 1.3; v.project(camera);
-      if (v.z > 1) { t.el.hidden = true; continue; }
+      if (v.z > 1) { t.el.style.visibility = 'hidden'; continue; }
+      if (t.el.style.visibility !== 'visible') t.el.style.visibility = 'visible';
       const x = (v.x * .5 + .5) * width, y = (-v.y * .5 + .5) * height;
       t.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%) scale(${(1 + Math.max(0, .25 - t.life) * 1.6).toFixed(3)})`;
       t.el.style.opacity = String(Math.min(1, (1 - t.life) * 2.5));
@@ -125,6 +128,9 @@ export class Fx {
 }
 
 const TELE_RED = '#ff5a3c';
+/** Telegraph shapes by size, built once (code review 17). */
+const SHAPES = new Map<string, T.BufferGeometry>();
+const shapeOf = (key: string, make: () => T.BufferGeometry) => { let g = SHAPES.get(key); if (!g) { g = make(); SHAPES.set(key, g); } return g; };
 export class Telegraph {
   group = new T.Group();
   alive = false;
@@ -143,19 +149,18 @@ export class Telegraph {
   show(shape: 'ring' | 'disc' | 'line', at: T.Vector3, o: { radius?: number; inner?: number; length?: number; width?: number; angle?: number; seconds: number; color?: string }) {
     this.alive = true; this.t = 0; this.seconds = o.seconds; this.shape = shape;
     this.group.position.set(at.x, at.y + .06, at.z); this.group.rotation.set(0, o.angle ?? 0, 0); this.group.visible = true;
-    this.edge.geometry.dispose(); this.fill.geometry.dispose();
     if (shape === 'line') {
       const L = o.length ?? 6, W = o.width ?? 1.2;
-      this.edge.geometry = new T.PlaneGeometry(W, L).rotateX(-Math.PI / 2).translate(0, 0, L / 2);
-      this.fill.geometry = new T.PlaneGeometry(W, L).rotateX(-Math.PI / 2).translate(0, 0, L / 2);
+      this.edge.geometry = shapeOf(`l${W}:${L}`, () => new T.PlaneGeometry(W, L).rotateX(-Math.PI / 2).translate(0, 0, L / 2));
+      this.fill.geometry = this.edge.geometry;
     } else if (shape === 'ring') {
       const R = o.radius ?? 6, r = o.inner ?? R * .5;
-      this.edge.geometry = new T.RingGeometry(r, R, 56).rotateX(-Math.PI / 2);
-      this.fill.geometry = new T.RingGeometry(r, R, 56).rotateX(-Math.PI / 2);
+      this.edge.geometry = shapeOf(`r${r}:${R}`, () => new T.RingGeometry(r, R, 56).rotateX(-Math.PI / 2));
+      this.fill.geometry = this.edge.geometry;
     } else {
       const R = o.radius ?? 1.6;
-      this.edge.geometry = new T.RingGeometry(R * .9, R, 40).rotateX(-Math.PI / 2);
-      this.fill.geometry = new T.CircleGeometry(R, 40).rotateX(-Math.PI / 2);
+      this.edge.geometry = shapeOf(`e${R}`, () => new T.RingGeometry(R * .9, R, 40).rotateX(-Math.PI / 2));
+      this.fill.geometry = shapeOf(`d${R}`, () => new T.CircleGeometry(R, 40).rotateX(-Math.PI / 2));
     }
     this.edge.material.color.set(o.color ?? TELE_RED); this.fill.material.color.set(o.color ?? TELE_RED);
     this.update(0);

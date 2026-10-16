@@ -35,7 +35,9 @@ export class Sky {
       fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 sunDir; uniform vec3 sunColor; varying vec3 vDir;
         void main(){ float h = clamp(vDir.y * 1.6 + .25, 0., 1.); vec3 c = mix(horizon, top, pow(h, .8));
           float sun = max(dot(normalize(vDir), sunDir), 0.); c += sunColor * (pow(sun, 60.) * .9 + pow(sun, 6.) * .18);
-          gl_FragColor = vec4(c, 1.); }`,
+          gl_FragColor = vec4(c, 1.);
+          #include <colorspace_fragment>
+        }`,
     }));
     this.dome.renderOrder = -10; this.dome.frustumCulled = false;
     this.floor = new T.Mesh(new T.PlaneGeometry(900, 900), new T.MeshBasicMaterial({ color: '#b9c6f2' }));

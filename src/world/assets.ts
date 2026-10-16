@@ -38,6 +38,9 @@ export async function loadModels(onProgress?: (done: number, all: number) => voi
 /** Roots whose colours the game changes at run time keep their separate materials. */
 const KEEP_MATERIALS = new Set(['cloud_puff', 'market']);
 const BAKED_MATERIAL = new T.MeshStandardMaterial({ name: 'baked', color: '#ffffff', vertexColors: true });
+/** Nodes the code moves, toggles or finds by name: they keep their own mesh (code review 7). */
+const KEEP_NODE = /^(fruits|wing_[lr]|shard_\d+|core|shell|shell_top|shell_bottom|pearl|arm_[lr]|leg_[lr]|head|body|tail|tailtip|fin_[lr]|eye_[lr]|eye|blades|door|disc|mallet|soil|note_\d|sail|balloon|crown_\d|tip|mouth|blowhole)$/;
+const keepNode = (o: T.Object3D) => KEEP_NODE.test(String(o.userData?.name ?? o.name));
 const plain = (m: T.Material) => {
   const s = m as T.MeshStandardMaterial;
   return !m.name.startsWith('glow_') && !m.transparent && (!s.emissive || s.emissive.getHex() === 0 || (s.emissiveIntensity ?? 1) === 0);
@@ -56,7 +59,7 @@ export function bakeColors(scene: T.Object3D) {
   for (const root of scene.children) if (KEEP_MATERIALS.has(root.name)) root.traverse(o => skip.add(o));
   for (const node of groups) {
     if (skip.has(node)) continue;
-    const prims = node.children.filter(c => (c as T.Mesh).isMesh && c.children.length === 0 && plain((c as T.Mesh).material as T.Material)) as T.Mesh[];
+    const prims = node.children.filter(c => (c as T.Mesh).isMesh && c.children.length === 0 && !keepNode(c) && plain((c as T.Mesh).material as T.Material)) as T.Mesh[];
     const self = (node as T.Mesh).isMesh && plain((node as T.Mesh).material as T.Material) ? node as T.Mesh : null;
     if (prims.length + (self ? 1 : 0) < 2) continue;
     const parts: T.BufferGeometry[] = [];

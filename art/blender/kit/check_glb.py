@@ -17,8 +17,8 @@ EXPECT = {
                       budget=lambda n: 1500),
     'props.glb': dict(roots=['hut', 'workbench', 'kitchen', 'maptable', 'ropepost', 'fishspot', 'pantry', 'chimepost',
                              'postspot', 'market', 'tent', 'lantern', 'windmill', 'coral_arch', 'ore_rock', 'forge', 'rod',
-                             'speck', 'skydew', 'hatch', 'planter'],
-                      budget=lambda n: {'hatch': 1500, 'planter': 600}.get(n, 2000)),
+                             'speck', 'skydew', 'hatch', 'planter', 'gong'],
+                      budget=lambda n: {'hatch': 1500, 'planter': 600, 'gong': 900}.get(n, 2000)),
     'nature.glb': dict(roots=['rock_a', 'rock_b', 'rock_c', 'bush_a', 'bush_b', 'flower_a', 'flower_b', 'flower_c',
                               'grass_tuft', 'mushroom', 'tree_round', 'tree_pine', 'palm', 'coral_a', 'coral_b',
                               'lava_rock_a', 'lava_rock_b', 'fence', 'cloud_puff'],
@@ -182,10 +182,11 @@ def main():
                 if name == 'plot' and 'glow_moss' not in mats:
                     errors.append('plot has no glow_moss edge')
             elif fname == 'props.glb':
-                want = {'windmill': ['blades'], 'rod': ['tip'], 'hatch': ['door'], 'planter': ['soil']}.get(name, [])
+                want = {'windmill': ['blades'], 'rod': ['tip'], 'hatch': ['door'], 'planter': ['soil'],
+                        'gong': ['disc']}.get(name, [])
                 if sorted(kid_names) != want:
                     errors.append(f'{name}: children {kid_names} (want {want})')
-                meshy = {'blades', 'door'}
+                meshy = {'blades', 'door', 'disc'}
                 for kd in kids:
                     if (kd['name'] in meshy) != ('mesh' in kd):
                         errors.append(f'{name}/{kd["name"]}: mesh/marker mismatch')
@@ -199,6 +200,16 @@ def main():
                         errors.append(f'hatch/door hinge at {t} (want the back edge, rim height)')
                     if min(zs) < -0.1 or max(ze) < 1.5:
                         errors.append('hatch/door lid should reach forward (+Z) from its hinge')
+                if name == 'gong' and 'disc' in tr:
+                    t = tr['disc']
+                    dm = doc['meshes'][kids[0]['mesh']]['primitives']
+                    top_local = max(doc['accessors'][pp['attributes']['POSITION']]['max'][1] for pp in dm)
+                    if not (abs(t[0]) < 1e-3 and abs(t[2]) < 0.05 and 1.5 <= t[1] <= 1.85):
+                        errors.append(f'gong/disc pivot at {t} (want the top hanging point under the crossbar)')
+                    if top_local > 0.02:
+                        errors.append('gong/disc should hang below its pivot')
+                    if not 1.8 <= hi[1] <= 2.0:
+                        errors.append(f'gong height {hi[1]:.2f}')
                 if name == 'planter' and 'soil' in tr and not 0.25 <= tr['soil'][1] <= 0.29:
                     errors.append(f'planter/soil at {tr["soil"]}')
             elif fname == 'nature.glb':

@@ -34,6 +34,8 @@ export class Keeper implements KeeperLink {
   onArrive: (() => void) | null = null;
   arriveRange = .3;
   mercy = 0; ringCd = 0; spinCd = 0; hopCd = 0; hopT = 0; private hopDir = new T.Vector3();
+  /** Invulnerable while hopping (KEEPER.hop.invuln, logic review 16). */
+  private invuln = 0;
   frozen = false;
   fainted = false;
   /** Bounds of the place the Keeper stands on (Bao's deck or an isle). */
@@ -47,13 +49,13 @@ export class Keeper implements KeeperLink {
   }
 
   alive() { return !this.fainted && this.state.hero.hp > 0; }
-  place(x: number, z: number) { this.pos.set(x, this.bounds.height(x, z), z); this.vel.set(0, 0, 0); this.walkTarget = null; this.onArrive = null; }
+  place(x: number, z: number) { this.pos.set(x, this.bounds.height(x, z), z); this.vel.set(0, 0, 0); this.walkTarget = null; this.onArrive = null; this.actor.action = 'none'; this.actor.actionT = 0; }
   walkTo(x: number, z: number, onArrive: (() => void) | null = null, range = .3) {
     this.walkTarget = new T.Vector3(x, 0, z); this.onArrive = onArrive; this.arriveRange = range;
   }
 
   hurt(raw: number, from: T.Vector3) {
-    if (!this.alive() || this.mercy > 0 || this.hopT > 0) return;
+    if (!this.alive() || this.mercy > 0 || this.invuln > 0) return;
     const taken = rulesHurt(this.state, raw);
     this.mercy = KEEPER.mercy;
     this.actor.hit(); this.actor.play('hurt', .25);
@@ -92,7 +94,7 @@ export class Keeper implements KeeperLink {
     const L = Math.hypot(dirX, dirZ);
     if (L < .1) { dirX = Math.sin(this.actor.facing); dirZ = Math.cos(this.actor.facing); } else { dirX /= L; dirZ /= L; }
     this.hopDir.set(dirX, 0, dirZ);
-    this.hopT = .22; this.hopCd = KEEPER.hop.cooldown;
+    this.hopT = .22; this.hopCd = KEEPER.hop.cooldown; this.invuln = KEEPER.hop.invuln;
     this.actor.facing = Math.atan2(dirX, dirZ);
     this.actor.play('hop', .3);
     this.fx.burst(this.pos.clone().setY(this.pos.y + .1), '#ffffff', 6, { speed: 2, up: 1.5, size: .1, life: .35 });
@@ -103,7 +105,7 @@ export class Keeper implements KeeperLink {
   /** One fixed step. `stick` is the move intent (−1..1 on x and z, z toward the camera). */
   update(dt: number, stick: { x: number; z: number }) {
     this.mercy = Math.max(0, this.mercy - dt); this.ringCd = Math.max(0, this.ringCd - dt);
-    this.spinCd = Math.max(0, this.spinCd - dt); this.hopCd = Math.max(0, this.hopCd - dt);
+    this.spinCd = Math.max(0, this.spinCd - dt); this.hopCd = Math.max(0, this.hopCd - dt); this.invuln = Math.max(0, this.invuln - dt);
     if (this.mercy > 0) this.actor.root.visible = Math.floor(this.mercy / .1) % 2 === 0; else this.actor.root.visible = true;
     let wantX = 0, wantZ = 0;
     if (this.alive() && !this.frozen) {
@@ -124,6 +126,12 @@ export class Keeper implements KeeperLink {
     for (const b of this.bounds.blockers) {
       const dx = this.pos.x - b.x, dz = this.pos.z - b.z, d = Math.hypot(dx, dz), min = b.r + .32;
       if (d > 0 && d < min) { this.pos.x = b.x + dx / d * min; this.pos.z = b.z + dz / d * min; }
+    }
+    // A walk aimed at something solid (a prop's centre) arrives once the Keeper is pressed against it (code review 6).
+    if (this.walkTarget) for (const b of this.bounds.blockers) {
+      if (Math.hypot(this.walkTarget.x - b.x, this.walkTarget.z - b.z) < b.r + .32 && Math.hypot(this.pos.x - b.x, this.pos.z - b.z) <= b.r + .36) {
+        const f = this.onArrive; this.walkTarget = null; this.onArrive = null; f?.(); break;
+      }
     }
     this.bounds.clamp(this.pos);
     this.pos.y = this.bounds.height(this.pos.x, this.pos.z);

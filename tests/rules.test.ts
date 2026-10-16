@@ -2,10 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeRng } from '../src/core/rng.ts';
 import { STAGES, TREES, WHALE } from '../src/rules/content.ts';
-import { count, newGame } from '../src/rules/state.ts';
-import { harvest, plant, growGarden, uproot, crustTree, ringCrust, tickGardener, treeStage } from '../src/rules/garden.ts';
+import { count, newGame, repair } from '../src/rules/state.ts';
+import { harvest, plant, growGarden, uproot, crustTree, crustStored, ringCrust, tickGardener, treeStage } from '../src/rules/garden.ts';
 import { brush, canGrow, feed, grow, pet, tickWhale } from '../src/rules/whale.ts';
-import { canSail, startVoyage, tickVoyage, voyagePlan } from '../src/rules/voyage.ts';
+import { canSail, endRaid, startVoyage, tickVoyage, voyagePlan } from '../src/rules/voyage.ts';
+import { takeBite, tickSchool } from '../src/rules/fishing.ts';
 import { addXp, levelFor, maxHp, ringDamage, quickEat } from '../src/rules/keeper.ts';
 import { hiveBroken, hiveShielded, rescue, spireBroken } from '../src/rules/isle.ts';
 import { buy, craft, marketOpen, recipeState, sell, sellPrice, cook } from '../src/rules/trade.ts';
@@ -106,7 +107,55 @@ test('a raid pauses the voyage until it ends', () => {
   const at = s.voyage!.elapsed;
   tickVoyage(s, 10);
   assert.equal(s.voyage!.elapsed, at);
+  assert.equal(s.raidsOwed.length, 1, 'the scripted raid is paid off only when it ends');
+  endRaid(s, true, 2);
   assert.equal(s.raidsOwed.length, 0);
+});
+
+test('a save made mid-raid loads with the raid starting again (not stuck)', () => {
+  const s = newGame('t', 0), rng = makeRng('r');
+  s.raidsOwed.push('clover'); s.isles.clover.freed = true; s.whale.stage = 1; s.place = 'clover';
+  startVoyage(s, 'reef', rng);
+  while (tickVoyage(s, 1) !== 'raid');
+  const loaded = repair(JSON.parse(JSON.stringify(s)));
+  assert.equal(loaded.voyage!.raidState, 'pending');
+  assert.equal(tickVoyage(loaded, .1), 'raid', 'the raid starts again on the next tick');
+  assert.deepEqual(loaded.raidsOwed, ['clover']);
+});
+
+test('each place has its own fish school, refilling during play', () => {
+  const s = newGame('t', 0);
+  s.place = 'clover';
+  for (let i = 0; i < 6; i++) assert.equal(takeBite(s), true);
+  assert.equal(takeBite(s), false, 'the Clover school is empty');
+  s.place = 'reef';
+  assert.equal(takeBite(s), true, 'the reef has its own school');
+  s.place = 'clover';
+  tickSchool(s, 40);
+  assert.equal(takeBite(s), true, 'one bite back after 40 s');
+});
+
+test('the Grey Heart gives the Golden Seed at once; a raider on the hatch crusts a stored tree', () => {
+  const s = newGame('t', 0);
+  hiveBroken(s, 'star');
+  assert.equal(s.story.ended, true);
+  assert.equal(count(s, 'seed_golden'), 1);
+  plant(s, 0, 'puffberry');
+  assert.equal(crustStored(s), 0);
+  assert.equal(s.plots[0].crust > 0, true);
+});
+
+test('the goal card: free isles send you back up; a cage follows its own Spire', () => {
+  const s = newGame('t', 0);
+  Object.assign(s.story.flags, { planted: true, harvested: true, fed: true }); s.gear.rope = true; s.place = 'clover';
+  assert.equal(goal(s, 'isle').text, 'Free {who} from the crystal cage');
+  s.isles.clover.cages[0] = true;
+  assert.equal(goal(s, 'isle').target, 'spire');
+  s.isles.clover.spires[0] = true;
+  const g = goal(s, 'isle');
+  assert.ok(g.target === 'cage' && g.index === 1, 'Pip, by the first Spire, comes right after it');
+  s.isles.clover.freed = true;
+  assert.equal(goal(s, 'isle').target, 'rope');
 });
 
 test('levels, health and damage', () => {

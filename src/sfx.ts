@@ -82,6 +82,7 @@ const VOICES: Record<string, Voice> = {
   arrive: (c, o, at, p) => [392, 494, 587].forEach((f, i) => bell(c, o, at + i * .1, f * p, .14, 1)),
   dew: (c, o, at, p) => bell(c, o, at, 1760 * p, .1, .5),
   brush: (c, o, at, p) => noise(c, o, at, .2, 3000 * p, 1.5, .1),
+  gong: (c, o, at, p) => { tone(c, o, at, 98 * p, 2.6, 'sine', .35); tone(c, o, at, 196 * p, 2.2, 'sine', .22); bell(c, o, at, 392 * p, .16, 2); noise(c, o, at, .4, 600 * p, .7, .12); },
 };
 const last = new Map<string, number>();
 export function play(name: string, pitchJitter = .05) {

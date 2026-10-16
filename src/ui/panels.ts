@@ -5,7 +5,7 @@ import { count, type GameState } from '../rules/state.ts';
 import { plotProgress, plotSecondsLeft, gardenSpeed } from '../rules/garden.ts';
 import { canGrow, growNeeds, canFeed } from '../rules/whale.ts';
 import { canSail, voyagePlan } from '../rules/voyage.ts';
-import { recipeState, sellPrice, marketOpen, canCook } from '../rules/trade.ts';
+import { recipeState, sellPrice, marketOpen, canCook, lockReason } from '../rules/trade.ts';
 import { noteName, storyIsle } from '../rules/story.ts';
 import { maxHp, ringDamage } from '../rules/keeper.ts';
 import { getVolume, setVolume, play } from '../sfx.ts';
@@ -47,18 +47,52 @@ export class Panels {
     this.sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' });
     this.root = h('div', { class: 'panel-backdrop', hidden: true, onclick: (e: Event) => { if (e.target === this.root) this.close(); } }, this.sheet);
     parent.append(this.root);
+    this.sheet.addEventListener('pointerdown', () => { this.pointerDown = true; });
+    for (const ev of ['pointerup', 'pointercancel'] as const) window.addEventListener(ev, () => { this.pointerDown = false; });
     window.addEventListener('keydown', e => { if (e.key === 'Escape' && this.kind) { e.preventDefault(); this.close(); } });
   }
   get open() { return this.kind !== null; }
   show(kind: PanelKind, arg: unknown = null) { this.kind = kind; this.arg = arg; if (kind === 'map') this.mapPick = null; this.root.hidden = false; this.render(); }
   close() { if (!this.kind) return; this.kind = null; this.root.hidden = true; this.sheet.replaceChildren(); this.onClose?.(); }
-  refresh() { if (this.kind) this.render(); }
+  /**
+   * Called every HUD tick: re-renders only when the panel's numbers changed, never while a finger or the mouse is
+   * down on it or a field has focus, and never for Settings (both reviews: a rebuild every 50 ms ate clicks, reset
+   * scrolling and emptied the save-code box). `force` is for the panel's own buttons.
+   */
+  refresh(force = false) {
+    if (!this.kind) return;
+    if (!force) {
+      if (this.kind === 'settings' || this.pointerDown) return;
+      const active = document.activeElement;
+      if (active && this.sheet.contains(active) && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return;
+      if (this.signature() === this.lastKey) return;
+    }
+    this.render();
+  }
+  private pointerDown = false;
+  private lastKey = '';
+  /** A save code typed or made stays in the same box across re-renders. */
+  private code: HTMLTextAreaElement | null = null;
+  /** What the open panel shows, as one string: when it is unchanged nothing is rebuilt. */
+  private signature() {
+    const s = this.api.state(), p = this.kind === 'plot' ? s.plots[this.arg as number] : null;
+    return JSON.stringify([this.kind, this.arg, language(), this.api.onDeck(), s.glimmer, s.items, s.gear, s.posts, s.keepsakes, s.crew.length, s.notes, s.rescued.length, s.place,
+      s.whale.stage, s.whale.xp, Math.round(s.whale.hunger), Math.round(s.whale.mood), s.whale.specks, s.playSeconds >= s.whale.petAt,
+      p ? [p.tree, p.phase, p.crust, Math.ceil(plotSecondsLeft(s, p))] : null,
+      this.kind === 'map' ? [s.voyage?.to, Math.round((s.voyage?.elapsed ?? 0) / Math.max(1, s.voyage?.duration ?? 1) * 40), this.mapPick] : null]);
+  }
 
   private frame(title: string, ...body: (Node | null)[]) {
-    this.sheet.replaceChildren(h('header', {}, h('h2', {}, title), h('button', { class: 'x', 'aria-label': t('Close'), onclick: () => this.close() }, '✕')), h('div', { class: 'body' }, ...body));
+    // Keep the scroll position when the same panel is re-rendered.
+    const old = this.sheet.querySelector('.body') as HTMLElement | null, keep = old && this.sheet.dataset.kind === this.kind ? old.scrollTop : 0;
+    const fresh = h('div', { class: 'body' }, ...body);
+    this.sheet.replaceChildren(h('header', {}, h('h2', {}, title), h('button', { class: 'x', 'aria-label': t('Close'), onclick: () => this.close() }, '✕')), fresh);
+    this.sheet.dataset.kind = this.kind ?? '';
+    fresh.scrollTop = keep;
+    this.lastKey = this.signature();
   }
   private button(label: string, onClick: () => void, opts: { disabled?: boolean; kind?: string } = {}) {
-    return h('button', { class: `act ${opts.kind ?? ''}`, disabled: opts.disabled, onclick: () => { play('click'); onClick(); this.refresh(); } }, label);
+    return h('button', { class: `act ${opts.kind ?? ''}`, disabled: opts.disabled, onclick: () => { play('click'); onClick(); this.refresh(true); } }, label);
   }
 
   private render() {
@@ -138,7 +172,7 @@ export class Panels {
     for (let i = 0; i < 26; i++) el('circle', { cx: (i * 97) % W, cy: (i * 53) % H, r: 8 + (i % 4) * 5, fill: '#ffffff', opacity: .08 });
     for (const gate of [{ y: -20, label: 'Wind Wall' }, { y: -38, label: 'Storm Belt' }, { y: -58, label: 'Deep Mist' }]) {
       el('line', { x1: 10, x2: W - 10, y1: sy(gate.y), y2: sy(gate.y), stroke: '#bfe2ff', 'stroke-width': 3, 'stroke-dasharray': '6 6', opacity: .55 });
-      el('text', { x: W - 14, y: sy(gate.y) - 5, fill: '#dff0ff', 'font-size': 11, 'text-anchor': 'end' }, t(gate.label));
+      el('text', { x: W - 14, y: sy(gate.y) - 5, fill: '#dff0ff', 'font-size': 12.5, 'text-anchor': 'end' }, t(gate.label));
     }
     for (const id of PLACE_IDS) {
       const p = PLACES[id], [x, y] = p.pos, freed = id !== 'dawnreach' && s.isles[id].freed;
@@ -182,7 +216,7 @@ export class Panels {
         const r = RECIPES[id], st = recipeState(s, id);
         if (st === 'owned' && id !== 'post') return null;
         return h('div', { class: `row ${st}` },
-          h('div', { class: 'grow' }, h('b', {}, t(r.name)), h('small', {}, t(r.effect)), st === 'locked' ? h('small', { class: 'warn' }, r.needsTam && !s.crew.includes('tam') ? t('Only Tam the Smith can make this') : t('Make the tier before it first')) : costLine(s, r.cost, r.glimmer), id === 'post' ? h('small', {}, t('{n}/4 posts built', { n: s.posts.length })) : null),
+          h('div', { class: 'grow' }, h('b', {}, t(r.name)), h('small', {}, t(r.effect)), st === 'locked' ? h('small', { class: 'warn' }, t(lockReason(s, id))) : costLine(s, r.cost, r.glimmer), id === 'post' ? h('small', {}, t('{n}/4 posts built', { n: s.posts.length })) : null),
           this.button(t('Make'), () => this.api.craft(id), { disabled: st !== 'ready' }));
       })));
   }
@@ -253,7 +287,7 @@ export class Panels {
   private settings() {
     const v = getVolume(), api = this.api;
     const slider = (label: string, value: number, on: (v: number) => void) => h('label', { class: 'slider' }, h('span', {}, label), h('input', { type: 'range', min: 0, max: 100, value: Math.round(value * 100), oninput: (e: Event) => on(Number((e.target as HTMLInputElement).value) / 100) }));
-    const code = h('textarea', { class: 'code', rows: 3, placeholder: t('Paste a save code here') }) as HTMLTextAreaElement;
+    const code = this.code ??= h('textarea', { class: 'code', rows: 3, placeholder: t('Paste a save code here') }) as HTMLTextAreaElement;
     return this.frame(t('Settings'),
       h('div', { class: 'acts' },
         this.button('English', () => { setLanguage('en'); }, { kind: language() === 'en' ? 'on' : '' }),

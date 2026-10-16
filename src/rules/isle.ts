@@ -75,6 +75,8 @@ export function hiveBroken(s: GameState, isle: IsleId) {
     if (!s.raidsOwed.includes(isle)) s.raidsOwed.push(isle);
   } else {
     s.story.ended = true;
+    // The Golden Seed drifts down from Hana's moss right away, so a reload during the ending cannot lose it.
+    if (!s.items.seed_golden && !s.plots.some(p => p.tree === 'golden')) give(s, 'seed_golden');
   }
   s.whale.mood = Math.min(WHALE.maxMood, s.whale.mood + WHALE.songMood);
   s.whale.songs++;

@@ -2,7 +2,7 @@ import '@fontsource-variable/nunito';
 import './style.css';
 import { initLanguage, setLanguage, language, t, onLanguage } from './i18n.ts';
 import { loadModels } from './world/assets.ts';
-import { loadGame, saveGame } from './save-game.ts';
+import { loadGame } from './save-game.ts';
 import { catchUp } from './rules/tick.ts';
 import { unlockAudio, startMusic, play } from './sfx.ts';
 import { PROLOGUE, SCENES } from './dialogue.ts';
@@ -25,6 +25,8 @@ const loading = h('div', { class: 'screen loading' }, h('h1', { class: 'logo' },
 app.append(loading);
 
 let game: Game | null = null;
+/** The player has pressed Play (audio may be resumed from then on). */
+let started = false;
 
 async function boot() {
   await loadModels((done, all) => { (document.getElementById('load-i') as HTMLElement).style.width = `${done / all * 100}%`; });
@@ -41,23 +43,25 @@ async function boot() {
   hooks(game);
   document.addEventListener('visibilitychange', () => {
     if (!game) return;
-    if (document.hidden) saveGame(game.state); else catchUp(game.state, Date.now());
+    if (document.hidden) game.save(); else { catchUp(game.state, Date.now()); if (started) unlockAudio(); }
   });
-  window.addEventListener('pagehide', () => { if (game) saveGame(game.state); });
+  window.addEventListener('pagehide', () => { game?.save(); });
+  // iPhone suspends audio after a call or an app switch: any touch brings it back (code review 12).
+  window.addEventListener('pointerdown', () => { if (started) unlockAudio(); }, true);
   game.onEnding = () => ending();
-  onLanguage(() => { if (game) saveGame(game.state); location.reload(); });
+  onLanguage(() => { game?.save(); if (game) game.reloading = true; location.reload(); });
 }
 
 function title(state: GameState, fresh: boolean) {
   const g = game!;
   g.frozenLook = null;
-  const started = !fresh && (state.story.prologueSeen || state.playSeconds > 5);
+  const isStarted = !fresh && (state.story.prologueSeen || state.playSeconds > 5);
   const screen = h('div', { class: 'screen title' },
     h('div', { class: 'title-card' },
       h('h1', { class: 'logo' }, 'Cloudback'),
       h('p', { class: 'tagline' }, t('A cozy sky adventure on the back of a growing whale')),
-      started ? h('p', { class: 'save-line' }, t('{stage} whale · Level {n} · {notes}/3 Notes', { stage: STAGES[state.whale.stage].name, n: state.hero.level, notes: state.notes.length })) : null,
-      h('button', { class: 'act primary big', onclick: () => { unlockAudio(); startMusic(); play('arrive'); screen.remove(); begin(); } }, started ? t('Continue') : t('Play')),
+      isStarted ? h('p', { class: 'save-line' }, t('{stage} whale · Level {n} · {notes}/3 Notes', { stage: STAGES[state.whale.stage].name, n: state.hero.level, notes: state.notes.length })) : null,
+      h('button', { class: 'act primary big', onclick: () => { unlockAudio(); startMusic(); play('arrive'); screen.remove(); begin(); } }, isStarted ? t('Continue') : t('Play')),
       h('div', { class: 'acts' },
         h('button', { class: `act ${language() === 'en' ? 'on' : ''}`, onclick: () => setLanguage('en') }, 'English'),
         h('button', { class: `act ${language() === 'vi' ? 'on' : ''}`, onclick: () => setLanguage('vi') }, 'Tiếng Việt')),
@@ -67,7 +71,7 @@ function title(state: GameState, fresh: boolean) {
 
 function begin() {
   const g = game!;
-  const show = () => { document.body.classList.remove('hide-ui'); g.cinematic = null; };
+  const show = () => { document.body.classList.remove('hide-ui'); g.cinematic = null; started = true; if (g.state.story.ended && !g.state.story.endingSeen) ending(); };
   if (!g.state.story.prologueSeen) prologue(() => { show(); g.state.story.prologueSeen = true; g.frozen = false; g.save(); g.scene_('intro'); });
   else { show(); g.frozen = false; g.scene_('intro'); }
 }

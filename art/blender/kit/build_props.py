@@ -4,7 +4,8 @@ Roots (docs/ART-CONTRACT.md): hut, workbench, kitchen, maptable, ropepost, fishs
 postspot, market, tent, lantern, windmill (child `blades`, pivot at the hub, spins about its local +Z),
 coral_arch, ore_rock, forge, rod (marker `tip`), speck, skydew. Budget 2,000 triangles each.
 Ship-deck set (added later): hatch (child `door` hinged at the back edge; open with door.rotation.x toward
--1.9) and planter (marker `soil`). The cabin interior reuses the owner's Zoo Garden house kit.
+-1.9), planter (marker `soil`) and the raid gong (child `disc` hinged at its top hanging point).
+The cabin interior reuses the owner's Zoo Garden house kit.
 Origins at the ground centre, front (doors, counters) toward glTF +Z. skydew floats: its origin is the
 centre of its underside. The rod's origin is the butt of the handle; it points up (+Y) and leans forward.
 
@@ -649,8 +650,8 @@ def skydew(m):
 # ===================================================== deck hatch + planter
 # Added 2026-10-16: Bao's back is a wooden ship deck; Nana's hut is replaced by a hatch down into the cabin.
 # (The cabin interior reuses the owner's Zoo Garden house kit, so it is not built here.)
-NEW_IDS = ['hatch', 'planter']
-NEW_BUDGET = {'hatch': 1500, 'planter': 600}
+NEW_IDS = ['hatch', 'planter', 'gong']
+NEW_BUDGET = {'hatch': 1500, 'planter': 600, 'gong': 900}
 
 
 def rrect(w, h, r, per=2):
@@ -755,6 +756,43 @@ def planter(m):
     return dict(body=p, children=[], markers=[('soil', Vector((0, 0, 0.27)))])
 
 
+def gong(m):
+    """Raid gong: a golden disc hanging from a chunky wooden frame with feet; striker mallet on a side peg.
+    Child `disc` (the gong, its two cords and loops) pivots at its top hanging point so it wobbles about X."""
+    p = Piece('gong')
+    px, top = 0.82, 1.9
+    for x in (-px, px):
+        p.add(rbox((0.17, 0.17, top - 0.12), 0.05, 1), m['wood_dark'], xf((x, 0, (top - 0.12) / 2 + 0.06)))
+        p.add(K.cbox((0.26, 0.86, 0.14), 0.045), m['wood_dark'], xf((x, 0, 0.07)))
+    p.add(rbox((2.12, 0.21, 0.2), 0.06, 1), m['wood_dark'], xf((0, 0, top - 0.1)))
+    for x in (-1.06, 1.06):
+        p.add(ico0(0.075, (x, 0, top - 0.1)), m['gold'])
+    # Striker mallet hanging from a peg on the right post, padded red head down.
+    peg = Vector((px + 0.02, -0.12, 1.3))
+    p.add(tube([Vector((px, 0.0, 1.3)), peg], 0.025, sides=4, cap_end=True), m['wood_dark'])
+    p.add(tube([peg + Vector((0.0, -0.02, -0.02)), peg + Vector((0.03, -0.03, -0.5))], 0.024, sides=5), m['wood_light'])
+    p.add(rcyl(0.075, 0.18, 0.04, 8, z0=-0.09, arc=1), m['red'], xf(peg + Vector((0.035, -0.035, -0.55)), (0, RAD(90), 0)))
+    # The disc: a rimmed golden gong with a soft glowing ring on its face and a centre boss.
+    d = Piece('gong_disc')
+    hang = Vector((0, 0, top - 0.2))
+    c = Vector((0, 0, hang.z - 0.12 - 0.56))
+    # Bands: back, bronze rim (1-3), domed golden face, a thin glowing ring (5), face, sun-gold boss (7-8).
+    prof = [(0.0, -0.022), (0.5, -0.03), (0.555, -0.012), (0.565, 0.018), (0.52, 0.042), (0.405, 0.05), (0.38, 0.051),
+            (0.2, 0.058), (0.13, 0.078), (0.0, 0.09)]
+    band = {0: 'gold', 1: 'tangerine', 2: 'tangerine', 3: 'tangerine', 4: 'gold', 5: 'glow_gold', 6: 'gold', 7: 'sun', 8: 'sun'}
+    g = lathe(prof, 18, tag=lambda b, s2: band.get(b, 'gold'))
+    d.add(g, {k: m[k] for k in ('gold', 'tangerine', 'glow_gold', 'sun')}, xf(c, (RAD(90), 0, 0)))
+    for x in (-0.2, 0.2):
+        rim = c + Vector((x, 0, math.sqrt(0.56 ** 2 - x * x) - 0.03))
+        d.add(tube([hang + Vector((x * 0.6, 0, 0)), rim], 0.018, sides=3), m['red'])
+    # At rest the face leans ~12 degrees up toward the high game camera (a vertical gold face sits half in
+    # shade and reads olive). The tilt is baked into the mesh; the disc node itself rests at identity.
+    from mathutils import Matrix
+    tilt = Matrix.Rotation(RAD(-12), 3, 'X')
+    d.deform(lambda v: hang + tilt @ (Vector(v) - hang))
+    return dict(body=p, children=[('disc', d, hang)], markers=[])
+
+
 # ===================================================================== main
 def check(stats):
     errors = []
@@ -764,7 +802,7 @@ def check(stats):
             errors.append(f'{n}: {s["tris"]} tris > {limit}')
         if n not in ('skydew', 'hatch') and abs(s['min_y']) > 0.01:
             errors.append(f'{n}: base {s["min_y"]}')
-    want = {'hatch': ['door'], 'planter': ['soil']}
+    want = {'hatch': ['door'], 'planter': ['soil'], 'gong': ['disc']}
     for n, kids in want.items():
         if sorted(stats[n]['children']) != kids:
             errors.append(f'{n}: children {stats[n]["children"]} (want {kids})')
@@ -810,6 +848,30 @@ def hatch_preview(roots, placed, m):
         o.hide_render = False
     K.frame(show2, 1600, margin=0.5)
     style.render(os.path.join(K.PREVIEWS, 'hatch.png'))
+    # gong.png: the gong at rest, and a copy with its disc swung by the code's ring wobble (rotation.x 0.35).
+    for o in show2 + [dk, dk2]:
+        o.hide_render = True
+    rest = roots['gong']
+    rest.location = (-1.4, 0, 0)
+    rung = K.place_copy(rest, (1.4, 0, 0))
+    for o in K.subtree(rung):
+        if o.name.startswith('disc'):
+            o.rotation_euler = (-0.3, 0, 0)
+    deck = Piece('Preview deck strip')
+    for i in range(6):
+        deck.add(K.cbox((5.6, 0.48, 0.06), 0.015), m['wood'] if i % 2 else m['wood_light'], xf((0, -1.2 + 0.5 * i, -0.03)))
+    dko = deck.build(sharp=0)
+    shown3 = K.subtree(rest) + K.subtree(rung)
+    for o in shown3 + [dko]:
+        o.hide_render = False
+    K.frame(shown3 + [dko], 1600, margin=0.2)
+    # Preview only (the GLB is already written): matte materials, as the game's toon ramp has no sky
+    # reflection; the glossy flat gold face otherwise mirrors the blue studio sky and reads olive.
+    for mt in bpy.data.materials:
+        bsdf = next((nd for nd in mt.node_tree.nodes if nd.type == 'BSDF_PRINCIPLED'), None) if mt.use_nodes else None
+        if bsdf:
+            bsdf.inputs['Roughness'].default_value = max(0.7, bsdf.inputs['Roughness'].default_value)
+    style.render(os.path.join(K.PREVIEWS, 'gong.png'))
 
 
 def main():
@@ -862,12 +924,13 @@ def main():
                                                   'lanterns/windows use glow_lantern (set emissive 0 for unlit); '
                                                   'hatch/door pivots on the hinge at the back edge, open with '
                                                   'door.rotation.x -> -1.9; planter/soil: empty marker at the '
-                                                  'soil top; the hatch shaft reaches below y = 0'))
+                                                  'soil top; the hatch shaft reaches below y = 0; gong/disc pivots '
+                                                  'at its top hanging point, wobble it with disc.rotation.x'))
     if '--render' in K.args():
         order = ['hut', 'windmill', 'market', 'forge', 'coral_arch', 'tent',
                  'kitchen', 'workbench', 'maptable', 'fishspot', 'ropepost', 'pantry',
                  'chimepost', 'lantern', 'ore_rock', 'postspot', 'rod', 'speck', 'skydew']
-        new_small = ['hatch', 'planter']
+        new_small = ['hatch', 'planter', 'gong']
         cells = [(roots[n], f'{n}  {stats[n]["tris"]}') for n in order + new_small]
         placed = K.contact_sheet(cells, os.path.join(K.PREVIEWS, 'props.png'), cols=6, pitch=(4.4, 4.7),
                                  width_px=2400, label_size=0.26, label_dy=2.15)

@@ -53,7 +53,7 @@ The Gloom has no body of its own. It grows **crystal shells** around the native 
 
 **Gloom specks** are small crystal flecks that land on Bao when it hovers near a crusted isle. They itch, and Bao's mood drops. The Keeper brushes them off.
 
-**Raids.** When Bao sings, the whole sky hears it, and so does the Gloom. After Bao frees an isle, the Gloom sends a raiding cloud on the next voyage: Gloom forms drop onto Bao's back and try to crust the trees. Small raids can also come while any isle is still grey. The crew climb down the hatch into Nana's cabin, banging pots and ringing bells, because hiding is fine but keeping still is not.
+**Raids.** When Bao sings, the whole sky hears it, and so does the Gloom. After Bao frees an isle, the Gloom sends its **ships** on the next voyage. Crusted grey sky-boats with a glowing eye on the bow come alongside Bao from different sides and lay planks to the deck. Bao's crew call **battle stations**: the garden and every fitting sink below the deck, and two big gongs rise. The raiders want the hatch, because the garden is stored below. The Keeper's best move is to knock them **overboard**: they fall, their crystal bursts in the air, and the animal inside drifts safely down into the clouds. Small raids can also come while any isle is still grey. The crew climb down the hatch, banging pots and ringing bells, because hiding is fine but keeping still is not.
 
 ## 4b. Bao's back: a little sky ship
 
@@ -97,7 +97,7 @@ Every step teaches one verb. The goal card at the top of the screen always shows
 ## 8. Chapter 2: "Lantern Reef" (coral isle, teal and coral pink)
 
 - **The road there.** A **Wind Wall** of roaring cloud surrounds the reef. A calf is too small to cross it, but a Young whale can.
-- **The first raid.** On the way, a grey cloud drifts beside Bao and Gloom forms drop onto the back. You defend the trees. *"Crew, down the hatch, and keep those pots ringing! Hide, but never keep still!"* Afterwards Nana says: *"It heard the song. It will hear every song. Good. Let it hear us. Maybe it's lonely."*
+- **The first raid.** On the way, two Gloom ships come alongside and raiders cross their planks. Battle stations: the garden sinks below, the gongs rise, and you knock the raiders overboard. *"Crew, down the hatch, and keep those pots ringing! Hide, but never keep still!"* Afterwards Nana says: *"It heard the song. It will hear every song. Good. Let it hear us. Maybe it's lonely."*
 - **The reef.** Coral arches, unlit paper lanterns, and tide pools. **Rammers** charge along glowing lines; **Spitters** hide behind coral. Nana explains why Bao has not sung here: *"While a Hive stands, it drinks every song sung near it. Break it, and then Bao can sing."*
 - **Old Kai** is caged on the shore where you land. Once free: *"…Thank you… I'll stay with my boats. Bring me fish stories."* He opens the **Reef Market** (Glowplum and Honeybun seeds; he pays well for people food, because the reef folk are hungry).
 - **Ria** is caged on the lighthouse rocks. *"I saw your whale from up here for an hour before you came down. You need a lookout. I am a lookout."* Ria becomes the crew's **Lookout**.

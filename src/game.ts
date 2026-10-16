@@ -5,11 +5,11 @@ import { RngStreams } from './core/rng.ts';
 import { damp } from './core/feel.ts';
 import { verticalFovForAspect } from './core/camera.ts';
 import { t } from './i18n.ts';
-import { CREW, DECK, ISLE_MAPS, ITEMS, KEEPER, MARKETS, PLACES, POST, RAID, VOYAGE, type CrewId, type FishId, type IsleId, type ItemId, type MealId, type PlaceId, type RecipeId, type TreeId } from './rules/content.ts';
+import { CREW, DECK, ISLE_MAPS, ITEMS, KEEPER, MARKETS, PLACES, POST, RAID, RECIPES, VOYAGE, type CrewId, type FishId, type IsleId, type ItemId, type MealId, type PlaceId, type RecipeId, type TreeId } from './rules/content.ts';
 import { count, hasCrew, newGame, type GameState } from './rules/state.ts';
 import { tickRules, catchUp } from './rules/tick.ts';
-import { crustTree, harvest, plant, ringCrust, uproot } from './rules/garden.ts';
-import { brush, feed, feedAll, grow, pet } from './rules/whale.ts';
+import { crustStored, harvest, plant, ringCrust, uproot } from './rules/garden.ts';
+import { brush, canGrow, feed, feedAll, grow, pet } from './rules/whale.ts';
 import { collectDew, collectTreasure, endRaid, startVoyage } from './rules/voyage.ts';
 import { addXp, eat, heal, maxHp, quickEat, quickEatItem, ringDamage } from './rules/keeper.ts';
 import { faint as rulesFaint, formFreed, groupCleared, hiveBroken, hiveMaxHp, hiveShielded, mineOre, oreReady, pickWild, rescue, spireBroken, tierOf, wildReady, LEFTOVER_FORMS } from './rules/isle.ts';
@@ -28,7 +28,7 @@ import { HiveFight, noteView } from './world/hive.ts';
 import { CottageView, placementOf } from './world/cottage.ts';
 import { HOUSE } from './world/house-plan.ts';
 import { Keeper } from './world/keeper.ts';
-import { part, whole } from './world/assets.ts';
+import { findChild, part, whole } from './world/assets.ts';
 import { makeToon } from './world/look.ts';
 import { Hud, type HudView } from './ui/hud.ts';
 import { Panels, type GameApi, type PanelKind } from './ui/panels.ts';
@@ -38,6 +38,7 @@ import { saveGame, exportCode, importCode, saves } from './save-game.ts';
 import { Governor } from './graphics.ts';
 
 type Mode = 'deck' | 'isle' | 'house' | 'cut';
+interface Ship { ship: T.Object3D; plank: T.Object3D; out: T.Vector3; rim: T.Vector3; dock: T.Vector3; centre: T.Vector3; k: number; leaving: boolean }
 interface Interactable { id: string; pos: T.Vector3; radius: number; label: string; icon: string; act: () => void; auto?: boolean }
 interface Follower { who: CrewId; actor: Actor; boarding: boolean; t: number }
 
@@ -66,7 +67,7 @@ export class Game {
   private campNpc: Actor | null = null;
   private fishing: { state: 'off' | 'wait' | 'bite'; t: number; fish: FishId | null; window: number; bobber: T.Object3D; line: T.Line } ;
   private dews: { o: T.Object3D; treasure: boolean; alive: boolean }[] = [];
-  private raid: { plan: RaidPlan; wave: number; t: number; warn: number; total: number; postT: number[]; drops: { at: T.Vector3; kind: RaidPlan['waves'][number][number]; t: number }[] } | null = null;
+  private raid: { plan: RaidPlan; wave: number; t: number; warn: number; total: number; postT: number[]; ships: Ship[]; queue: { kind: RaidPlan['waves'][number][number]; ship: number; t: number }[]; gongCd: number[] } | null = null;
   private interactables: Interactable[] = [];
   private nearby: Interactable | null = null;
   private focus = new T.Vector3();
@@ -99,7 +100,7 @@ export class Game {
     this.fx = new Fx(uiRoot.querySelector('#float-layer'));
     this.bao = new Bao();
     this.bao.setStage(state.whale.stage, true);
-    this.scene.add(this.sky.group, this.bao.root, this.fx.group, this.camera, this.gloomCloud, this.cabin.group);
+    this.scene.add(this.sky.group, this.bao.root, this.fx.group, this.camera, this.cabin.group, this.ambientPod);
     try { this.settings.shake = localStorage.getItem('cloudback:shake') !== 'off'; } catch { /* default */ }
     if (matchMedia?.('(prefers-reduced-motion: reduce)').matches) this.settings.shake = false;
     this.fx.shakeScale = this.settings.shake ? 1 : 0;
@@ -118,7 +119,8 @@ export class Game {
       freed: (form, at, group, raid, reward) => this.onFreed(form, at, group, raid, reward),
       spire: (i, at) => this.onSpire(i, at),
       cage: (i, at) => this.onCage(i, at),
-      crust: plot => { if (crustTree(this.state, plot)) { this.fx.burst(this.bao.at(DECK.plots[plot]).setY(.8), '#9a8cc8', 12); play('shield'); } },
+      crust: at => { if (crustStored(this.state) >= 0) { this.fx.burst(at.clone().setY(.8), '#9a8cc8', 14); play('shield'); this.hud.toast(t('A raider on the hatch crusted a tree below deck!'), 'warn'); } },
+      overboard: at => { this.state.glimmer += 1; play('dive'); this.fx.ring(at, '#ffffff', .3, 1.6, .35); },
       sound: n => play(n),
       freeze: s => this.loop.freeze(s),
     });
@@ -128,10 +130,10 @@ export class Game {
     for (let i = 0; i < 3; i++) { const o = part('props', 'skydew') ?? (() => { const m = new T.Mesh(new T.IcosahedronGeometry(.7, 1), makeToon('#ffffff', { emissive: '#3a4a7a' })); const g = new T.Group(); g.add(m); return g; })(); o.visible = false; this.scene.add(o); this.dews.push({ o, treasure: false, alive: false }); }
 
     this.hud = new Hud(uiRoot, {
-      context: () => this.useNearby(),
-      ring: () => this.keeper.ring(false), spin: () => this.keeper.ring(true),
-      hop: () => this.keeper.hop(this.hud.stick.x || this.keeper.vel.x, this.hud.stick.z || this.keeper.vel.z),
-      eat: () => this.quickEat(), reel: () => this.reel(),
+      context: () => this.live() && this.useNearby(),
+      ring: () => this.live() && this.keeper.ring(false), spin: () => this.live() && this.keeper.ring(true),
+      hop: () => this.live() && this.keeper.hop(this.hud.stick.x || this.keeper.vel.x, this.hud.stick.z || this.keeper.vel.z),
+      eat: () => this.live() && this.quickEat(), reel: () => this.live() && this.reel(),
       open: p => this.openPanel(p),
       grow: () => this.doGrow(),
     });
@@ -153,6 +155,8 @@ export class Game {
     const blockers: Blocker[] = [];
     return {
       height: () => 0,
+      // Past the gunwale (raiders only; the Keeper is held by clamp).
+      outside: p => { const [a, b] = this.bao.half(); return (p.x / a) ** 2 + (p.z / b) ** 2 > 1.05; },
       clamp: p => {
         const [a, b] = this.bao.half(), ax = a - .55, bz = b - .7;
         const k = (p.x / ax) ** 2 + (p.z / bz) ** 2;
@@ -163,13 +167,22 @@ export class Game {
       },
     } as Ground & { blockers: Blocker[] };
   }
-  /** Deck obstacles: props, the posts and grown trees (rebuilt when the stage or the garden changes). */
+  /** Obstacle lists are rebuilt at most every 0.2 s of game time (code review 15: they were rebuilt per form per step). */
+  private blockMemo = new Map<string, { at: number; list: Blocker[] }>();
+  private memoBlockers(key: string, build: () => Blocker[]) {
+    const hit = this.blockMemo.get(key), now = this.loop?.gameTime ?? 0;
+    if (hit && now - hit.at < .2 && now >= hit.at) return hit.list;
+    const list = build(); this.blockMemo.set(key, { at: now, list }); return list;
+  }
+  /** Deck obstacles: the hatch, fittings, posts and grown trees; at battle stations only the hatch and posts. */
   private deckBlockers() {
     const s = this.state, list: Blocker[] = [];
     const add = (p: readonly [number, number], r: number) => { const v = this.bao.at(p); list.push({ x: v.x, z: v.z, r: r * this.bao.scale }); };
-    add(DECK.hatch, .85); add(DECK.workbench, .65); add(DECK.maptable, .55); add(DECK.pantry, .5); add(DECK.ropepost, .3);
-    if (hasCrew(s, 'mina')) add(DECK.kitchen, .6);
+    add(DECK.hatch, .85);
     s.posts.forEach(i => add(DECK.posts[i], .3));
+    if (this.raid) { DECK.gongs.forEach(g => add(g, .55)); return list; }
+    add(DECK.workbench, .65); add(DECK.maptable, .55); add(DECK.pantry, .5); add(DECK.ropepost, .3);
+    if (hasCrew(s, 'mina')) add(DECK.kitchen, .6);
     s.plots.forEach((p, i) => { if (p.tree && p.phase !== 'empty') add(DECK.plots[i], .32); });
     return list;
   }
@@ -179,7 +192,8 @@ export class Game {
       ...this.combat.cages.filter(c => !c.open).map(c => ({ x: c.pos.x, z: c.pos.z, r: .8 })),
       ...(this.hive && !this.hive.broken ? [{ x: this.hive.pos.x, z: this.hive.pos.z, r: this.hive.radius }] : []),
     ];
-    return { height: (x, z) => isle.height(x, z), clamp: p => isle.clampInside(p), get blockers() { return [...isle.blockers, ...extra()]; } } as Ground;
+    const memo = () => this.memoBlockers('isle', () => [...isle.blockers, ...extra()]);
+    return { height: (x, z) => isle.height(x, z), clamp: p => isle.clampInside(p), get blockers() { return memo(); } } as Ground;
   }
 
   // -------------------------------------------------------------- scenes
@@ -213,14 +227,15 @@ export class Game {
     this.bao.root.visible = true;
     const g = this.deckGround();
     (g as unknown as { blockers: Blocker[] }).blockers;
-    Object.defineProperty(g, 'blockers', { get: () => this.deckBlockers() });
+    Object.defineProperty(g, 'blockers', { get: () => this.memoBlockers('deck', () => this.deckBlockers()) });
     this.keeper.bounds = g; this.combat.ground = g;
     const post = this.bao.at(DECK.ropepost), hatch = this.bao.at(DECK.hatch);
     if (first) this.keeper.place(0, 1.5);
     else if (from === 'hatch') { this.keeper.place(hatch.x + 1.2, hatch.z + .3); this.bao.openHatch(.9); }
     else this.keeper.place(post.x - 1.1, post.z + .4);
-    this.keeper.fainted = false;
+    this.keeper.fainted = false; this.keeper.actor.action = 'none';
     if (this.state.hero.hp <= 0) this.state.hero.hp = maxHp(this.state);
+    this.checkCanGrow();
     this.showIsleBelow();
     this.snapCamera();
     this.applyLook();
@@ -249,7 +264,7 @@ export class Game {
     this.combat.clear();
     for (const w of this.pod) this.scene.remove(w);
     this.pod = [];
-    if (this.hive) { this.combat.group.remove(this.hive.view); this.hive = null; }
+    if (this.hive) { this.hive.dispose(); this.hive = null; }
     for (const f of this.followers) this.scene.remove(f.actor.root);
     this.followers = [];
     if (this.campNpc) { this.scene.remove(this.campNpc.root); this.campNpc = null; }
@@ -268,7 +283,7 @@ export class Game {
       this.isle = v;
       this.clearIsle();
       const g = this.isleGround(v);
-      this.keeper.bounds = g; this.combat.ground = g; this.combat.formsTier = tier; this.combat.plots = [];
+      this.keeper.bounds = g; this.combat.ground = g; this.combat.formsTier = tier; this.combat.raidTarget = null;
       if (!prog.freed) {
         map.groups.forEach((grp, gi) => {
           if (prog.groups[gi]) return;
@@ -278,7 +293,7 @@ export class Game {
         this.hive = new HiveFight(id, new T.Vector3(map.hive[0], v.height(map.hive[0], map.hive[1]), map.hive[1]), this.combat, this.fx, this.keeper, {
           broken: at => this.onHive(at), song: () => this.heartSong(), sound: n => play(n), freeze: x => this.loop.freeze(x),
         }, hiveMaxHp(s, id));
-        this.hive.setShield(hiveShielded(s, id));
+        this.hive.setShield(hiveShielded(s, id), true);
       } else if (prog.leftover) {
         LEFTOVER_FORMS.forEach((f, i) => this.combat.spawn(f, new T.Vector3(map.groups[0].at[0] + i, 0, map.groups[0].at[1]), tier, { group: 99 }));
       }
@@ -292,7 +307,6 @@ export class Game {
       prog.visited = true;
       this.snapCamera(); this.applyLook();
       this.hud.toast(t(PLACES[id].name), 'good');
-      this.scene_(`arrive_${id}`);
       setMusic(prog.freed ? 'calm' : id === 'star' ? 'night' : 'gloom');
     });
   }
@@ -300,7 +314,7 @@ export class Game {
   ascend() {
     this.cut(() => {
       // Followers who were still walking climb up anyway: nobody is lost (design §9).
-      for (const f of this.followers) this.board(f.who);
+      for (const f of [...this.followers]) { const climbing = CREW[f.who].joins && this.state.crew.includes(f.who); this.board(f.who); if (climbing) setTimeout(() => this.scene_(`board_${f.who}`), 800); }
       this.enterDeck();
       setMusic('calm');
     });
@@ -409,7 +423,7 @@ export class Game {
   private strike(origin: T.Vector3, facing: number, reach: number, damage: number, spin: boolean) {
     let hits = this.combat.strike(origin, facing, reach, damage, spin);
     if (this.hive) hits += this.hive.hit(origin, facing, reach, damage, spin) > 0 ? 1 : 0;
-    if (this.mode === 'deck') {
+    if (this.mode === 'deck' && !this.raid) {
       // Ring the crust off raided trees.
       this.state.plots.forEach((p, i) => {
         if (p.crust <= 0) return;
@@ -418,7 +432,8 @@ export class Game {
         hits++;
         const clean = ringCrust(this.state, i);
         this.fx.ring(at, '#ffe28a', .4, 1.6, .3); play('chime');
-        if (clean) { this.fx.burst(at.clone().setY(.8), '#c9b8ff', 14); this.hud.toast(t('The tree is clean again!'), 'good'); this.combat.plots[i] && (this.combat.plots[i].ok = !!p.tree); }
+        if (clean) { this.fx.burst(at.clone().setY(.8), '#c9b8ff', 14); this.hud.toast(t('The tree is clean again!'), 'good'); }
+        this.syncDeck();
       });
     }
     return hits;
@@ -469,7 +484,7 @@ export class Game {
     play('free'); this.fx.sparkle(at.clone().setY(1.4), '#ffffff', 16);
     const f = this.followers.find(x => x.who === r.who);
     if (f) f.t = 0;
-    this.hud.toast(r.joins ? t('{who} is free and follows you!', { who: CREW[r.who].name }) : t('{who} is free and opens a market at the landing!', { who: CREW[r.who].name }), 'good');
+    this.hud.toast(r.joins ? t('{who} is free and heads up to Bao!', { who: CREW[r.who].name }) : t('{who} is free and opens a market at the landing!', { who: CREW[r.who].name }), 'good');
     this.scene_(`rescue_${r.who}`);
     this.save();
   }
@@ -486,9 +501,10 @@ export class Game {
     // The song shatters every shell still standing and opens every cage (logic check 3, 2.3 and 2.4).
     this.combat.freeAll();
     for (const who of r.opened) {
-      const c = this.combat.cages[ISLE_MAPS[id].cages.findIndex(x => x.who === who)] ?? this.combat.cages.find(x => !x.open);
+      const index = ISLE_MAPS[id].cages.findIndex(x => x.who === who), c = this.combat.cages.find(x => x.index === index);
       if (c) { c.open = true; c.view.visible = false; this.fx.sparkle(c.pos.clone().setY(1.2), '#ffe28a', 12); }
       const f = this.followers.find(x => x.who === who); if (f) f.t = 0;
+      setTimeout(() => this.scene_(`rescue_${who}`), 3400);
     }
     setMusic('calm');
     this.hud.toast(id === 'star' ? t('The Grey Heart shatters!') : t('{isle} is free!', { isle: PLACES[id].name }), 'good');
@@ -501,6 +517,7 @@ export class Game {
     this.fx.text(this.keeper.pos, `+${HEART.songHeal}`, 'heal');
     this.fx.sparkle(this.keeper.pos.clone().setY(1), '#ffe28a', 12);
     play('song'); this.hud.toast(t('Bao sings! The Heart’s shield cracks.'), 'good');
+    this.scene_('heart_song');
   }
 
   private onFaint() {
@@ -510,13 +527,14 @@ export class Game {
     if (this.raid) { this.finishRaid(false); return; }
     if (this.mode !== 'isle') { setTimeout(() => { s.hero.hp = maxHp(s); this.keeper.fainted = false; }, 1500); return; }
     const atHive = this.hive && this.hive.awake && !this.hive.broken ? s.place as IsleId : null;
-    if (atHive) s.isles[atHive].cracks = Math.min(3, s.isles[atHive].cracks + 1);
+    const cracked = !!atHive && s.isles[atHive].cracks < 3;
+    rulesFaint(s, atHive); s.stats.faints--; // counted once, above
     setTimeout(() => {
       this.cut(() => {
         s.hero.hp = maxHp(s);
-        for (const f of this.followers) if (s.isles[s.place as IsleId].cages[ISLE_MAPS[s.place as IsleId].cages.findIndex(c => c.who === f.who)]) this.board(f.who);
+        for (const f of [...this.followers]) if (s.isles[s.place as IsleId].cages[ISLE_MAPS[s.place as IsleId].cages.findIndex(c => c.who === f.who)]) this.board(f.who);
         this.enterDeck();
-        this.scene_(atHive ? 'faint_hive' : 'faint', true);
+        this.scene_(cracked ? 'faint_hive' : 'faint', true);
       });
     }, 1100);
   }
@@ -524,67 +542,138 @@ export class Game {
   private levelUp() { play('level'); this.hud.toast(t('Level {n}! You feel stronger.', { n: this.state.hero.level }), 'good'); this.fx.ring(this.keeper.pos, '#ffe28a', .5, 3, .6); }
 
   // ---------------------------------------------------------------- raids
+  /**
+   * A raid is a ship battle (the owner, 2026-10-16): battle stations sink the garden and fittings below the deck (they
+   * are not drawn during the fight), two gongs rise, and Gloom ships come alongside from different sides. Raiders walk
+   * over the planks and head for the hatch; ring them, Spin them or blast them with a gong until they fall overboard.
+   */
   private startRaid() {
-    // The Gloom comes aboard: whoever is in the cabin climbs up to defend the trees.
+    // The Gloom comes aboard: whoever is in the cottage climbs up to defend Bao.
     if (this.mode === 'house') { this.cabin.group.visible = false; this.enterDeck(false, 'hatch'); }
-    const plan = raidPlan(this.state, !this.state.voyage?.scripted);
-    if (!plan) { endRaid(this.state, true, 0); return; }
-    this.gloomCloud.visible = true; this.gloomCloud.scale.setScalar(.2);
+    const small = !this.state.voyage?.scripted;
+    const plan = raidPlan(this.state, small);
+    if (!plan) { if (this.state.voyage) this.state.voyage.raidState = 'done'; return; }
     const warn = hasCrew(this.state, 'ria') ? RAID.warnLookout : RAID.warn;
-    this.raid = { plan, wave: -1, t: 0, warn, total: 0, postT: [], drops: [] };
+    this.stopFishing();
+    this.bao.battle(true);
+    play('slam');
+    this.raid = { plan, wave: -1, t: 0, warn, total: 0, postT: [], ships: this.makeShips(small ? 1 : RAID.ships), queue: [], gongCd: DECK.gongs.map(() => 0) };
+    this.combat.raidTarget = this.bao.at(DECK.hatch);
     play('raid');
-    this.hud.toast(hasCrew(this.state, 'ria') ? t('Ria: “Grey cloud off the side! Get ready!”') : t('A grey cloud! The Gloom is coming aboard!'), 'warn');
+    this.hud.toast(hasCrew(this.state, 'ria') ? t('Ria: “Gloom ships off the side! Battle stations!”') : t('Gloom ships! Battle stations: the garden goes below!'), 'warn');
     this.panels.close();
     if (!this.state.story.flags.scene_raid_first) this.scene_('raid_first');
-    this.combat.plots = this.state.plots.map((p, i) => ({ pos: this.bao.at(DECK.plots[i]), ok: !!p.tree && p.crust === 0 }));
+    this.syncDeck();
   }
+
+  /** Gloom ships on different sides of Bao, each with a boarding plank to the deck's edge. */
+  private makeShips(n: number) {
+    const [a, b] = this.bao.half(), rng = this.rng.stream('raid');
+    const sides = (['left', 'right', 'front', 'back'] as const).map(s => ({ s, k: rng.next() })).sort((x, y) => x.k - y.k).slice(0, n).map(x => x.s);
+    return sides.map(side => {
+      const out = side === 'left' ? new T.Vector3(-1, 0, 0) : side === 'right' ? new T.Vector3(1, 0, 0) : side === 'front' ? new T.Vector3(0, 0, -1) : new T.Vector3(0, 0, 1);
+      const along = (rng.next() - .5) * .5;
+      const rim = side === 'left' || side === 'right' ? new T.Vector3(out.x * a * .96, 0, along * b) : new T.Vector3(along * a, 0, out.z * b * .96);
+      const centre = rim.clone().addScaledVector(out, 5.6), dock = rim.clone().addScaledVector(out, 3.6);
+      const ship = part('gloom', 'gloom_ship', { shadows: false }) ?? makeGloomCloud(true);
+      ship.rotation.y = side === 'left' || side === 'right' ? 0 : Math.PI / 2;
+      const plank = part('gloom', 'plank') ?? (() => { const m = new T.Mesh(new T.BoxGeometry(.8, .1, 3.2).translate(0, -.05, 1.6), makeToon('#8c86a8')); const g = new T.Group(); g.add(m); return g; })();
+      plank.position.copy(dock); plank.rotation.y = Math.atan2(-out.x, -out.z);
+      plank.scale.set(1, 1, Math.max(.5, dock.distanceTo(rim) / 3.2));
+      plank.visible = false;
+      this.scene.add(ship, plank);
+      ship.position.copy(centre).addScaledVector(out, 40); ship.position.y = -8;
+      return { ship, plank, out, rim, dock, centre, k: 0, leaving: false };
+    });
+  }
+
   private updateRaid(dt: number) {
     const r = this.raid; if (!r) return;
     r.t += dt;
-    if (r.wave < 0) { if (r.t >= r.warn) { r.wave = 0; this.spawnWave(); } return; }
+    for (let i = 0; i < r.gongCd.length; i++) r.gongCd[i] = Math.max(0, r.gongCd[i] - dt);
+    if (r.wave < 0) { if (r.t >= r.warn) { r.wave = 0; this.queueWave(); } return; }
     r.total += dt;
     // Chime Posts ring Gloom forms near them.
     this.state.posts.forEach((spot, i) => {
       r.postT[i] = (r.postT[i] ?? 0) + dt;
       if (r.postT[i] < POST.every) return;
       const at = this.bao.at(DECK.posts[spot]);
-      if (!this.combat.forms.some(f => !f.dead && flat(f.pos, at) < POST.radius)) return;
+      if (!this.combat.forms.some(f => !f.dead && !f.boarding && flat(f.pos, at) < POST.radius)) return;
       r.postT[i] = 0;
       this.fx.ring(at, '#ffe28a', .4, POST.radius, .35, .6);
       this.combat.strike(at, 0, POST.radius, ringDamage(this.state) * POST.share * (hasCrew(this.state, 'tam') ? POST.tamBonus : 1), true, true);
     });
-    for (const d of r.drops) { d.t -= dt; if (d.t <= 0) { const f = this.combat.spawn(d.kind, d.at, r.plan.tier, { scale: r.plan.scale, raid: true }); this.fx.burst(f.pos.clone().setY(.6), '#9a8cc8', 10, { speed: 3, up: 3 }); this.fx.shake(.12); } }
-    r.drops = r.drops.filter(d => d.t > 0);
-    if (this.combat.aliveCount() === 0 && !r.drops.length) {
-      if (r.wave + 1 < r.plan.waves.length) { r.wave++; this.spawnWave(); }
+    // Raiders board one after another from each ship.
+    for (const q of r.queue) {
+      q.t -= dt;
+      if (q.t > 0) continue;
+      const ship = r.ships[q.ship], f = this.combat.spawn(q.kind, ship.dock, r.plan.tier, { scale: r.plan.scale, raid: true });
+      const to = ship.rim.clone().addScaledVector(ship.out, -.9);
+      f.boarding = { from: ship.dock.clone(), to, t: 0, len: ship.dock.distanceTo(to) };
+      this.fx.burst(ship.dock.clone().setY(.6), '#9a8cc8', 6, { speed: 2, up: 2 });
+    }
+    r.queue = r.queue.filter(q => q.t > 0);
+    if (this.combat.aliveCount() === 0 && !r.queue.length) {
+      if (r.wave + 1 < r.plan.waves.length) { r.wave++; this.queueWave(); }
       else this.finishRaid(true);
       return;
     }
     if (r.total >= RAID.timeout) this.finishRaid(false);
   }
-  private spawnWave() {
-    const r = this.raid!, wave = r.plan.waves[r.wave], [a, b] = this.bao.half(), rng = this.rng.stream('raid');
-    // Drop spots are marked on the deck before the wave lands (logic check 3, 6.4).
-    wave.forEach(kind => {
-      const ang = rng.next() * Math.PI * 2, rad = .4 + rng.next() * .45;
-      const at = new T.Vector3(Math.cos(ang) * a * rad, 0, Math.sin(ang) * b * rad);
-      this.fx.telegraph('disc', at, { radius: .9, seconds: RAID.drop, color: '#b26bff' });
-      r.drops.push({ at, kind, t: RAID.drop });
-    });
-    this.hud.toast(t('Wave {n} of {all}!', { n: r.wave + 1, all: r.plan.waves.length }), 'warn');
+  private queueWave() {
+    const r = this.raid!, wave = r.plan.waves[r.wave];
+    wave.forEach((kind, i) => { const ship = i % r.ships.length; r.queue.push({ kind, ship, t: .3 + Math.floor(i / r.ships.length) * RAID.boardEvery }); });
+    for (const s of r.ships) s.plank.visible = true;
+    this.hud.toast(t('Wave {n} of {all}! Knock them overboard!', { n: r.wave + 1, all: r.plan.waves.length }), 'warn');
+  }
+  /** A gong: one blast that throws every raider near it toward the edge. */
+  private ringGong(i: number) {
+    const r = this.raid; if (!r) return;
+    if (r.gongCd[i] > 0) { this.hud.toast(t('The gong is still humming…'), 'info'); return; }
+    r.gongCd[i] = RAID.gong.cooldown;
+    const at = this.bao.at(DECK.gongs[i]);
+    this.keeper.actor.lookAt(at.x, at.z); this.keeper.actor.play('swing', .24);
+    this.bao.ringGong(i);
+    play('gong');
+    this.fx.ring(at, '#ffe28a', .6, RAID.gong.radius, .6); this.fx.ring(at, '#ffffff', .3, RAID.gong.radius * .7, .45, .6);
+    this.fx.shake(.35);
+    this.combat.blast(at, RAID.gong.radius, RAID.gong.push, ringDamage(this.state) * RAID.gong.damage);
   }
   private finishRaid(won: boolean) {
     const r = this.raid; if (!r) return;
     endRaid(this.state, won, won ? r.plan.waves.length : 0);
-    // Raiders that give up pop in the sunlight and float off as animals.
+    // Raiders that give up pop in the sunlight and float off as animals; the ships sail away.
     this.combat.freeAll();
-    this.gloomCloud.userData.leaving = true;
+    for (const s of r.ships) { s.leaving = true; s.plank.visible = false; }
+    this.leavingShips.push(...r.ships);
+    this.combat.raidTarget = null;
     this.raid = null;
+    this.bao.battle(false);
     if (won) { play('arrive'); this.hud.toast(t('Raid beaten! +{g} glimmer', { g: r.plan.waves.length * RAID.winPerWave }), 'good'); this.scene_('raid_won'); }
-    else { this.hud.toast(t('The Gloom left… some trees are crusted.'), 'warn'); this.scene_('raid_lost'); }
-    if (this.keeper.fainted) { this.state.hero.hp = maxHp(this.state); this.keeper.fainted = false; }
+    else { this.hud.toast(t('The Gloom left… some trees below deck are crusted.'), 'warn'); this.scene_('raid_lost'); }
+    if (this.keeper.fainted) { this.state.hero.hp = maxHp(this.state); this.keeper.fainted = false; this.keeper.actor.action = 'none'; }
+    this.syncDeck();
     this.save();
   }
+  /** Ships come in from far away during the warning, then sail off when the raid is over. */
+  private updateShips(dt: number) {
+    const live = this.raid?.ships ?? [];
+    for (const s of [...live, ...this.leavingShips]) {
+      s.k = s.leaving ? Math.max(0, s.k - dt / 2.4) : Math.min(1, s.k + dt / Math.max(1.5, this.raid?.warn ?? 3));
+      const e = 1 - (1 - s.k) ** 3;
+      s.ship.position.copy(s.centre).addScaledVector(s.out, 40 * (1 - e));
+      s.ship.position.y = -8 * (1 - e) + Math.sin(this.loop.realTime * 1.3 + s.centre.x) * .25;
+      s.ship.rotation.z = Math.sin(this.loop.realTime * .9 + s.centre.z) * .04;
+      const sail = findChild(s.ship, 'sail') ?? findChild(s.ship, 'balloon');
+      if (sail) sail.rotation.z = Math.sin(this.loop.realTime * 1.7) * .06;
+    }
+    this.leavingShips = this.leavingShips.filter(s => {
+      if (s.k > 0) return true;
+      this.scene.remove(s.ship, s.plank);
+      return false;
+    });
+  }
+  private leavingShips: Ship[] = [];
 
   // --------------------------------------------------------------- fishing
   private makeFishing() {
@@ -599,7 +688,7 @@ export class Game {
   }
   private startFishing() {
     const f = this.fishing, spot = this.bao.at(DECK.fishspot);
-    if (this.state.school.left <= 0) { this.hud.toast(t('The fish are hiding. Try again in a little while.'), 'info'); return; }
+    if ((this.state.schools[this.state.place]?.left ?? 0) <= 0) { this.hud.toast(t('The fish are hiding. Try again in a little while.'), 'info'); return; }
     f.state = 'wait'; f.t = biteWait(this.rng.stream('fish'));
     f.bobber.position.set(spot.x + .2, -1.6, spot.z + 3.4 * this.bao.scale);
     f.bobber.visible = f.line.visible = true;
@@ -670,7 +759,10 @@ export class Game {
   private buildInteractables() {
     const s = this.state, list: Interactable[] = [];
     const add = (id: string, pos: T.Vector3, radius: number, label: string, icon: string, act: () => void) => list.push({ id, pos, radius, label, icon, act });
-    if (this.mode === 'deck') {
+    if (this.mode === 'deck' && this.raid) {
+      // Battle stations: only the gongs are on deck.
+      DECK.gongs.forEach((g, i) => add(`gong${i}`, this.bao.at(g), 1.8, 'Ring the gong', '🔔', () => this.ringGong(i)));
+    } else if (this.mode === 'deck') {
       const at = (p: readonly [number, number]) => this.bao.at(p);
       s.plots.forEach((p, i) => {
         const pos = at(DECK.plots[i]);
@@ -719,6 +811,9 @@ export class Game {
     for (const it of list) { if (!it.radius) continue; const d = flat(this.keeper.pos, it.pos), score = d + (it.id.startsWith('crew-') ? .7 : 0); if (d < it.radius && score < bd) { bd = score; best = it; } }
     this.nearby = best;
   }
+  /** True while play is running (no panel, no speech, no scene change): HUD buttons act only then (code review 10). */
+  private live() { return !(this.panels.open || this.hud.talking || this.mode === 'cut' || this.frozen); }
+
   /** Use the nearest thing, measured now (not at the last frame), so a press right after a move hits what is in reach. */
   private useNearby() { if (this.mode === 'deck' || this.mode === 'isle' || this.mode === 'house') this.buildInteractables(); const n = this.nearby; if (n && !this.paused) n.act(); }
 
@@ -769,7 +864,7 @@ export class Game {
     const at = this.bao.at(DECK.plots[i]).setY(1.2);
     this.fx.sparkle(at, '#ffe28a', 8); this.fx.text(at, `+${r.n} ${t(ITEMS[r.item].name)}`, 'gain');
     play('harvest');
-    this.scene_('harvested');
+    if (ITEMS[r.item].kind === 'whale') this.scene_('harvested');
     this.syncDeck();
   }
   private doFeedAll() {
@@ -785,9 +880,10 @@ export class Game {
     this.fx.burst(at, '#ff7fa8', Math.min(24, 4 + pieces * 2), { speed: 3, up: 4, size: .14 });
     this.fx.text(at, `+${xp} ${t('growth')}`, 'gain');
     this.bao.happy(); play('feed'); setTimeout(() => play('hum'), 300);
-    if (this.state.whale.stage < 3 && !this.state.story.flags.scene_can_grow && this.canGrowNow()) this.scene_('can_grow');
+    this.checkCanGrow();
   }
-  private canGrowNow() { const s = this.state; const st = s.whale.stage; return st < 3 && s.whale.xp >= [450, 1000, 1900][st] && s.notes.length > st; }
+  /** Nana's 'Bao can grow!' line, the first time the badge lights up (logic review 5). */
+  private checkCanGrow() { if (!this.state.story.flags.scene_can_grow && canGrow(this.state) && !this.state.voyage) this.scene_('can_grow'); }
   private doBrush(i: number) {
     if (!brush(this.state).ok) return;
     const sp = this.bao.specks[Math.min(i, this.bao.specks.length - 1)];
@@ -822,6 +918,7 @@ export class Game {
   }
   /** A nap in Nana's bed: full health, a saved game, and Bao's lullaby. */
   private doRest() {
+    if (!this.live()) return;
     const s = this.state;
     const veil = this.uiRoot.querySelector('#veil') as HTMLElement;
     veil.classList.add('on');
@@ -881,6 +978,8 @@ export class Game {
     const s = this.state, now = Date.now();
     this.paused = this.panels.open || this.hud.talking || this.mode === 'cut' || this.frozen;
     this.keys.now = this.loop.gameTime;
+    // F (or Enter) also turns the page of the speech card (code review 18).
+    if (this.hud.talking && !this.panels.open && this.keys.pressed('interact')) this.hud.next();
     if (this.paused) { catchUp(s, now); this.keys.endStep(); return; }
     // Input → intents.
     const kx = (this.keys.isDown('right') ? 1 : 0) - (this.keys.isDown('left') ? 1 : 0), kz = (this.keys.isDown('down') ? 1 : 0) - (this.keys.isDown('up') ? 1 : 0);
@@ -914,7 +1013,7 @@ export class Game {
     if (ev.gifts.length) { this.scene_('nana_gift', true); }
     if (ev.leftover) this.hud.toast(t('Leftover Gloom crept back onto {place}.', { place: PLACES[ev.leftover as IsleId].name }), 'warn');
     if (ev.voyage === 'raid') this.startRaid();
-    if (ev.voyage === 'dew') this.spawnDew(false);
+    if (ev.voyage === 'dew' && this.mode === 'deck') this.spawnDew(false);
     if (s.voyage?.treasure && s.voyage.elapsed > s.voyage.duration * .6 && !this.dews.some(d => d.treasure && d.alive)) { this.spawnDew(true); }
     if (ev.voyage === 'arrive') this.arrive();
     // Story triggers that depend on state.
@@ -927,7 +1026,9 @@ export class Game {
   private arrive() {
     const s = this.state;
     play('arrive');
-    this.showIsleBelow();
+    if (this.mode === 'deck') this.showIsleBelow();
+    if (s.place !== 'dawnreach') setTimeout(() => this.scene_(`arrive_${s.place}`), 900);
+    this.checkCanGrow();
     this.dews.forEach(d => { d.alive = false; d.o.visible = false; });
     this.hud.toast(t('Bao is over {place}.', { place: PLACES[s.place].name }), 'good');
     if (s.place !== 'dawnreach' && !s.isles[s.place as IsleId].freed) setMusic(s.place === 'star' ? 'night' : 'gloom'); else setMusic('calm');
@@ -949,18 +1050,14 @@ export class Game {
       this.fx.sparkle(n.position, '#ffe28a', 1, .6);
       if (this.note.t > 2.2) { this.scene.remove(n); this.note = null; }
     }
-    // The raiding cloud swells beside Bao, then drifts off and fades when the raid ends.
-    const gc = this.gloomCloud;
-    if (gc.visible) {
-      const [a] = this.bao.half();
-      gc.position.set(a + 6, 2 + Math.sin(this.loop.realTime) * .4, -2);
-      gc.rotation.y += realDt * .2;
-      const target = gc.userData.leaving ? 0 : 1;
-      const k = damp(gc.scale.x, target, 2.2, realDt); gc.scale.setScalar(k);
-      if (gc.userData.leaving && k < .05) { gc.visible = false; gc.userData.leaving = false; }
-    }
+    // Trees ripen, Pip picks, raids crust: the deck follows the save a few times a second (logic review 4).
+    this.syncT += realDt;
+    if (this.syncT > .25 && this.mode === 'deck') { this.syncT = 0; this.bao.sync(this.state, !!this.raid); }
+    this.updateShips(realDt);
+    this.updateAmbientPod(realDt);
     for (const p of this.pod) if (p.userData.rising) { p.position.y = Math.min(p.userData.toY, p.position.y + realDt * 1.8); p.rotation.y += realDt * .04; }
-    if (this.mode === 'deck' || this.mode === 'isle' || this.mode === 'house') this.buildInteractables();
+    this.interactT += realDt;
+    if (this.interactT > .1 && (this.mode === 'deck' || this.mode === 'isle' || this.mode === 'house')) { this.interactT = 0; this.buildInteractables(); }
     if (this.mode === 'house') this.cabin.update(realDt, this.keeper.pos);
     // Camera: follow the Keeper.
     const aspect = this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight);
@@ -1013,7 +1110,7 @@ export class Game {
       context: this.nearby ? this.nearby.label : null, contextIcon: this.nearby?.icon ?? '✋',
       fishing: this.fishing.state, cooldowns: { spin: this.keeper.spinCd / KEEPER.spin.cooldown, hop: this.keeper.hopCd / KEEPER.hop.cooldown },
       eat: quickEatItem(s), place: PLACES[s.place].name,
-      raid: this.raid ? (this.raid.wave < 0 ? t('Gloom raid in {n}…', { n: Math.ceil(this.raid.warn - this.raid.t) }) : t('Raid: free every Gloom form! {n}s', { n: Math.max(0, Math.ceil(RAID.timeout - this.raid.total)) })) : null,
+      raid: this.raid ? (this.raid.wave < 0 ? t('Gloom ships in {n}…', { n: Math.ceil(this.raid.warn - this.raid.t) }) : t('Ship battle! {n}s', { n: Math.max(0, Math.ceil(RAID.timeout - this.raid.total)) })) : null,
     };
     if (hive) { view.boss = hive.hp / hive.max; view.bossName = hive.id === 'greyheart' ? 'Grey Heart' : hive.id[0].toUpperCase() + hive.id.slice(1); view.bossShield = hive.shielded; }
     this.hud.update(s, g, view);
@@ -1029,9 +1126,9 @@ export class Game {
       this.keeper.actor.mallet.traverse(o => { const m = o as T.Mesh; if (!m.isMesh) return; m.userData.plain ??= m.material; m.material = gold ? GOLD : m.userData.plain; });
     } if (this.mode === 'deck' && !this.crewPlaced) { this.placeCrew(); this.crewPlaced = true; } }
   private crewPlaced = false;
+  private syncT = 0;
+  private interactT = 0;
   cabin = new CottageView();
-  /** The grey raiding cloud that drifts beside Bao while the Gloom comes aboard. */
-  private gloomCloud = makeGloomCloud();
 
   private snapCamera() { const k = this.keeper.pos; this.focus.copy(k); }
 
@@ -1045,7 +1142,9 @@ export class Game {
     this.camera.updateProjectionMatrix();
   }
 
-  save() { saveGame(this.state); }
+  /** Set while the page reloads into another save (Start over, Load code): nothing may save the old game then. */
+  reloading = false;
+  save() { if (!this.reloading) saveGame(this.state); }
 
   // ----------------------------------------------------------------- ending
   /**
@@ -1061,6 +1160,25 @@ export class Game {
       w.position.set(x, freed ? 8 + scale * 3 : y, z); w.rotation.y = rot; w.scale.setScalar(scale);
       w.userData.toY = 8 + scale * 3;
       this.scene.add(w); this.pod.push(w);
+    }
+  }
+
+  /** After the ending the pod drifts across the sky around Bao (STORY §11), Grand Hana the biggest. */
+  private ambientPod = new T.Group();
+  private updateAmbientPod(dt: number) {
+    const show = this.state.story.ended && this.state.story.endingSeen && this.mode === 'deck';
+    if (show && !this.ambientPod.children.length) {
+      ([[2.2, 70, 0], [1.4, 52, 2.1], [1.3, 60, 4.2]] as [number, number, number][]).forEach(([scale, r, a]) => {
+        const w = whole('whale') ?? new T.Group(); w.scale.setScalar(scale); w.userData.orbit = { r, a }; this.ambientPod.add(w);
+      });
+    }
+    this.ambientPod.visible = show;
+    if (!show) return;
+    for (const w of this.ambientPod.children) {
+      const o = w.userData.orbit as { r: number; a: number };
+      o.a += dt * .03;
+      w.position.set(Math.cos(o.a) * o.r, -10 + Math.sin(o.a * 3) * 2, Math.sin(o.a) * o.r - 20);
+      w.rotation.y = -o.a + Math.PI;
     }
   }
 
@@ -1089,14 +1207,22 @@ export class Game {
       pet: () => { const r = pet(g.state); if (r.ok) { g.bao.happy(); play('hum'); g.hud.toast(t('Bao hums happily.'), 'good'); } },
       grow: () => g.doGrow(),
       sail: to => g.sail(to),
-      craft: (id: RecipeId) => { const r = craft(g.state, id); if (!r.ok) g.hud.toast(t(r.why), 'warn'); else { play('chime'); g.hud.toast(t('Made: {thing}', { thing: id === 'post' ? 'Chime Post' : id === 'rope' ? 'Climbing Rope' : id === 'line' ? 'Good Line' : id.startsWith('mallet') ? `Mallet ${'I'.repeat(Number(id.slice(-1))).replace('IIII', 'IV')}` : `Coat ${'I'.repeat(Number(id.slice(-1))).replace('IIII', 'IV')}` }), 'good'); g.syncDeck(); if (maxHp(g.state) > g.state.hero.hp) g.state.hero.hp = Math.min(maxHp(g.state), g.state.hero.hp + 40); g.save(); } },
+      craft: (id: RecipeId) => {
+        const before = maxHp(g.state), r = craft(g.state, id);
+        if (!r.ok) { g.hud.toast(t(r.why), 'warn'); return; }
+        play('chime'); g.hud.toast(t('Made: {thing}', { thing: RECIPES[id].name }), 'good');
+        // A new coat adds its health straight away.
+        g.state.hero.hp = Math.min(maxHp(g.state), g.state.hero.hp + Math.max(0, maxHp(g.state) - before));
+        g.syncDeck(); g.save();
+      },
       cook: (id: MealId) => { const r = cook(g.state, id); if (!r.ok) g.hud.toast(t(r.why), 'warn'); else { play('harvest'); g.hud.toast(t('Mina cooked a {meal}!', { meal: ITEMS[id].name }), 'good'); } },
       sell: (isle, item, n) => { const r = sell(g.state, isle, item, n); if (r.ok) play('coin'); else g.hud.toast(t(r.why), 'warn'); },
       buy: (isle, item) => { const r = buy(g.state, isle, item); if (r.ok) play('coin'); else g.hud.toast(t(r.why), 'warn'); },
       eat: item => { const r = eat(g.state, item); if (r.ok) { g.fx.text(g.keeper.pos, `+${r.heal}`, 'heal'); play('feed'); } else g.hud.toast(t(r.why), 'warn'); },
       exportSave: () => exportCode(g.state),
-      importSave: code => { const s = importCode(code); if (!s) return false; saveGame(s); location.reload(); return true; },
-      reset: () => { try { localStorage.removeItem(saves.key); } catch { /* ignore */ } saveGame(newGame(`cb-${Date.now() % 1e9}`)); location.reload(); },
+      // The old game must not be saved over the new one while the page unloads (logic review 3).
+      importSave: code => { const s = importCode(code); if (!s) return false; g.reloading = true; saveGame(s); location.reload(); return true; },
+      reset: () => { g.reloading = true; try { localStorage.removeItem(saves.key); } catch { /* ignore */ } saveGame(newGame(`cb-${Date.now() % 1e9}`)); location.reload(); },
       replayPrologue: () => { g.state.story.prologueSeen = false; g.save(); location.reload(); },
       settings: {
         get shake() { return g.settings.shake; },
@@ -1115,12 +1241,14 @@ export class Game {
 }
 
 const GOLD = makeToon('#ffc83a', { emissive: '#5a3a00' });
-function makeGloomCloud() {
+/** A crusted cloud raft: the stand-in Gloom ship before gloom.glb has one (raft = flat-topped, raiders stand on it). */
+function makeGloomCloud(raft = false) {
   const g = new T.Group(), dark = makeToon('#5e5878'), light = makeToon('#8c86a8');
+  if (raft) { const deck = new T.Mesh(new T.CylinderGeometry(3.2, 2.6, .5, 18), dark); deck.scale.z = 1.5; deck.position.y = -.25; g.add(deck); }
   const lumps: [number, number, number, number][] = [[0, 0, 0, 2.6], [2.2, -.3, .6, 1.9], [-2.1, -.2, -.4, 2], [.6, .9, -.8, 1.7], [-.8, -.6, 1.4, 1.6]];
-  lumps.forEach(([x, y, z, r], i) => { const m = new T.Mesh(new T.IcosahedronGeometry(r, 2), i % 2 ? light : dark); m.position.set(x, y, z); g.add(m); });
+  lumps.forEach(([x, y, z, r], i) => { const m = new T.Mesh(new T.IcosahedronGeometry(r, 2), i % 2 ? light : dark); m.position.set(x, raft ? y - 2.6 : y, z); g.add(m); });
   const eye = new T.Mesh(new T.SphereGeometry(.55, 14, 10), makeToon('#b26bff', { emissive: '#8a3dff' })); eye.position.set(-1.2, .5, 2.2); g.add(eye);
-  g.visible = false;
+  g.visible = raft;
   return g;
 }
 

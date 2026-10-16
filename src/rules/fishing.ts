@@ -13,12 +13,15 @@ export function rollFish(rng: Rng, place: PlaceId, line: boolean): FishId {
 export const biteWindow = (fish: FishId, line: boolean) => FISHING.window[fish] + (line ? FISHING.lineBonus : 0);
 export const biteWait = (rng: Rng) => rng.range(FISHING.wait[0], FISHING.wait[1]);
 /** Fish bite only while the school here has bites left; it refills one every 40 s of play (logic check 3, 3.3). */
-export const schoolLeft = (s: GameState) => s.school.left;
-export function takeBite(s: GameState) { if (s.school.left <= 0) return false; s.school.left--; return true; }
+export const schoolLeft = (s: GameState) => s.schools[s.place]?.left ?? 0;
+export function takeBite(s: GameState) { const sc = s.schools[s.place]; if (!sc || sc.left <= 0) return false; sc.left--; return true; }
+/** Every place's school refills while you play, wherever Bao is. */
 export function tickSchool(s: GameState, dt: number) {
-  if (s.school.left >= FISHING.school) { s.school.t = 0; return; }
-  s.school.t += dt;
-  if (s.school.t >= FISHING.refill) { s.school.t = 0; s.school.left++; }
+  for (const sc of Object.values(s.schools)) {
+    if (sc.left >= FISHING.school) { sc.t = 0; continue; }
+    sc.t += dt;
+    if (sc.t >= FISHING.refill) { sc.t = 0; sc.left++; }
+  }
 }
 export function landFish(s: GameState, fish: FishId) {
   give(s, fish);

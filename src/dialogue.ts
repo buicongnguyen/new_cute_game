@@ -32,9 +32,9 @@ export const SCENES: Record<string, Line[]> = {
   freed_clover: [{ who: 'bao', text: '♪ Aaa-ooooo! ♪' }, { who: 'nana', text: 'One Note. Your mother is somewhere under all that grey, little one. We’ll find the rest.' }],
   can_grow: [{ who: 'nana', text: 'The Note hums inside Bao. When it has eaten enough, it can grow. Tap Grow on Bao’s card!' }],
   grown_1: [{ who: 'nana', text: 'Look at you! A Young whale. Strong enough for the Wind Wall around Lantern Reef.' }],
-  raid_first: [{ who: 'nana', text: 'A grey cloud! It heard the song. Protect the trees, child. Crew, down the hatch, and keep those pots ringing! Hide, but never keep still!' }],
+  raid_first: [{ who: 'nana', text: 'Gloom ships! It heard the song. Battle stations: the garden goes below, the gongs come up. Crew, down the hatch, and keep those pots ringing! Hide, but never keep still!' }, { who: 'nana', text: 'Knock them overboard, child! Ring the gongs to blast them to the edge. Keep them off the hatch!' }],
   raid_won: [{ who: 'nana', text: 'It will hear every song. Good. Let it hear us. Maybe it’s lonely.' }],
-  raid_lost: [{ who: 'nana', text: 'They crusted some trees. Ring the crust off and they will grow again.' }],
+  raid_lost: [{ who: 'nana', text: 'They crusted some trees below deck. Ring the crust off and they will grow again.' }],
   arrive_reef: [{ who: 'nana', text: 'Lantern Reef. The lanterns used to light the whole sea at night.' }, { who: 'nana', text: 'While a Hive stands, it drinks every song sung near it. Break it, and then Bao can sing.' }],
   rescue_kai: [{ who: 'kai', text: '…Thank you… I’ll stay with my boats. Bring me fish stories. And people food: my neighbours will come out of hiding hungry.' }],
   rescue_ria: [{ who: 'ria', text: 'I saw your whale from my lighthouse for an hour before you came down. You need a lookout. I am a lookout.' }],
@@ -61,10 +61,10 @@ export const SCENES: Record<string, Line[]> = {
 
 /** What crew say when you talk to them on the deck (a few each, in turn). */
 export const CHATTER: Record<CrewId, string[]> = {
-  nana: ['Feed Bao often: a happy whale makes the trees grow faster.', 'Brush the Gloom specks off. They make Bao grumpy.', 'Whales carry gardens. Gardens feed whales.'],
+  nana: ['Pat Bao, brush its specks and treat it to sky fish: a happy whale makes the trees grow faster.', 'Brush the Gloom specks off. They make Bao grumpy.', 'Whales carry gardens. Gardens feed whales.'],
   pip: ['I’ve got the trees! You go ring some crystals.', 'Glowplums make Bao grow so fast. If only we had seeds…', 'Starfigs! Starfigs are the best whale food in the sky.'],
   mina: ['Fish Buns make you hit harder. Sky Stew makes you tougher.', 'A Pear Tart a day keeps the Gloom away. Probably.', 'My honey buns are the best in the sky. Ask anyone.'],
-  tam: ['Chime posts ring by themselves when the Gloom comes aboard.', 'Ore and chimewood: that’s what a good mallet wants.'],
-  ria: ['I’ll shout before any grey cloud gets close.', 'Treasure cloud off the side! Tap it when you see it.', 'I can see where the Gloom will land. Watch the marks!'],
+  tam: ['Chime posts ring by themselves when the Gloom comes aboard, and slow the raiders down.', 'Ore and chimewood: that’s what a good mallet wants.'],
+  ria: ['I’ll shout before any Gloom ship gets close.', 'Treasure cloud off the side! Tap it when you see it.', 'Gloom ships board over planks. Meet them at the edge and push!'],
   olla: ['Fish! Clover folk love fish.'], kai: ['People food for the reef folk, please.'], coal: ['Whale food sells well here. Don’t ask why.'],
 };

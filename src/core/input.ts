@@ -56,6 +56,9 @@ export class ActionMap<A extends string> {
   attach(target: Pick<Window, 'addEventListener' | 'removeEventListener'> & { document?: Document }) {
     const onKey = (e: KeyboardEvent) => {
       const action = this.byCode.get(e.code); if (!action) return;
+      // A focused button or field keeps its keys (Enter/Space on Play, typing a save code).
+      const el = (e.target as Element | null);
+      if (el && typeof el.closest === 'function' && el.closest('button, input, textarea, select, [contenteditable]')) return;
       if (e.type === 'keydown') { if (!e.repeat) this.press(action); if (!this._blocked) e.preventDefault(); }
       else this.release(action);
     };
