@@ -686,7 +686,7 @@ export class Game {
       add('pantry', at(DECK.pantry), 1.4, 'Bag', '🎒', () => this.openPanel('bag'));
       add('hatch', at(DECK.hatch), 1.6, 'Go inside', '🚪', () => this.enterHouse());
       add('rope', at(DECK.ropepost), 1.5, s.place === 'dawnreach' || s.voyage ? 'Rope' : 'Go down', '🪢', () => this.descend());
-      add('fish', at(DECK.fishspot), 1.7, 'Fish', '🎣', () => this.startFishing());
+      add('fish', at(DECK.fishspot), 1.7, 'Go fishing', '🎣', () => this.startFishing());
       for (const [id, a] of this.bao.crew) if (s.crew.includes(id) && a.root.visible) add(`crew-${id}`, a.root.position, 1.4, 'Talk', '💬', () => this.talk(id));
       for (const d of this.dews) if (d.alive) add('dew', d.o.position, 0, 'Catch', '✨', () => this.catchDew(d));
     } else if (this.mode === 'house') {

@@ -885,8 +885,10 @@ def contact_sheet(cells, path, cols, pitch=(3.0, 3.0), width_px=2400, label_size
         placed.append(label(text, (x, y - ldy, label_size * 0.9), label_size))
     # Big roots (below=[(obj, text, depth)]) go in their own rows under the grid, centred.
     y_edge = ((rows - 1) / 2 - (rows - 1)) * py - py * 0.5
-    for obj, text, depth in (below or []):
-        y = y_edge - depth / 2 - 0.6
+    for item in (below or []):
+        obj, text, depth = item[:3]
+        gap = item[3] if len(item) > 3 else 0.6
+        y = y_edge - depth / 2 - gap
         obj.location = (0, y, 0)
         placed += [o for o in subtree(obj)]
         placed.append(label(text, (0, y - depth / 2 - 0.5, label_size * 0.9), label_size))

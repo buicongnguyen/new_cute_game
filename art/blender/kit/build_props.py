@@ -879,7 +879,20 @@ def cabin_room(m):
         a = TAU * k / N
         pts.append((4.62 * math.cos(a), 4.62 * math.sin(a), H + 0.05))
         radii.append(0.12 + 0.035 * math.sin(7 * a) + 0.025 * math.sin(13 * a + 1.0))
-    p.add(tube(pts, radii, sides=5, flatten=1.35), m['leaf'])
+    garland = tube(pts, radii, sides=5, flatten=1.35)
+    wrng = random.Random(17)
+    lumps = {(r, sd): 1.0 + wrng.uniform(-0.22, 0.32) for r in range(N) for sd in range(5)}
+    for idx, v in enumerate(garland.verts):
+        ring, sd = idx // 5, idx % 5
+        c = Vector(pts[ring])
+        v.xyz = c + (v - c) * lumps[(ring % N, sd)]
+    p.add(garland, m['leaf'])
+    for j in range(30):
+        a = TAU * (j + 0.3) / 30
+        base = Vector((4.62 * math.cos(a), 4.62 * math.sin(a), H + 0.13))
+        for b2, (dyaw, pitch, ln) in enumerate(((0.5, 62, 0.26), (-0.6, 70, 0.22))):
+            yaw = a + math.pi / 2 + dyaw + (math.pi if j % 2 else 0.0)
+            p.add(leaf(ln, 0.11, 2, 'blade', 0.4, -0.2), m['leaf_light'] if b2 else m['leaf'], leaf_frame(base, yaw, RAD(pitch)))
     k = 0
     for j in range(36):
         a = TAU * (j + 0.5) / 36
@@ -1163,7 +1176,8 @@ def cabin_preview(roots, placed, m):
     for o in shown:
         o.hide_render = True
     deck = Piece('Preview deck')
-    deck.add(lathe([(1.0, 0.0), (5.5, 0.0)], 32, tag=lambda b, s2: s2 % 2), {0: m['wood'], 1: m['wood_light']})
+    deck.add(lathe([(1.0, 0.0), (1.3, 0.0), (1.6, 0.0), (1.9, 0.0), (2.2, 0.0)], 32, tag=lambda b, s2: b % 2),
+             {0: m['wood'], 1: m['wood_light']})
     dk = deck.build(sharp=0)
     dk.location = (0, 0, -0.002)
     hatch_open = K.place_copy(roots['hatch'], (2.3, 0, 0))
@@ -1241,7 +1255,7 @@ def main():
         cells = [(roots[n], f'{n}  {stats[n]["tris"]}') for n in order + new_small]
         placed = K.contact_sheet(cells, os.path.join(K.PREVIEWS, 'props.png'), cols=6, pitch=(4.4, 4.7),
                                  width_px=2400, label_size=0.26, label_dy=2.15,
-                                 below=[(roots['cabin_room'], f'cabin_room  {stats["cabin_room"]["tris"]}', 10.0)])
+                                 below=[(roots['cabin_room'], f'cabin_room  {stats["cabin_room"]["tris"]}', 10.0, 5.5)])
         roots['skydew'].location.z += 0.6  # it floats
         for tag, names in (('a', order[:6]), ('b', order[6:12]), ('c', order[12:]), ('d', new_small[:5]),
                            ('e', new_small[5:])):

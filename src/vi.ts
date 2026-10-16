@@ -15,6 +15,7 @@
  *   the Deep Song = Khúc Ca Thẳm Sâu · song = khúc ca · pod = đàn cá voi · sky whale = cá voi trời · Cloud Sea = Biển Mây
  *   glimmer = lấp lánh · Keeper = Người Giữ Vườn · backfolk = dân lưng cá voi · crew = đồng đội · raid = tập kích
  *   ring (with the mallet) = gõ (chuông) · moss patch = ô rêu · Workbench = Bàn Chế Tạo · Chime Post = Cột Chuông
+ *   hatch = cửa hầm · cabin home = nhà · stove = bếp lò · shelf = kệ · Kitchen = Bếp
  *   Mallet = Búa Chuông · Coat = Áo Choàng · Good Line = Dây Câu Tốt · Climbing Rope = Dây Thừng Leo · map table = bàn bản đồ
  *   Dawnreach = Vùng Rạng Đông · Clover Rise = Đồi Cỏ Ba Lá · Lantern Reef = Rạn Đèn Lồng · Ember Peaks = Đỉnh Than Hồng
  *   The Grey Star = Ngôi Sao Xám · Wind Wall = Tường Gió · Storm Belt = Vành Đai Giông · Deep Mist = Màn Sương Thẳm
@@ -30,6 +31,7 @@
  *   Grand Hana = Mẹ Hana · Mentor / Gardener / Cook / Smith / Lookout = Người thầy / Thợ làm vườn / Nấu ăn / Thợ rèn / Người canh gác
  */
 export const VI: Record<string, string> = {
+  'Go fishing': 'Câu cá',
   '+120 max HP': '+120 HP tối đa',
   '+20% damage': '+20% sát thương',
   '+40 max HP': '+40 HP tối đa',
@@ -410,7 +412,17 @@ export const VI: Record<string, string> = {
   '♪ Mmmmm… ♪': '♪ Mmmmm… ♪',
   '♪ Ooo-aaa-ooo-AAA! ♪': '♪ Ooo-aaa-ooo-AAA! ♪',
   '♪ Ooo-aaa-oooo! ♪': '♪ Ooo-aaa-oooo! ♪',
+  // Added to the game after the first string list (the cabin under the hatch).
+  'A cook would love this stove.': 'Đầu bếp nào thấy cái bếp lò này cũng mê.',
+  'A grey cloud! It heard the song. Protect the trees, child. Crew, down the hatch, and keep those pots ringing! Hide, but never keep still!': 'Mây xám! Nó nghe thấy tiếng hát rồi. Bảo vệ cây đi con. Cả nhà ơi, chui xuống cửa hầm, gõ nồi thật kêu vào! Trốn thì được, nhưng đừng bao giờ đứng yên!',
+  'Not now: the Gloom is aboard!': 'Giờ chưa được: U Ám đang ở trên lưng Bao!',
+  'Stove': 'Bếp lò',
+  'Welcome home, child. Rest in the bed whenever you are tired. The Notes we win back will glow on that shelf.': 'Về nhà rồi, con à. Mệt thì cứ lên giường nghỉ nhé. Những Nốt Nhạc mình giành lại sẽ tỏa sáng trên cái kệ kia.',
+  'You napped while Bao hummed a lullaby. Fully rested!': 'Bạn chợp mắt trong lúc Bao ngân nga hát ru. Khỏe khoắn hẳn rồi!',
   // Visible labels that tests/strings.ts does not collect (interaction labels, the first journal chapter, a fallback reason).
+  'Go inside': 'Vào nhà',
+  'Rest': 'Nghỉ ngơi',
+  'The Notes': 'Các Nốt Nhạc',
   'Ring the crust': 'Gõ vỏ đá',
   'Ring the cage': 'Gõ lồng',
   'Look': 'Xem',

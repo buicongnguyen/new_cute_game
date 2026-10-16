@@ -26,7 +26,8 @@ export function visibleStrings() {
       for (const m of src.matchAll(re)) add(unescape(m[1]));
     }
     // Interaction labels: add('id', pos, radius, 'Label', 'icon', …).
-    for (const m of src.matchAll(/add\(`?[\w${}-]+`?, [^,]+, [\d.]+, (?:[^?]+\? )?'([^']+)'(?: : '([^']+)')?, '[^']*'/g)) { add(m[1]); add(m[2]); }
+    // The id can be 'quoted' or a `template`; the label may be a ternary of two strings.
+    for (const m of src.matchAll(/add\(['`][^'`]+['`], [^,]+, [\d.]+, (?:[^?']+\? )?'([^']+)'(?: : '([^']+)')?, '[^']*'/g)) { add(m[1]); add(m[2]); }
     // Icon buttons and labels passed around as data.
     for (const m of src.matchAll(/iconButton\('[^']*', '([^']+)'/g)) add(m[1]);
     for (const m of src.matchAll(/label: '([^']+)'/g)) add(m[1]);

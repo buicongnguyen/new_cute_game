@@ -1,6 +1,6 @@
 {
   "file": "props.glb",
-  "bytes": 671340,
+  "bytes": 683320,
   "roots": {
     "hut": {
       "tris": 1291,
@@ -384,7 +384,7 @@
       ]
     },
     "cabin_room": {
-      "tris": 1890,
+      "tris": 2250,
       "size": [
         9.833,
         3.854,
@@ -394,6 +394,7 @@
         "pal_gold",
         "pal_leaf",
         "pal_leaf_dark",
+        "pal_leaf_light",
         "pal_wood",
         "pal_wood_dark",
         "pal_wood_light"
