@@ -1,0 +1,110 @@
+{
+  "file": "fish.glb",
+  "bytes": 57020,
+  "roots": {
+    "puff_minnow": {
+      "tris": 368,
+      "size": [
+        0.248,
+        0.232,
+        0.345
+      ],
+      "materials": [
+        "pal_cheek",
+        "pal_night",
+        "pal_sky",
+        "pal_sky_light",
+        "pal_white"
+      ],
+      "children": [
+        "tail"
+      ]
+    },
+    "sun_carp": {
+      "tris": 418,
+      "size": [
+        0.258,
+        0.327,
+        0.612
+      ],
+      "materials": [
+        "pal_gold",
+        "pal_honey",
+        "pal_night",
+        "pal_sun",
+        "pal_tangerine",
+        "pal_white"
+      ],
+      "children": [
+        "tail"
+      ]
+    },
+    "star_ray": {
+      "tris": 362,
+      "size": [
+        0.674,
+        0.104,
+        0.775
+      ],
+      "materials": [
+        "pal_honey",
+        "pal_lilac",
+        "pal_night",
+        "pal_violet",
+        "pal_white"
+      ],
+      "children": [
+        "tail"
+      ]
+    },
+    "cloud_koi": {
+      "tris": 424,
+      "size": [
+        0.283,
+        0.242,
+        0.785
+      ],
+      "materials": [
+        "pal_night",
+        "pal_red",
+        "pal_rose",
+        "pal_white"
+      ],
+      "children": [
+        "tail"
+      ]
+    }
+  },
+  "generator": "art/blender/kit/build_fish.py",
+  "tails": {
+    "puff_minnow": {
+      "tail_pivot": [
+        0.0,
+        -0.024,
+        -0.062
+      ]
+    },
+    "sun_carp": {
+      "tail_pivot": [
+        0.0,
+        -0.016,
+        -0.121
+      ]
+    },
+    "star_ray": {
+      "tail_pivot": [
+        0.0,
+        -0.023,
+        -0.028
+      ]
+    },
+    "cloud_koi": {
+      "tail_pivot": [
+        0.0,
+        -0.017,
+        -0.136
+      ]
+    }
+  },
+  "notes": "origin at the body centre, head toward +Z; child `tail` pivots at the tail root, wag it about local Y"
+}

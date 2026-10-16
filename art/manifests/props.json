@@ -1,0 +1,360 @@
+{
+  "file": "props.glb",
+  "bytes": 424552,
+  "roots": {
+    "hut": {
+      "tris": 1291,
+      "size": [
+        3.411,
+        3.217,
+        3.349
+      ],
+      "materials": [
+        "glow_lantern",
+        "pal_gold",
+        "pal_leaf",
+        "pal_pumpkin",
+        "pal_red",
+        "pal_stone",
+        "pal_straw",
+        "pal_straw_dark",
+        "pal_teal",
+        "pal_wood",
+        "pal_wood_dark",
+        "pal_wood_light"
+      ],
+      "children": []
+    },
+    "workbench": {
+      "tris": 764,
+      "size": [
+        1.83,
+        1.1,
+        0.97
+      ],
+      "materials": [
+        "pal_iron",
+        "pal_stone_light",
+        "pal_straw",
+        "pal_straw_dark",
+        "pal_wood",
+        "pal_wood_dark",
+        "pal_wood_light"
+      ],
+      "children": []
+    },
+    "kitchen": {
+      "tris": 950,
+      "size": [
+        1.7,
+        1.91,
+        0.92
+      ],
+      "materials": [
+        "glow_lava",
+        "pal_charcoal",
+        "pal_honey",
+        "pal_iron",
+        "pal_leaf",
+        "pal_pumpkin",
+        "pal_stone_dark",
+        "pal_stone_light",
+        "pal_teal",
+        "pal_wood",
+        "pal_wood_dark"
+      ],
+      "children": []
+    },
+    "maptable": {
+      "tris": 522,
+      "size": [
+        1.56,
+        1.049,
+        1.56
+      ],
+      "materials": [
+        "pal_cream",
+        "pal_gold",
+        "pal_leaf",
+        "pal_red",
+        "pal_straw_light",
+        "pal_teal",
+        "pal_wood",
+        "pal_wood_light"
+      ],
+      "children": []
+    },
+    "ropepost": {
+      "tris": 876,
+      "size": [
+        0.723,
+        1.75,
+        1.576
+      ],
+      "materials": [
+        "pal_iron",
+        "pal_stone",
+        "pal_straw",
+        "pal_wood",
+        "pal_wood_dark",
+        "pal_wood_light"
+      ],
+      "children": []
+    },
+    "fishspot": {
+      "tris": 652,
+      "size": [
+        1.8,
+        1.07,
+        1.317
+      ],
+      "materials": [
+        "pal_iron",
+        "pal_red",
+        "pal_teal",
+        "pal_wood",
+        "pal_wood_dark",
+        "pal_wood_light"
+      ],
+      "children": []
+    },
+    "pantry": {
+      "tris": 690,
+      "size": [
+        1.324,
+        0.876,
+        0.951
+      ],
+      "materials": [
+        "pal_berry",
+        "pal_pear",
+        "pal_straw",
+        "pal_straw_dark",
+        "pal_wood_dark"
+      ],
+      "children": []
+    },
+    "chimepost": {
+      "tris": 726,
+      "size": [
+        1.232,
+        2.271,
+        0.831
+      ],
+      "materials": [
+        "pal_gold",
+        "pal_red",
+        "pal_stone",
+        "pal_teal",
+        "pal_wood",
+        "pal_wood_dark"
+      ],
+      "children": []
+    },
+    "postspot": {
+      "tris": 156,
+      "size": [
+        1.13,
+        0.125,
+        1.079
+      ],
+      "materials": [
+        "pal_moss",
+        "pal_stone"
+      ],
+      "children": []
+    },
+    "market": {
+      "tris": 1398,
+      "size": [
+        2.9,
+        2.66,
+        1.579
+      ],
+      "materials": [
+        "pal_awning",
+        "pal_berry",
+        "pal_cream",
+        "pal_gold",
+        "pal_pear",
+        "pal_straw",
+        "pal_tangerine",
+        "pal_white",
+        "pal_wood",
+        "pal_wood_dark",
+        "pal_wood_light"
+      ],
+      "children": []
+    },
+    "tent": {
+      "tris": 262,
+      "size": [
+        2.86,
+        1.73,
+        2.16
+      ],
+      "materials": [
+        "pal_cream",
+        "pal_straw_light",
+        "pal_sun",
+        "pal_tangerine",
+        "pal_wood",
+        "pal_wood_dark"
+      ],
+      "children": []
+    },
+    "lantern": {
+      "tris": 331,
+      "size": [
+        0.424,
+        1.83,
+        0.7
+      ],
+      "materials": [
+        "glow_lantern",
+        "pal_red",
+        "pal_stone",
+        "pal_wood_dark"
+      ],
+      "children": []
+    },
+    "windmill": {
+      "tris": 1312,
+      "size": [
+        3.677,
+        5.558,
+        2.52
+      ],
+      "materials": [
+        "pal_gold",
+        "pal_leaf_dark",
+        "pal_red",
+        "pal_sky",
+        "pal_stone",
+        "pal_straw",
+        "pal_sun",
+        "pal_white",
+        "pal_wood",
+        "pal_wood_dark",
+        "pal_wood_light"
+      ],
+      "children": [
+        "blades"
+      ]
+    },
+    "coral_arch": {
+      "tris": 1221,
+      "size": [
+        3.933,
+        3.4,
+        0.999
+      ],
+      "materials": [
+        "glow_lantern",
+        "pal_coral",
+        "pal_mint",
+        "pal_red",
+        "pal_rose",
+        "pal_teal",
+        "pal_wood_dark"
+      ],
+      "children": []
+    },
+    "ore_rock": {
+      "tris": 353,
+      "size": [
+        1.507,
+        1.093,
+        1.143
+      ],
+      "materials": [
+        "glow_gold",
+        "pal_gold",
+        "pal_stone",
+        "pal_stone_dark",
+        "pal_tangerine"
+      ],
+      "children": []
+    },
+    "forge": {
+      "tris": 876,
+      "size": [
+        2.69,
+        3.02,
+        1.56
+      ],
+      "materials": [
+        "pal_charcoal",
+        "pal_iron",
+        "pal_sky",
+        "pal_stone",
+        "pal_stone_dark",
+        "pal_wood",
+        "pal_wood_dark"
+      ],
+      "children": []
+    },
+    "rod": {
+      "tris": 341,
+      "size": [
+        0.138,
+        1.582,
+        0.212
+      ],
+      "materials": [
+        "pal_gold",
+        "pal_iron",
+        "pal_red",
+        "pal_straw_light",
+        "pal_wood",
+        "pal_wood_dark",
+        "pal_wood_light"
+      ],
+      "children": [
+        "tip"
+      ]
+    },
+    "speck": {
+      "tris": 158,
+      "size": [
+        0.367,
+        0.34,
+        0.232
+      ],
+      "materials": [
+        "gloom_crystal",
+        "glow_gloom"
+      ],
+      "children": []
+    },
+    "skydew": {
+      "tris": 302,
+      "size": [
+        1.29,
+        0.881,
+        0.668
+      ],
+      "materials": [
+        "glow_gold",
+        "glow_sky_light",
+        "pal_cloud",
+        "pal_cloud_shade"
+      ],
+      "children": []
+    }
+  },
+  "generator": "art/blender/kit/build_props.py",
+  "markers": {
+    "windmill_hub": [
+      0.0,
+      3.72,
+      1.02
+    ],
+    "rod_tip": [
+      0.0,
+      1.58,
+      0.16
+    ]
+  },
+  "notes": "windmill/blades: pivot at the hub, spin about local +Z (the front axis); rod: origin at the butt, tip marker at the end; skydew: origin at its underside centre; market awning uses pal_awning; lanterns/windows use glow_lantern (set emissive 0 for unlit)"
+}

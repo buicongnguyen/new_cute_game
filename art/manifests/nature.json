@@ -1,0 +1,255 @@
+{
+  "file": "nature.glb",
+  "bytes": 146372,
+  "roots": {
+    "rock_a": {
+      "tris": 139,
+      "size": [
+        1.396,
+        0.808,
+        1.108
+      ],
+      "materials": [
+        "pal_moss",
+        "pal_stone"
+      ],
+      "children": []
+    },
+    "rock_b": {
+      "tris": 135,
+      "size": [
+        1.287,
+        0.318,
+        0.963
+      ],
+      "materials": [
+        "pal_stone",
+        "pal_stone_light"
+      ],
+      "children": []
+    },
+    "rock_c": {
+      "tris": 116,
+      "size": [
+        0.994,
+        1.348,
+        0.756
+      ],
+      "materials": [
+        "pal_stone",
+        "pal_stone_dark"
+      ],
+      "children": []
+    },
+    "bush_a": {
+      "tris": 202,
+      "size": [
+        1.364,
+        0.842,
+        0.992
+      ],
+      "materials": [
+        "pal_leaf",
+        "pal_leaf_light"
+      ],
+      "children": []
+    },
+    "bush_b": {
+      "tris": 280,
+      "size": [
+        1.172,
+        0.976,
+        0.818
+      ],
+      "materials": [
+        "pal_leaf_dark",
+        "pal_rose"
+      ],
+      "children": []
+    },
+    "flower_a": {
+      "tris": 192,
+      "size": [
+        0.5,
+        0.631,
+        0.513
+      ],
+      "materials": [
+        "pal_leaf",
+        "pal_red"
+      ],
+      "children": []
+    },
+    "flower_b": {
+      "tris": 393,
+      "size": [
+        0.441,
+        0.455,
+        0.416
+      ],
+      "materials": [
+        "pal_leaf",
+        "pal_sky"
+      ],
+      "children": []
+    },
+    "flower_c": {
+      "tris": 264,
+      "size": [
+        0.526,
+        0.5,
+        0.517
+      ],
+      "materials": [
+        "pal_leaf",
+        "pal_sun"
+      ],
+      "children": []
+    },
+    "grass_tuft": {
+      "tris": 36,
+      "size": [
+        0.437,
+        0.316,
+        0.471
+      ],
+      "materials": [
+        "pal_leaf",
+        "pal_leaf_light"
+      ],
+      "children": []
+    },
+    "mushroom": {
+      "tris": 216,
+      "size": [
+        0.379,
+        0.384,
+        0.33
+      ],
+      "materials": [
+        "pal_cream",
+        "pal_red"
+      ],
+      "children": []
+    },
+    "tree_round": {
+      "tris": 491,
+      "size": [
+        2.697,
+        3.55,
+        2.086
+      ],
+      "materials": [
+        "pal_bark",
+        "pal_leaf"
+      ],
+      "children": []
+    },
+    "tree_pine": {
+      "tris": 276,
+      "size": [
+        2.247,
+        3.65,
+        1.953
+      ],
+      "materials": [
+        "pal_bark",
+        "pal_leaf_dark"
+      ],
+      "children": []
+    },
+    "palm": {
+      "tris": 308,
+      "size": [
+        3.226,
+        3.493,
+        3.273
+      ],
+      "materials": [
+        "pal_bark",
+        "pal_leaf_dark"
+      ],
+      "children": []
+    },
+    "coral_a": {
+      "tris": 344,
+      "size": [
+        0.796,
+        0.896,
+        0.743
+      ],
+      "materials": [
+        "pal_coral",
+        "pal_rose"
+      ],
+      "children": []
+    },
+    "coral_b": {
+      "tris": 320,
+      "size": [
+        0.656,
+        0.627,
+        0.623
+      ],
+      "materials": [
+        "pal_mint",
+        "pal_teal"
+      ],
+      "children": []
+    },
+    "lava_rock_a": {
+      "tris": 240,
+      "size": [
+        1.268,
+        0.738,
+        1.111
+      ],
+      "materials": [
+        "glow_lava",
+        "pal_soil_dark"
+      ],
+      "children": []
+    },
+    "lava_rock_b": {
+      "tris": 150,
+      "size": [
+        1.313,
+        0.932,
+        1.112
+      ],
+      "materials": [
+        "glow_lava",
+        "pal_soil_dark"
+      ],
+      "children": []
+    },
+    "fence": {
+      "tris": 112,
+      "size": [
+        2.112,
+        0.98,
+        0.17
+      ],
+      "materials": [
+        "pal_wood",
+        "pal_wood_light"
+      ],
+      "children": []
+    },
+    "cloud_puff": {
+      "tris": 254,
+      "size": [
+        3.902,
+        1.58,
+        2.03
+      ],
+      "materials": [
+        "pal_cloud",
+        "pal_cloud_shade"
+      ],
+      "children": []
+    }
+  },
+  "generator": "art/blender/kit/build_nature.py",
+  "notes": "one mesh per root, 1-2 materials; cloud_puff origin at its flat underside centre"
+}
